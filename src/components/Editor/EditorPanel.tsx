@@ -1,12 +1,89 @@
 import { useState, type KeyboardEvent } from "react";
 import { Plus, X, Check } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useMenu } from "../../context/MenuContext";
 import CategorySection from "./CategorySection";
+import LayoutSection from "./LayoutSection";
 
 export default function EditorPanel() {
-  const { menuData, addCategory } = useMenu();
+  const {
+    menuData,
+    addCategory,
+    reorderCategories,
+    moveOrReorderItem,
+    setDragState,
+    dragState,
+  } = useMenu();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const categoryIds = menuData.categories.map((c) => c.id);
+
+  const getIdType = (
+    id: string,
+  ): "category" | "item" => {
+    if (menuData.categories.some((c) => c.id === id)) return "category";
+    return "item";
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const activeId = String(event.active.id);
+    const activeType = getIdType(activeId);
+    setDragState({
+      activeId,
+      activeType,
+      overId: null,
+      overType: null,
+    });
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over ? String(event.over.id) : null;
+    const overType = overId ? getIdType(overId) : null;
+    setDragState((prev) => ({ ...prev, overId, overType }));
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDragState({ activeId: null, activeType: null, overId: null, overType: null });
+
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    const activeType = getIdType(activeId);
+
+    if (activeType === "category") {
+      reorderCategories(activeId, overId);
+    } else {
+      moveOrReorderItem(activeId, overId);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setDragState({ activeId: null, activeType: null, overId: null, overType: null });
+  };
 
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
@@ -75,11 +152,30 @@ export default function EditorPanel() {
           </div>
         )}
 
-        <div className="space-y-8">
-          {menuData.categories.map((category) => (
-            <CategorySection key={category.id} category={category} />
-          ))}
-        </div>
+        <LayoutSection />
+
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext
+            items={categoryIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-8">
+              {menuData.categories.map((category) => (
+                <CategorySection
+                  key={category.id}
+                  category={category}
+                  isDraggingActive={dragState.activeId !== null}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
 
         {menuData.categories.length === 0 && (
           <div className="text-center py-16 text-gray-400">

@@ -1,5 +1,7 @@
 import { useState, type KeyboardEvent } from "react";
-import { Trash2, Star, SeparatorHorizontal } from "lucide-react";
+import { Trash2, Star, SeparatorHorizontal, GripVertical } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuItem } from "../../types/menu";
 
@@ -7,17 +9,41 @@ interface MenuItemCardProps {
   item: MenuItem;
   categoryId: string;
   showPageBreak?: boolean;
+  isDraggingActive: boolean;
 }
 
-export default function MenuItemCard({ item, categoryId, showPageBreak }: MenuItemCardProps) {
-  const { removeItem, updateItem, setHover, clearHover, hoveredId } =
+export default function MenuItemCard({
+  item,
+  categoryId,
+  showPageBreak,
+  isDraggingActive,
+}: MenuItemCardProps) {
+  const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editPrice, setEditPrice] = useState<number | string>(item.price);
   const [editDesc, setEditDesc] = useState(item.description);
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.35 : 1,
+  };
+
   const isHighlighted = hoveredId === item.id;
+  const isDragActive = dragState.activeId === item.id;
+  const isDragOver =
+    dragState.overId === item.id && dragState.activeId !== item.id;
 
   const handleSave = () => {
     updateItem(categoryId, item.id, {
@@ -40,15 +66,33 @@ export default function MenuItemCard({ item, categoryId, showPageBreak }: MenuIt
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={`group relative border rounded-xl p-4 transition-all duration-200 cursor-pointer ${
-        isHighlighted
-          ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
-          : "border-gray-200 bg-white hover:border-gray-300"
+        isDragActive
+          ? "border-indigo-primary/60 bg-indigo-primary/8 shadow-md shadow-indigo-primary/15 z-50"
+          : isDragOver
+            ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
+            : isHighlighted && !isDraggingActive
+              ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
+              : "border-gray-200 bg-white hover:border-gray-300"
       }`}
-      onMouseEnter={() => setHover(item.id, "item")}
+      onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
       onMouseLeave={() => clearHover(item.id)}
-      onDoubleClick={() => setIsEditing(true)}
+      onDoubleClick={() => !isDragging && setIsEditing(true)}
     >
+      {/* Drag handle */}
+      <button
+        className={`absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 ${
+          isDragging ? "cursor-grabbing opacity-100" : "cursor-grab"
+        }`}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+
       <div className="absolute top-3 right-3 flex items-center gap-1">
         {showPageBreak && (
           <button

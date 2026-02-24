@@ -1,19 +1,11 @@
 import { useState } from "react";
-import { Search, Eye, Rocket, X as XIcon, Download, Loader2, RectangleHorizontal, RectangleVertical, Columns2 } from "lucide-react";
+import { Search, Eye, Rocket, X as XIcon, Download, Loader2 } from "lucide-react";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
-import type { PaperFormat, Orientation } from "../types/menu";
-
 const navItems = ["Editor", "Menus", "Library", "Settings"] as const;
-const paperFormats: PaperFormat[] = ["A3", "A4", "A5"];
-const orientations: { id: Orientation; label: string }[] = [
-  { id: "portrait", label: "Portrait" },
-  { id: "landscape", label: "Landscape" },
-];
-const columnOptions = [1, 2, 3, 4];
 
 export default function Header() {
-  const { menuData, paperFormat, setPaperFormat, orientation, setOrientation, columnCount, setColumnCount } = useMenu();
+  const { menuData, paperFormat, orientation } = useMenu();
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -69,62 +61,6 @@ export default function Header() {
           <Eye className="w-4 h-4" />
           Preview
         </button>
-
-        <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
-          {paperFormats.map((fmt) => (
-            <button
-              key={fmt}
-              onClick={() => setPaperFormat(fmt)}
-              className={`px-2 py-1 text-[11px] font-semibold rounded transition-all ${
-                paperFormat === fmt
-                  ? "bg-white text-indigo-primary shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {fmt}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
-          {orientations.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setOrientation(id)}
-              title={label}
-              className={`flex items-center justify-center px-1.5 py-1 rounded transition-all ${
-                orientation === id
-                  ? "bg-white text-indigo-primary shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {id === "portrait" ? (
-                <RectangleVertical className="w-3.5 h-3.5" />
-              ) : (
-                <RectangleHorizontal className="w-3.5 h-3.5" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Columns2 className="w-3.5 h-3.5 text-gray-400" />
-          <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
-            {columnOptions.map((n) => (
-              <button
-                key={n}
-                onClick={() => setColumnCount(n)}
-                className={`w-6 h-6 flex items-center justify-center text-[11px] font-semibold rounded transition-all ${
-                  columnCount === n
-                    ? "bg-white text-indigo-primary shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <button
           onClick={handleDownload}

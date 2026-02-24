@@ -1,14 +1,31 @@
 import { useState, type KeyboardEvent } from "react";
-import { GripVertical, Plus, Trash2, Pencil, Check, X, SeparatorHorizontal, Rows3, Columns } from "lucide-react";
+import {
+  GripVertical,
+  Plus,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+  SeparatorHorizontal,
+  Rows3,
+  Columns,
+} from "lucide-react";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { useMenu } from "../../context/MenuContext";
 import MenuItemCard from "./MenuItemCard";
 import type { Category } from "../../types/menu";
 
 interface CategorySectionProps {
   category: Category;
+  isDraggingActive: boolean;
 }
 
-export default function CategorySection({ category }: CategorySectionProps) {
+export default function CategorySection({
+  category,
+  isDraggingActive,
+}: CategorySectionProps) {
   const {
     addItem,
     removeCategory,
@@ -16,12 +33,38 @@ export default function CategorySection({ category }: CategorySectionProps) {
     setHover,
     clearHover,
     hoveredId,
+    dragState,
     columnCount,
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
 
+  // Sortable for the category row itself
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  // Droppable for the items list (allows dropping items into empty categories)
+  const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
+    id: category.id,
+    data: { type: "category", categoryId: category.id },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
   const isHighlighted = hoveredId === category.id;
+  const isDragActive = dragState.activeId === category.id;
+  const isDragOver =
+    dragState.overId === category.id && dragState.activeId !== category.id;
   const pageBreakMode = category.pageBreakMode ?? "category";
   const currentColumn = category.column ?? 1;
 
@@ -55,16 +98,31 @@ export default function CategorySection({ category }: CategorySectionProps) {
     ? category.name.slice(0, -1)
     : category.name;
 
+  const itemIds = category.items.map((i) => i.id);
+
   return (
     <div
+      ref={setSortableRef}
+      style={style}
       className={`transition-all duration-200 ${
-        isHighlighted ? "ring-2 ring-indigo-primary/30 rounded-xl" : ""
+        isDragActive
+          ? "ring-2 ring-indigo-primary/60 rounded-xl bg-indigo-primary/5"
+          : isDragOver
+            ? "ring-2 ring-indigo-primary/40 rounded-xl bg-indigo-primary/3"
+            : isHighlighted && !isDraggingActive
+              ? "ring-2 ring-indigo-primary/30 rounded-xl"
+              : ""
       }`}
-      onMouseEnter={() => setHover(category.id, "category")}
+      onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
       <div className="flex items-center gap-2 mb-3">
-        <button className="text-gray-300 hover:text-gray-500 cursor-grab p-0.5">
+        {/* Drag handle — only this element activates the drag */}
+        <button
+          className={`text-gray-300 hover:text-gray-500 p-0.5 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+          {...attributes}
+          {...listeners}
+        >
           <GripVertical className="w-5 h-5" />
         </button>
 
@@ -124,7 +182,11 @@ export default function CategorySection({ category }: CategorySectionProps) {
               pageBreakMode: pageBreakMode === "category" ? "item" : "category",
             })
           }
-          title={pageBreakMode === "category" ? "Page breaks: category level (click to switch to item level)" : "Page breaks: item level (click to switch to category level)"}
+          title={
+            pageBreakMode === "category"
+              ? "Page breaks: category level (click to switch to item level)"
+              : "Page breaks: item level (click to switch to category level)"
+          }
           className={`p-1 transition-colors ${
             pageBreakMode === "item"
               ? "text-indigo-primary hover:text-indigo-hover"
@@ -179,19 +241,34 @@ export default function CategorySection({ category }: CategorySectionProps) {
         </button>
       </div>
 
-      <div className="space-y-3 ml-7">
-        {category.items.map((item) => (
-          <MenuItemCard key={item.id} item={item} categoryId={category.id} showPageBreak={pageBreakMode === "item"} />
-        ))}
-
-        <button
-          onClick={handleAddItem}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 font-medium hover:border-indigo-primary/30 hover:text-indigo-primary/70 transition-colors"
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <div
+          ref={setDroppableRef}
+          className={`space-y-3 ml-7 rounded-lg transition-all duration-150 ${
+            isItemsOver && dragState.activeType === "item"
+              ? "ring-1 ring-indigo-primary/30 bg-indigo-primary/3 p-2 -m-2"
+              : ""
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          Add {singularName}
-        </button>
-      </div>
+          {category.items.map((item) => (
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              categoryId={category.id}
+              showPageBreak={pageBreakMode === "item"}
+              isDraggingActive={isDraggingActive}
+            />
+          ))}
+
+          <button
+            onClick={handleAddItem}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 font-medium hover:border-indigo-primary/30 hover:text-indigo-primary/70 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add {singularName}
+          </button>
+        </div>
+      </SortableContext>
     </div>
   );
 }

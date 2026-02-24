@@ -5,6 +5,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { arrayMove } from "@dnd-kit/sortable";
 import { sampleMenu } from "../data/sampleMenu";
 import type {
   MenuData,
@@ -14,10 +15,19 @@ import type {
   Viewport,
   PaperFormat,
   Orientation,
+  LayoutDirection,
   MenuContextValue,
+  DragState,
 } from "../types/menu";
 
 const MenuContext = createContext<MenuContextValue | null>(null);
+
+const INITIAL_DRAG_STATE: DragState = {
+  activeId: null,
+  activeType: null,
+  overId: null,
+  overType: null,
+};
 
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [menuData, setMenuData] = useState<MenuData>(sampleMenu);
@@ -27,18 +37,20 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [paperFormat, setPaperFormat] = useState<PaperFormat>("A4");
   const [orientation, setOrientation] = useState<Orientation>("portrait");
   const [columnCount, setColumnCountRaw] = useState<number>(1);
+  const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>("N");
 
   const setColumnCount = useCallback((count: number) => {
     const clamped = Math.max(1, Math.min(4, count));
     setColumnCountRaw(clamped);
     setMenuData((prev) => ({
       ...prev,
-      categories: prev.categories.map((c) => ({
+      categories: prev.categories.map((c, index) => ({
         ...c,
-        column: c.column !== undefined ? Math.min(c.column, clamped) : 1,
+        column: (index % clamped) + 1,
       })),
     }));
   }, []);
+  const [dragState, setDragState] = useState<DragState>(INITIAL_DRAG_STATE);
 
   // ---- Category CRUD ----
   const addCategory = useCallback((name: string) => {
@@ -124,6 +136,123 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // ---- Drag reorder/move ----
+  const reorderCategories = useCallback(
+    (activeCategoryId: string, overCategoryId: string) => {
+      setMenuData((prev) => {
+        const oldIndex = prev.categories.findIndex(
+          (c) => c.id === activeCategoryId,
+        );
+        const newIndex = prev.categories.findIndex(
+          (c) => c.id === overCategoryId,
+        );
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex)
+          return prev;
+        return {
+          ...prev,
+          categories: arrayMove(prev.categories, oldIndex, newIndex),
+        };
+      });
+    },
+    [],
+  );
+
+  const moveOrReorderItem = useCallback(
+    (activeItemId: string, overItemOrCategoryId: string) => {
+      setMenuData((prev) => {
+        // Find source category and item
+        let sourceCategory: Category | undefined;
+        let sourceItemIndex = -1;
+        for (const cat of prev.categories) {
+          const idx = cat.items.findIndex((i) => i.id === activeItemId);
+          if (idx !== -1) {
+            sourceCategory = cat;
+            sourceItemIndex = idx;
+            break;
+          }
+        }
+        if (!sourceCategory || sourceItemIndex === -1) return prev;
+
+        const movingItem = sourceCategory.items[sourceItemIndex];
+
+        // Check if dropping over a category (empty or end-of-list drop)
+        const isOverCategory = prev.categories.some(
+          (c) => c.id === overItemOrCategoryId,
+        );
+
+        if (isOverCategory) {
+          const targetCategoryId = overItemOrCategoryId;
+          if (sourceCategory.id === targetCategoryId) return prev;
+
+          return {
+            ...prev,
+            categories: prev.categories.map((c) => {
+              if (c.id === sourceCategory!.id) {
+                return {
+                  ...c,
+                  items: c.items.filter((i) => i.id !== activeItemId),
+                };
+              }
+              if (c.id === targetCategoryId) {
+                return { ...c, items: [...c.items, movingItem] };
+              }
+              return c;
+            }),
+          };
+        }
+
+        // Dropping over another item
+        let targetCategory: Category | undefined;
+        let targetItemIndex = -1;
+        for (const cat of prev.categories) {
+          const idx = cat.items.findIndex((i) => i.id === overItemOrCategoryId);
+          if (idx !== -1) {
+            targetCategory = cat;
+            targetItemIndex = idx;
+            break;
+          }
+        }
+        if (!targetCategory || targetItemIndex === -1) return prev;
+
+        if (sourceCategory.id === targetCategory.id) {
+          // Same category reorder
+          return {
+            ...prev,
+            categories: prev.categories.map((c) => {
+              if (c.id === sourceCategory!.id) {
+                return {
+                  ...c,
+                  items: arrayMove(c.items, sourceItemIndex, targetItemIndex),
+                };
+              }
+              return c;
+            }),
+          };
+        }
+
+        // Cross-category move: insert at target position
+        return {
+          ...prev,
+          categories: prev.categories.map((c) => {
+            if (c.id === sourceCategory!.id) {
+              return {
+                ...c,
+                items: c.items.filter((i) => i.id !== activeItemId),
+              };
+            }
+            if (c.id === targetCategory!.id) {
+              const newItems = [...c.items];
+              newItems.splice(targetItemIndex, 0, movingItem);
+              return { ...c, items: newItems };
+            }
+            return c;
+          }),
+        };
+      });
+    },
+    [],
+  );
+
   // ---- Hover helpers ----
   const setHover = useCallback((id: string, type: "item" | "category") => {
     setHoveredId(id);
@@ -150,12 +279,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setOrientation,
     columnCount,
     setColumnCount,
+    layoutDirection,
+    setLayoutDirection,
     addCategory,
     removeCategory,
     updateCategory,
     addItem,
     removeItem,
     updateItem,
+    reorderCategories,
+    moveOrReorderItem,
+    dragState,
+    setDragState,
   };
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

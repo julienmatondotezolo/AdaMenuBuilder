@@ -37,6 +37,15 @@ export type PaperFormat = "A3" | "A4" | "A5";
 
 export type Orientation = "portrait" | "landscape";
 
+export type LayoutDirection = "Z" | "N";
+
+export interface DragState {
+  activeId: string | null;
+  activeType: "item" | "category" | null;
+  overId: string | null;
+  overType: "item" | "category" | null;
+}
+
 export interface MenuContextValue {
   menuData: MenuData;
   setMenuData: React.Dispatch<React.SetStateAction<MenuData>>;
@@ -52,6 +61,8 @@ export interface MenuContextValue {
   setOrientation: (orientation: Orientation) => void;
   columnCount: number;
   setColumnCount: (count: number) => void;
+  layoutDirection: LayoutDirection;
+  setLayoutDirection: (direction: LayoutDirection) => void;
   addCategory: (name: string) => void;
   removeCategory: (categoryId: string) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
@@ -62,4 +73,11 @@ export interface MenuContextValue {
     itemId: string,
     updates: Partial<MenuItem>,
   ) => void;
+  reorderCategories: (activeCategoryId: string, overCategoryId: string) => void;
+  moveOrReorderItem: (
+    activeItemId: string,
+    overItemOrCategoryId: string,
+  ) => void;
+  dragState: DragState;
+  setDragState: React.Dispatch<React.SetStateAction<DragState>>;
 }
