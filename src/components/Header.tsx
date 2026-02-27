@@ -150,10 +150,10 @@ export default function Header() {
         </Button>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-border" />
+        <div className="w-px h-6 bg-border mx-2" />
 
         {/* Profile avatar */}
-        <div className="relative" ref={profileRef}>
+        <div className="relative z-[100]" ref={profileRef}>
           <button
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -166,7 +166,7 @@ export default function Header() {
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-lg shadow-lg border border-border py-2 z-50">
+            <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-lg shadow-xl border border-border py-2 z-[999]">
               {/* User info */}
               <div className="px-4 py-3 border-b border-border">
                 <div className="flex items-center gap-3">

@@ -5,7 +5,7 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Tablet, Smartphone, QrCode, Minus, Plus } from "lucide-react";
+import { FileText, Monitor, Tablet, Smartphone, QrCode, Minus, Plus, Maximize } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
@@ -236,6 +236,16 @@ export default function PreviewPanel() {
             className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Plus className="w-4 h-4" />
+          </button>
+
+          <div className="w-px h-5 bg-border mx-0.5" />
+
+          <button
+            onClick={handleFitView}
+            title="Fit to view"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Maximize className="w-4 h-4" />
           </button>
         </div>
       </div>
