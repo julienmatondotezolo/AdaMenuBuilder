@@ -204,10 +204,12 @@ export default function EditorPanel() {
         <LayoutSection />
 
         <Card className="mb-6">
-          <Button
-            variant="ghost"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setMenuItemsOpen((o) => !o)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg rounded-b-none"
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMenuItemsOpen((o) => !o); }}
+            className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg cursor-pointer select-none"
           >
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Menu Items
@@ -234,7 +236,7 @@ export default function EditorPanel() {
                 )}
               />
             </div>
-          </Button>
+          </div>
 
           {menuItemsOpen && (
             <CardContent className="px-4 py-4">
