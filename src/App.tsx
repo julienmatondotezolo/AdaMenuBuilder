@@ -2,7 +2,6 @@ import { MenuProvider } from "./context/MenuContext";
 import Header from "./components/Header";
 import EditorPanel from "./components/Editor/EditorPanel";
 import PreviewPanel from "./components/Preview/PreviewPanel";
-import AIPromptBar from "./components/AIPromptBar";
 
 function App() {
   return (
@@ -19,8 +18,6 @@ function App() {
             <PreviewPanel />
           </div>
         </main>
-
-        <AIPromptBar />
       </div>
     </MenuProvider>
   );

@@ -5,9 +5,9 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Sparkles, ArrowUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "ada-design-system";
+import { cn, Button, Input } from "ada-design-system";
 import MenuPreview from "./MenuPreview";
 
 /* ── Preview sidebar icons (display only) ────────────────────────────────── */
@@ -38,6 +38,7 @@ export default function PreviewPanel() {
   const [spaceHeld, setSpaceHeld] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   /* ── Space key for hand tool ───────────────────────────────────────────── */
@@ -138,15 +139,20 @@ export default function PreviewPanel() {
 
   const handleFitView = useCallback(() => {
     const el = containerRef.current;
+    const content = contentRef.current;
     if (!el) {
       setZoom(DEFAULT_ZOOM);
       setPan({ x: 0, y: 0 });
       return;
     }
-    // Fit menu width inside container with some padding
-    const padding = 80;
-    const available = el.clientWidth - padding;
-    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(available / PREVIEW_WIDTH).toFixed(2)));
+    // Fit menu height inside container
+    const padding = 100;
+    const containerH = el.clientHeight - padding;
+    const containerW = el.clientWidth - padding;
+    const contentH = content?.scrollHeight ?? 1000;
+    const fitByHeight = containerH / contentH;
+    const fitByWidth = containerW / PREVIEW_WIDTH;
+    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min(fitByHeight, fitByWidth).toFixed(2)));
     setZoom(fitZoom);
     setPan({ x: 0, y: 0 });
   }, []);
@@ -179,8 +185,18 @@ export default function PreviewPanel() {
           className="absolute top-0 left-0"
         >
           {/* Center the content in the canvas */}
-          <div className="flex justify-center pt-16" style={{ width: `${100 / zoom}vw` }}>
+          <div
+            className="flex justify-center items-start"
+            style={{
+              width: `${100 / zoom}vw`,
+              minHeight: `${100 / zoom}vh`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <div
+              ref={contentRef}
               className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
               style={{ width: `${PREVIEW_WIDTH}px` }}
             >
@@ -207,6 +223,33 @@ export default function PreviewPanel() {
             <Icon className="w-5 h-5" />
           </div>
         ))}
+      </div>
+
+      {/* ── Magic Prompt — fixed bottom-center ──────────────────────────── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-[90%] max-w-2xl">
+        <div className="flex items-center gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-2.5">
+          <Button size="sm" className="flex items-center gap-2 text-xs font-semibold shrink-0">
+            <Sparkles className="w-3.5 h-3.5" />
+            MAGIC PROMPT
+          </Button>
+
+          <Input
+            type="text"
+            placeholder="Ask AI to adjust prices, change the theme, or suggest descriptions..."
+            className="flex-1 bg-transparent border-none focus:ring-0 focus:border-none shadow-none"
+          />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              Press{" "}
+              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">↵</kbd>{" "}
+              to apply
+            </span>
+            <Button size="icon" className="w-8 h-8 shrink-0">
+              <ArrowUp className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* ── Zoom controls — fixed top-left ──────────────────────────────── */}
