@@ -40,6 +40,18 @@ export default function PreviewPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
+
+  /* ── Measure container size ────────────────────────────────────────────── */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /* ── Space key for hand tool ───────────────────────────────────────────── */
   useEffect(() => {
@@ -186,10 +198,9 @@ export default function PreviewPanel() {
         >
           {/* Center the content in the canvas */}
           <div
-            className="flex justify-center items-start"
             style={{
-              width: `${100 / zoom}vw`,
-              minHeight: `${100 / zoom}vh`,
+              width: `${containerSize.w / zoom}px`,
+              minHeight: `${containerSize.h / zoom}px`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
