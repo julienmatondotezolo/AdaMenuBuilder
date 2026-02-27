@@ -98,20 +98,20 @@ export default function LayoutSection() {
                 size="sm"
                 onClick={() => { setOrientation("portrait"); setViewport("paper"); }}
                 title="Portrait"
-                className="flex items-center justify-center px-2 py-1"
+                className="flex items-center justify-center gap-2 px-2 py-1"
               >
                 <RectangleVertical className="w-3.5 h-3.5" />
-                <span className="ml-1.5 text-xs font-medium">Portrait</span>
+                <span className="text-xs font-medium">Portrait</span>
               </Button>
               <Button
                 variant={orientation === "landscape" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => { setOrientation("landscape"); setViewport("paper"); }}
                 title="Landscape"
-                className="flex items-center justify-center px-2 py-1"
+                className="flex items-center justify-center gap-2 px-2 py-1"
               >
                 <RectangleHorizontal className="w-3.5 h-3.5" />
-                <span className="ml-1.5 text-xs font-medium">Landscape</span>
+                <span className="text-xs font-medium">Landscape</span>
               </Button>
             </div>
           </div>

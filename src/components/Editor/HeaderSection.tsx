@@ -89,7 +89,7 @@ export default function HeaderSection() {
                   size="sm"
                   onClick={() => setImageMode("url")}
                   title="Enter URL"
-                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium"
+                  className="flex items-center gap-2 px-2 py-0.5 text-[11px] font-medium"
                 >
                   <Link className="w-3 h-3" />
                   URL
@@ -99,7 +99,7 @@ export default function HeaderSection() {
                   size="sm"
                   onClick={() => setImageMode("upload")}
                   title="Upload file"
-                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium"
+                  className="flex items-center gap-2 px-2 py-0.5 text-[11px] font-medium"
                 >
                   <Upload className="w-3 h-3" />
                   Upload

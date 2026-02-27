@@ -93,18 +93,18 @@ export default function Header() {
       {/* CENTER — Search */}
       <div className="flex-1 flex justify-center px-4">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             type="text"
             placeholder="Search menu items..."
-            className="pl-9 h-9 w-full"
+            className="pl-10 h-9 w-full"
           />
         </div>
       </div>
 
       {/* RIGHT — Actions */}
       <div className="flex items-center gap-2 shrink-0">
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="flex items-center gap-2">
           <Eye className="w-4 h-4" />
           Preview
         </Button>
@@ -114,6 +114,7 @@ export default function Header() {
           size="sm"
           onClick={handleDownload}
           disabled={downloading}
+          className="flex items-center gap-2"
         >
           {downloading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -123,7 +124,7 @@ export default function Header() {
           {downloading ? "Generating…" : "Download"}
         </Button>
 
-        <Button size="sm">
+        <Button size="sm" className="flex items-center gap-2">
           <Rocket className="w-4 h-4" />
           Publish
         </Button>

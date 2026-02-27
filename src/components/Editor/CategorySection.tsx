@@ -300,7 +300,7 @@ export default function CategorySection({
           <Button
             variant="outline"
             onClick={handleAddItem}
-            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-1.5 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
+            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-2 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
           >
             <Plus className="w-4 h-4" />
             Add {singularName}

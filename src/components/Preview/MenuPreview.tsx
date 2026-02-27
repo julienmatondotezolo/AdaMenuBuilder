@@ -12,7 +12,6 @@ export default function MenuPreview() {
       dragState.activeId !== categoryId
     )
       return "drag-over";
-    // When an item is being dragged into this category, highlight the category too
     if (
       isActiveDrag &&
       dragState.activeType === "item" &&
@@ -33,68 +32,59 @@ export default function MenuPreview() {
 
   const categoryHighlightClass = (state: string) => {
     if (state === "drag-active")
-      return "bg-indigo-primary/8 ring-2 ring-indigo-primary/40 p-3 -mx-3";
+      return "bg-primary/8 ring-2 ring-primary/40 p-3 -mx-3 rounded-lg";
     if (state === "drag-over")
-      return "bg-indigo-primary/5 ring-1 ring-indigo-primary/30 p-3 -mx-3";
+      return "bg-primary/5 ring-1 ring-primary/30 p-3 -mx-3 rounded-lg";
     if (state === "hovered")
-      return "bg-indigo-primary/5 ring-1 ring-indigo-primary/20 p-3 -mx-3";
+      return "bg-primary/5 ring-1 ring-primary/20 p-3 -mx-3 rounded-lg";
     return "";
   };
 
   const itemHighlightClass = (state: string) => {
     if (state === "drag-active")
-      return "bg-indigo-primary/10 ring-2 ring-indigo-primary/40 px-2";
+      return "bg-primary/10 ring-2 ring-primary/40 px-2 rounded-md";
     if (state === "drag-over")
-      return "bg-indigo-primary/8 ring-1 ring-indigo-primary/30 px-2";
+      return "bg-primary/8 ring-1 ring-primary/30 px-2 rounded-md";
     if (state === "hovered")
-      return "bg-indigo-primary/8 ring-1 ring-indigo-primary/20 px-2";
+      return "bg-primary/8 ring-1 ring-primary/20 px-2 rounded-md";
     return "";
   };
 
   return (
     <div
       data-menu-preview
-      className="bg-[#faf9f6] font-serif text-gray-900 min-h-full"
+      className="bg-white font-serif text-foreground min-h-full"
     >
-      <div className="text-center pt-10 pb-6 px-6">
-        <p className="text-[10px] tracking-[0.35em] text-gray-400 uppercase mb-3">
-          EST. {menuData.established}
+      {/* Header section */}
+      <div className="text-center pt-12 pb-8 px-8">
+        {/* Small caps category label */}
+        <p className="text-[10px] tracking-[0.4em] text-primary uppercase font-sans font-semibold mb-4">
+          {menuData.subtitle || "DINNER SELECTION"}
         </p>
-        <h1 className="text-4xl font-semibold italic text-gray-900 leading-tight">
+
+        {/* Restaurant name — large elegant serif */}
+        <h1 className="text-4xl font-light italic text-foreground leading-tight tracking-wide">
           {menuData.restaurantName}
         </h1>
-        <div className="flex items-center justify-center gap-3 mt-3">
-          <span className="w-10 h-px bg-gray-300" />
-          <p className="text-[10px] tracking-[0.3em] text-gray-400 uppercase font-sans font-semibold">
-            {menuData.subtitle}
+
+        {/* Established */}
+        {menuData.established && (
+          <p className="text-[10px] tracking-[0.3em] text-muted-foreground uppercase font-sans mt-2">
+            EST. {menuData.established}
           </p>
-          <span className="w-10 h-px bg-gray-300" />
+        )}
+
+        {/* Horizontal divider */}
+        <div className="flex items-center justify-center mt-5">
+          <span className="w-16 h-px bg-border" />
         </div>
       </div>
 
-      {menuData.highlightImage && (
-        <div className="mx-6 mb-8 relative rounded-lg overflow-hidden shadow-md">
-          <img
-            src={menuData.highlightImage}
-            alt={menuData.highlightTitle}
-            className="w-full h-48 object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-4 left-5">
-            <p className="text-[9px] tracking-[0.25em] text-white/70 uppercase font-sans font-semibold mb-0.5">
-              {menuData.highlightLabel}
-            </p>
-            <p className="text-lg font-semibold italic text-white">
-              {menuData.highlightTitle}
-            </p>
-          </div>
-        </div>
-      )}
-
+      {/* Categories layout */}
       {columnCount > 1 ? (
         layoutDirection === "Z" ? (
-          // Z-shape: row-first — chunk categories into rows of columnCount
-          <div className="px-6 pb-10 space-y-0">
+          // Z-shape: row-first
+          <div className="px-8 pb-10 space-y-0">
             {Array.from(
               { length: Math.ceil(menuData.categories.length / columnCount) },
               (_, rowIdx) => {
@@ -119,9 +109,9 @@ export default function MenuPreview() {
             )}
           </div>
         ) : (
-          // N-shape: column-first — categories assigned to columns top-to-bottom
+          // N-shape: column-first
           <div
-            className="px-6 pb-10"
+            className="px-8 pb-10"
             style={{
               display: "grid",
               gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
@@ -139,8 +129,30 @@ export default function MenuPreview() {
           </div>
         )
       ) : (
-        <div className="px-6 pb-10">
+        <div className="px-8 pb-10">
           {menuData.categories.map((category) => renderCategory(category))}
+        </div>
+      )}
+
+      {/* Featured image section at bottom */}
+      {menuData.highlightImage && (
+        <div className="relative overflow-hidden">
+          <img
+            src={menuData.highlightImage}
+            alt={menuData.highlightTitle}
+            className="w-full h-56 object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          <div className="absolute bottom-6 left-8 right-8">
+            <p className="text-[9px] tracking-[0.3em] text-white/70 uppercase font-sans font-semibold mb-1">
+              {menuData.highlightLabel}
+            </p>
+            <div className="flex items-end justify-between">
+              <p className="text-xl font-light italic text-white">
+                {menuData.highlightTitle}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -152,56 +164,57 @@ export default function MenuPreview() {
       <div
         key={category.id}
         data-category-id={category.id}
-        className={`mb-8 transition-all duration-200 rounded-lg ${categoryHighlightClass(catState)}`}
+        className={`mb-10 transition-all duration-200 ${categoryHighlightClass(catState)}`}
         onMouseEnter={() =>
           !isActiveDrag && setHover(category.id, "category")
         }
         onMouseLeave={() => clearHover(category.id)}
       >
-        <div className="text-center mb-5">
-          <h2 className="text-2xl italic text-gray-900 mb-2">
+        {/* Category name with decorative lines */}
+        <div className="flex items-center justify-center gap-4 mb-6">
+          <span className="flex-1 max-w-20 h-px bg-primary/30" />
+          <h2 className="text-[11px] tracking-[0.35em] text-primary uppercase font-sans font-semibold whitespace-nowrap">
             {category.name}
           </h2>
-          <div className="flex items-center justify-center">
-            <span className="flex-1 max-w-24 h-px bg-gray-200" />
-            <span className="mx-3 w-1.5 h-1.5 rounded-full bg-gray-300" />
-            <span className="flex-1 max-w-24 h-px bg-gray-200" />
-          </div>
+          <span className="flex-1 max-w-20 h-px bg-primary/30" />
         </div>
 
-        <div className="space-y-5">
+        {/* Items */}
+        <div className="space-y-6">
           {category.items.map((item) => {
             const itemState = getItemHighlight(item.id);
             return (
               <div
                 key={item.id}
                 data-item-id={item.id}
-                className={`text-center transition-all duration-200 rounded-md py-1 ${itemHighlightClass(itemState)}`}
+                className={`text-center transition-all duration-200 py-1 ${itemHighlightClass(itemState)}`}
                 onMouseEnter={() =>
                   !isActiveDrag && setHover(item.id, "item")
                 }
                 onMouseLeave={() => clearHover(item.id)}
               >
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-xs font-sans font-bold tracking-[0.15em] text-gray-900 uppercase">
-                    {item.name}
-                  </span>
-                  <span className="text-gray-300">—</span>
-                  <span className="text-sm font-sans text-gray-500 italic">
-                    ${item.price}
-                  </span>
-                </div>
+                {/* Item name — bold, centered */}
+                <p className="text-sm font-sans font-bold tracking-[0.1em] text-foreground uppercase">
+                  {item.name}
+                </p>
+
+                {/* Description — italic, muted */}
                 {item.description && (
-                  <p className="text-xs text-gray-400 italic mt-1 max-w-sm mx-auto font-sans leading-relaxed">
+                  <p className="text-xs text-muted-foreground italic mt-1 max-w-xs mx-auto font-sans leading-relaxed">
                     {item.description}
                   </p>
                 )}
+
+                {/* Price */}
+                <p className="text-xs font-sans text-primary font-semibold mt-1.5">
+                  ${item.price}
+                </p>
               </div>
             );
           })}
 
           {category.items.length === 0 && (
-            <p className="text-center text-xs text-gray-300 italic font-sans py-4">
+            <p className="text-center text-xs text-muted-foreground/50 italic font-sans py-4">
               No items in this category yet
             </p>
           )}
