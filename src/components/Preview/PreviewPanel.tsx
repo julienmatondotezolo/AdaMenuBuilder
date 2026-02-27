@@ -207,7 +207,7 @@ export default function PreviewPanel() {
       </div>
 
       {/* ── Preview icons — vertically centered, fixed right ──────────── */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-3 z-30 flex flex-col items-center gap-2 pointer-events-auto">
+      <div className="absolute inset-y-0 right-3 z-30 flex flex-col items-center justify-center gap-2 pointer-events-auto">
         {previewIcons.map(({ id, label, icon: Icon }) => (
           <div
             key={id}
@@ -226,7 +226,8 @@ export default function PreviewPanel() {
       </div>
 
       {/* ── Magic Prompt — fixed bottom-center ──────────────────────────── */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto w-[90%] max-w-2xl">
+      <div className="absolute bottom-4 inset-x-0 z-30 pointer-events-auto flex justify-center px-4">
+        <div className="w-[90%] max-w-2xl">
         <div className="flex items-center gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-2.5">
           <Button size="sm" className="flex items-center gap-2 text-xs font-semibold shrink-0">
             <Sparkles className="w-3.5 h-3.5" />
@@ -249,6 +250,7 @@ export default function PreviewPanel() {
               <ArrowUp className="w-4 h-4" />
             </Button>
           </div>
+        </div>
         </div>
       </div>
 
