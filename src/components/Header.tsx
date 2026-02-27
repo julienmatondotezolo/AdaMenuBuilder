@@ -1,12 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, Eye, Rocket, X as XIcon, Download, Loader2, LogOut, User } from "lucide-react";
+import {
+  Search,
+  Eye,
+  Rocket,
+  X as XIcon,
+  Download,
+  Loader2,
+  LogOut,
+  User,
+} from "lucide-react";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
 import { useAuth } from "../context/AuthContext";
 const navItems = ["Editor", "Menus", "Library", "Settings"] as const;
 
 export default function Header() {
-  const { menuData, paperFormat, orientation } = useMenu();
+  const { menuData, orientation, columnCount, layoutDirection } = useMenu();
   const { user, logout } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -15,7 +24,10 @@ export default function Header() {
   // Close user menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setShowUserMenu(false);
       }
     };
@@ -26,7 +38,13 @@ export default function Header() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      await downloadMenuPdf(menuData.restaurantName, paperFormat, menuData.categories, orientation);
+      await downloadMenuPdf(
+        menuData.restaurantName,
+        menuData,
+        orientation,
+        columnCount,
+        layoutDirection,
+      );
     } catch (err) {
       console.error("Failed to generate PDF:", err);
     } finally {
@@ -102,10 +120,16 @@ export default function Header() {
             className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-indigo-200 transition-all"
             title={user?.full_name || user?.email || "Account"}
           >
-            {user?.full_name
-              ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-              : <User className="w-4 h-4" />
-            }
+            {user?.full_name ? (
+              user.full_name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)
+            ) : (
+              <User className="w-4 h-4" />
+            )}
           </button>
 
           {showUserMenu && (

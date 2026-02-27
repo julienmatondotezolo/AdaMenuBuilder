@@ -33,8 +33,6 @@ export type HoveredType = "item" | "category" | null;
 
 export type Viewport = "mobile" | "tablet" | "desktop" | "paper";
 
-export type PaperFormat = "A3" | "A4" | "A5";
-
 export type Orientation = "portrait" | "landscape";
 
 export type LayoutDirection = "Z" | "N";
@@ -55,8 +53,6 @@ export interface MenuContextValue {
   clearHover: (id: string) => void;
   viewport: Viewport;
   setViewport: (viewport: Viewport) => void;
-  paperFormat: PaperFormat;
-  setPaperFormat: (format: PaperFormat) => void;
   orientation: Orientation;
   setOrientation: (orientation: Orientation) => void;
   columnCount: number;

@@ -59,6 +59,7 @@ export default function LayoutSection() {
   const {
     orientation,
     setOrientation,
+    setViewport,
     columnCount,
     setColumnCount,
     layoutDirection,
@@ -88,7 +89,7 @@ export default function LayoutSection() {
             <span className="text-xs font-medium text-gray-500">Orientation</span>
             <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
               <button
-                onClick={() => setOrientation("portrait")}
+                onClick={() => { setOrientation("portrait"); setViewport("paper"); }}
                 title="Portrait"
                 className={`flex items-center justify-center px-2 py-1 rounded transition-all ${
                   orientation === "portrait"
@@ -100,7 +101,7 @@ export default function LayoutSection() {
                 <span className="ml-1.5 text-xs font-medium">Portrait</span>
               </button>
               <button
-                onClick={() => setOrientation("landscape")}
+                onClick={() => { setOrientation("landscape"); setViewport("paper"); }}
                 title="Landscape"
                 className={`flex items-center justify-center px-2 py-1 rounded transition-all ${
                   orientation === "landscape"

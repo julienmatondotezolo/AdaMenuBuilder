@@ -10,6 +10,7 @@ interface MenuItemCardProps {
   categoryId: string;
   showPageBreak?: boolean;
   isDraggingActive: boolean;
+  isOverlay?: boolean;
 }
 
 export default function MenuItemCard({
@@ -17,6 +18,7 @@ export default function MenuItemCard({
   categoryId,
   showPageBreak,
   isDraggingActive,
+  isOverlay,
 }: MenuItemCardProps) {
   const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState } =
     useMenu();
@@ -32,13 +34,15 @@ export default function MenuItemCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id });
+  } = useSortable({ id: item.id, disabled: isOverlay });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.35 : 1,
-  };
+  const style = isOverlay
+    ? {}
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+      };
 
   const isHighlighted = hoveredId === item.id;
   const isDragActive = dragState.activeId === item.id;
@@ -68,32 +72,39 @@ export default function MenuItemCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative border rounded-xl p-4 transition-all duration-200 cursor-pointer ${
-        isDragActive
-          ? "border-indigo-primary/60 bg-indigo-primary/8 shadow-md shadow-indigo-primary/15 z-50"
-          : isDragOver
-            ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
-            : isHighlighted && !isDraggingActive
-              ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
-              : "border-gray-200 bg-white hover:border-gray-300"
+      {...attributes}
+      {...listeners}
+      className={`group flex items-center gap-1 ${
+        isDragging ? "cursor-grabbing" : "cursor-grab"
       }`}
-      onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
-      onMouseLeave={() => clearHover(item.id)}
-      onDoubleClick={() => !isDragging && setIsEditing(true)}
     >
-      {/* Drag handle */}
-      <button
-        className={`absolute left-2 top-1/2 -translate-y-1/2 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 ${
-          isDragging ? "cursor-grabbing opacity-100" : "cursor-grab"
+      {/* Drag handle — outside the card */}
+      <GripVertical
+        className={`w-4 h-4 shrink-0 text-gray-300 transition-opacity ${
+          isDragging
+            ? "opacity-100"
+            : "opacity-0 group-hover:opacity-100"
         }`}
-        {...attributes}
-        {...listeners}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
+      />
 
-      <div className="absolute top-3 right-3 flex items-center gap-1">
+      {/* Card */}
+      <div
+        className={`flex-1 relative border rounded-xl p-4 transition-all duration-200 ${
+          isOverlay
+            ? "border-indigo-primary/60 bg-white shadow-lg shadow-indigo-primary/20 z-50"
+            : isDragActive
+              ? "border-indigo-primary/60 bg-indigo-primary/8 shadow-md shadow-indigo-primary/15 z-50"
+              : isDragOver
+                ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
+                : isHighlighted && !isDraggingActive
+                  ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+        }`}
+        onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
+        onMouseLeave={() => clearHover(item.id)}
+        onDoubleClick={() => !isDragging && setIsEditing(true)}
+      >
+        <div className="absolute top-3 right-3 flex items-center gap-1">
         {showPageBreak && (
           <button
             onClick={(e) => {
@@ -199,6 +210,7 @@ export default function MenuItemCard({
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

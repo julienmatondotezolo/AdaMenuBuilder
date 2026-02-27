@@ -20,11 +20,13 @@ import type { Category } from "../../types/menu";
 interface CategorySectionProps {
   category: Category;
   isDraggingActive: boolean;
+  isDraggingCategory: boolean;
 }
 
 export default function CategorySection({
   category,
   isDraggingActive,
+  isDraggingCategory,
 }: CategorySectionProps) {
   const {
     addItem,
@@ -51,14 +53,13 @@ export default function CategorySection({
 
   // Droppable for the items list (allows dropping items into empty categories)
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
-    id: category.id,
+    id: `${category.id}-items`,
     data: { type: "category", categoryId: category.id },
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
   };
 
   const isHighlighted = hoveredId === category.id;
@@ -116,6 +117,26 @@ export default function CategorySection({
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
+      {isDragging ? (
+        <div className="flex items-center gap-2 py-2 px-1 opacity-40 border-2 border-dashed border-gray-300 rounded-xl">
+          <GripVertical className="w-5 h-5 text-gray-300" />
+          <span className="font-bold text-base text-gray-900">{category.name}</span>
+          <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
+            {category.items.length}{" "}
+            {category.items.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+      ) : isDraggingCategory ? (
+        <div className="flex items-center gap-2 py-2 px-1 border border-gray-200 rounded-xl bg-white">
+          <GripVertical className="w-5 h-5 text-gray-300" />
+          <span className="font-bold text-base text-gray-900">{category.name}</span>
+          <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
+            {category.items.length}{" "}
+            {category.items.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+      ) : (
+      <>
       <div className="flex items-center gap-2 mb-3">
         {/* Drag handle — only this element activates the drag */}
         <button
@@ -262,13 +283,15 @@ export default function CategorySection({
 
           <button
             onClick={handleAddItem}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 font-medium hover:border-indigo-primary/30 hover:text-indigo-primary/70 transition-colors"
+            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 font-medium hover:border-indigo-primary/30 hover:text-indigo-primary/70 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add {singularName}
           </button>
         </div>
       </SortableContext>
+      </>
+      )}
     </div>
   );
 }

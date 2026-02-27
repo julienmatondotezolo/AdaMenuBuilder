@@ -6,7 +6,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import App from "./App";
 import AuthCallback from "./pages/AuthCallback";
 import LoginRedirect from "./pages/LoginRedirect";
+import { pdfjs } from "react-pdf";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "./index.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

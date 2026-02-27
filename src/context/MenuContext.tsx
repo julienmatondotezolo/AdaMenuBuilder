@@ -13,7 +13,6 @@ import type {
   Category,
   HoveredType,
   Viewport,
-  PaperFormat,
   Orientation,
   LayoutDirection,
   MenuContextValue,
@@ -34,7 +33,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredType, setHoveredType] = useState<HoveredType>(null);
   const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [paperFormat, setPaperFormat] = useState<PaperFormat>("A4");
   const [orientation, setOrientation] = useState<Orientation>("portrait");
   const [columnCount, setColumnCountRaw] = useState<number>(1);
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>("N");
@@ -273,8 +271,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     clearHover,
     viewport,
     setViewport,
-    paperFormat,
-    setPaperFormat,
     orientation,
     setOrientation,
     columnCount,
