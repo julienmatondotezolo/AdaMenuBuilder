@@ -140,7 +140,7 @@ export default function MenuPreview() {
           <img
             src={menuData.highlightImage}
             alt={menuData.highlightTitle}
-            className="w-full h-28 object-cover"
+            className="w-full h-14 object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="absolute bottom-3 left-4 right-4">
