@@ -8,6 +8,7 @@ import AuthCallback from "./pages/AuthCallback";
 import LoginRedirect from "./pages/LoginRedirect";
 import { pdfjs } from "react-pdf";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import "ada-design-system/styles.css";
 import "./index.css";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;

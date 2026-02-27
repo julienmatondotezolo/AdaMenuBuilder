@@ -2,41 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import {
   Search,
   Eye,
-  Rocket,
   Download,
+  Rocket,
   Loader2,
-  LogOut,
-  User,
+  ChevronDown,
 } from "lucide-react";
-import { 
-  Button, 
-  AdaLogo, 
-  Avatar, 
-  AvatarFallback, 
-  Badge, 
-  Input, 
-  cn 
-} from "ada-design-system";
+import { Button, AdaLogo, Input } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
-import { useAuth } from "../context/AuthContext";
-const navItems = ["Editor", "Menus", "Library", "Settings"] as const;
 
 export default function Header() {
   const { menuData, orientation, columnCount, layoutDirection } = useMenu();
-  const { user, logout } = useAuth();
   const [downloading, setDownloading] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close user menu on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
-        setShowUserMenu(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -59,43 +43,67 @@ export default function Header() {
       setDownloading(false);
     }
   };
+
   return (
-    <header className="h-14 flex items-center justify-between px-4 bg-background border-b border-border shrink-0 z-20">
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <AdaLogo className="w-8 h-8" />
-          <span className="font-semibold text-foreground text-sm tracking-tight">
-            MenuBuilder{" "}
+    <header className="h-14 flex items-center px-4 bg-background border-b border-border shrink-0 z-20">
+      {/* LEFT — Logo + Editing label */}
+      <div className="flex items-center gap-4 min-w-0">
+        {/* Brand */}
+        <div className="flex items-center gap-2 shrink-0">
+          <AdaLogo className="w-7 h-7" />
+          <span className="font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
+            Menu Builder{" "}
             <span className="text-primary font-bold">AI</span>
           </span>
         </div>
 
-        <nav className="flex items-center gap-1">
-          {navItems.map((item) => (
-            <Button
-              key={item}
-              variant={item === "Editor" ? "default" : "ghost"}
-              size="sm"
-              className={cn(
-                item === "Editor" && "border-b-2 border-primary rounded-b-none"
-              )}
-            >
-              {item}
-            </Button>
-          ))}
-        </nav>
+        {/* Divider */}
+        <div className="w-px h-6 bg-border shrink-0" />
+
+        {/* Menu name dropdown */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center gap-1.5 text-sm hover:bg-muted/50 rounded-md px-2 py-1 transition-colors min-w-0"
+          >
+            <span className="text-muted-foreground shrink-0">Editing:</span>
+            <span className="font-semibold text-foreground truncate max-w-[200px]">
+              {menuData.title || "Untitled Menu"}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute left-0 top-full mt-1 w-56 bg-card rounded-lg shadow-lg border border-border py-1 z-50">
+              <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Recent menus
+              </div>
+              <button className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors font-medium text-foreground">
+                {menuData.title || "Untitled Menu"}
+              </button>
+              <div className="border-t border-border my-1" />
+              <button className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-muted-foreground">
+                + New menu
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative">
+      {/* CENTER — Search */}
+      <div className="flex-1 flex justify-center px-4">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search menu items..."
-            className="pl-9 w-52"
+            className="pl-9 h-9 w-full"
           />
         </div>
+      </div>
 
+      {/* RIGHT — Actions */}
+      <div className="flex items-center gap-2 shrink-0">
         <Button variant="outline" size="sm">
           <Eye className="w-4 h-4" />
           Preview
@@ -119,51 +127,6 @@ export default function Header() {
           <Rocket className="w-4 h-4" />
           Publish
         </Button>
-
-        {/* User Avatar & Menu */}
-        <div className="relative" ref={userMenuRef}>
-          <Avatar
-            className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            title={user?.full_name || user?.email || "Account"}
-          >
-            <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-xs font-bold">
-              {user?.full_name ? (
-                user.full_name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2)
-              ) : (
-                <User className="w-4 h-4" />
-              )}
-            </AvatarFallback>
-          </Avatar>
-
-          {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-card rounded-lg shadow-lg border border-border py-1 z-50">
-              <div className="px-4 py-2 border-b border-border">
-                <p className="text-sm font-medium text-card-foreground truncate">
-                  {user?.full_name || "User"}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                <Badge variant="secondary" className="mt-1">
-                  {user?.role || "user"}
-                </Badge>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={logout}
-                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign out
-              </Button>
-            </div>
-          )}
-        </div>
       </div>
     </header>
   );

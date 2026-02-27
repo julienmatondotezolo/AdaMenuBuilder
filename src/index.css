@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "ada-design-system/styles.css";
 
 @theme {
   --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
