@@ -6,21 +6,41 @@ import {
   Rocket,
   Loader2,
   ChevronDown,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
-import { Button, AdaLogo } from "ada-design-system";
+import { Button, AdaLogo, Avatar, AvatarFallback } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
+import { useAuth } from "../context/AuthContext";
+
+function getInitials(user: { full_name?: string; first_name?: string; last_name?: string; email: string }): string {
+  if (user.full_name) {
+    return user.full_name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  }
+  if (user.first_name && user.last_name) {
+    return (user.first_name[0] + user.last_name[0]).toUpperCase();
+  }
+  if (user.first_name) return user.first_name.slice(0, 2).toUpperCase();
+  return user.email.slice(0, 2).toUpperCase();
+}
 
 export default function Header() {
   const { menuData, orientation, columnCount, layoutDirection } = useMenu();
+  const { user, logout } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -128,6 +148,73 @@ export default function Header() {
           <Rocket className="w-4 h-4" />
           Publish
         </Button>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-border" />
+
+        {/* Profile avatar */}
+        <div className="relative" ref={profileRef}>
+          <button
+            onClick={() => setProfileOpen(!profileOpen)}
+            className="flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Avatar className="w-9 h-9 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all">
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                {user ? getInitials(user) : "?"}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+
+          {profileOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-lg shadow-lg border border-border py-2 z-50">
+              {/* User info */}
+              <div className="px-4 py-3 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10 shrink-0">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
+                      {user ? getInitials(user) : "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">
+                      {user?.full_name || user?.first_name || "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user?.email || ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    // TODO: navigate to profile
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  <UserIcon className="w-4 h-4 text-muted-foreground" />
+                  My Profile
+                </button>
+
+                <div className="border-t border-border my-1" />
+
+                <button
+                  onClick={() => {
+                    setProfileOpen(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/5 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
