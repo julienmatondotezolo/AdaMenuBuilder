@@ -1,55 +1,139 @@
-import { useState, useRef, useCallback, type WheelEvent } from "react";
-import { FileText, Monitor, Tablet, Smartphone, QrCode, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { FileText, Monitor, Tablet, Smartphone, QrCode, Minus, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import MenuPreview from "./MenuPreview";
-import PdfViewer from "./PdfViewer";
 import type { Viewport } from "../../types/menu";
 
-interface ViewportOption {
-  id: Viewport;
-  label: string;
-  icon: LucideIcon;
-  width: number;
-}
+/* ── Viewport config ─────────────────────────────────────────────────────── */
 
-const viewports: ViewportOption[] = [
+const viewportButtons: { id: Viewport | "qr"; label: string; icon: LucideIcon; width: number }[] = [
   { id: "paper", label: "Paper", icon: FileText, width: 794 },
   { id: "desktop", label: "Desktop", icon: Monitor, width: 1024 },
   { id: "tablet", label: "Tablet", icon: Tablet, width: 768 },
   { id: "mobile", label: "Mobile", icon: Smartphone, width: 375 },
-  { id: "paper" as Viewport, label: "QR Code", icon: QrCode, width: 794 },
+  { id: "qr", label: "QR Code", icon: QrCode, width: 794 },
 ];
 
-// Deduplicate — paper appears once as the first entry; QR Code is separate
-const viewportButtons: { id: Viewport | "qr"; label: string; icon: LucideIcon }[] = [
-  { id: "paper", label: "Paper", icon: FileText },
-  { id: "desktop", label: "Desktop", icon: Monitor },
-  { id: "tablet", label: "Tablet", icon: Tablet },
-  { id: "mobile", label: "Mobile", icon: Smartphone },
-  { id: "qr", label: "QR Code", icon: QrCode },
-];
+/* ── Zoom constants ──────────────────────────────────────────────────────── */
 
 const ZOOM_STEP = 0.1;
-const ZOOM_MIN = 0.25;
-const ZOOM_MAX = 3;
-
-const viewportWidths: Record<string, number> = {
-  paper: 794,
-  desktop: 1024,
-  tablet: 768,
-  mobile: 375,
-};
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 5;
+const DEFAULT_ZOOM = 0.7;
 
 export default function PreviewPanel() {
   const { viewport, setViewport } = useMenu();
-  const [zoom, setZoom] = useState(0.75);
-  const canvasRef = useRef<HTMLDivElement>(null);
 
-  const isPaper = viewport === "paper";
-  const viewportWidth = viewportWidths[viewport] ?? 1024;
+  /* ── Canvas state ──────────────────────────────────────────────────────── */
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [spaceHeld, setSpaceHeld] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const activeViewport = viewportButtons.find(
+    (v) => v.id === viewport,
+  );
+  const viewportWidth = activeViewport?.width ?? 794;
+
+  /* ── Space key for hand tool ───────────────────────────────────────────── */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setSpaceHeld(true);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setSpaceHeld(false);
+        setIsPanning(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
+  /* ── Pointer panning (space + drag OR middle-click drag) ───────────────── */
+  const handlePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      // Space held or middle mouse button
+      if (spaceHeld || e.button === 1) {
+        e.preventDefault();
+        setIsPanning(true);
+        panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      }
+    },
+    [spaceHeld, pan],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isPanning) return;
+      const dx = e.clientX - panStart.current.x;
+      const dy = e.clientY - panStart.current.y;
+      setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
+    },
+    [isPanning],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  /* ── Wheel: Ctrl/⌘ = zoom, otherwise pan ───────────────────────────────── */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        const pointerX = e.clientX - rect.left;
+        const pointerY = e.clientY - rect.top;
+
+        setZoom((prevZoom) => {
+          const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom + delta).toFixed(2)));
+          const scaleFactor = newZoom / prevZoom;
+
+          setPan((prevPan) => ({
+            x: pointerX - scaleFactor * (pointerX - prevPan.x),
+            y: pointerY - scaleFactor * (pointerY - prevPan.y),
+          }));
+
+          return newZoom;
+        });
+      } else {
+        // Normal scroll = pan
+        setPan((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
+      }
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  /* ── Zoom helpers ──────────────────────────────────────────────────────── */
   const handleZoomIn = useCallback(() => {
     setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
   }, []);
@@ -58,117 +142,102 @@ export default function PreviewPanel() {
     setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)));
   }, []);
 
-  const handleResetZoom = useCallback(() => {
-    setZoom(0.75);
+  const handleFitView = useCallback(() => {
+    setZoom(DEFAULT_ZOOM);
+    setPan({ x: 0, y: 0 });
   }, []);
 
-  const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-      setZoom((z) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(z + delta).toFixed(2))));
-    }
-  }, []);
-
+  /* ── Viewport click ────────────────────────────────────────────────────── */
   const handleViewportClick = (id: string) => {
-    if (id === "qr") {
-      // TODO: QR code feature
-      return;
-    }
+    if (id === "qr") return; // TODO: QR code feature
     setViewport(id as Viewport);
   };
 
-  return (
-    <div className="absolute inset-0 flex flex-col bg-muted overflow-hidden">
-      {/* Zoomable canvas area */}
-      <div
-        ref={canvasRef}
-        className="flex-1 min-h-0 overflow-auto relative"
-        onWheel={handleWheel}
-      >
-        {/* Viewport icons — fixed top-right inside preview */}
-        <div className="absolute top-3 right-3 z-20 flex flex-col items-center gap-2">
-          {viewportButtons.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => handleViewportClick(id)}
-              title={label}
-              className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150",
-                (id === viewport || (id === "paper" && viewport === "paper"))
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
-              )}
-            >
-              <Icon className="w-5 h-5" />
-            </button>
-          ))}
-        </div>
+  /* ── Cursor ────────────────────────────────────────────────────────────── */
+  const cursorClass = isPanning
+    ? "cursor-grabbing"
+    : spaceHeld
+      ? "cursor-grab"
+      : "cursor-default";
 
-        {/* Canvas content */}
-        <div className="min-h-full flex justify-center items-start p-10">
-          {isPaper ? (
-            <div
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "top center",
-                transition: "transform 150ms ease",
-              }}
-            >
-              <PdfViewer />
-            </div>
-          ) : (
+  return (
+    <div className="absolute inset-0 bg-muted overflow-hidden">
+      {/* ── Infinite canvas ────────────────────────────────────────────── */}
+      <div
+        ref={containerRef}
+        className={cn("absolute inset-0 select-none", cursorClass)}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        {/* Transform layer — pan + zoom */}
+        <div
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: "0 0",
+            willChange: "transform",
+          }}
+          className="absolute top-0 left-0"
+        >
+          {/* Center the content in the canvas */}
+          <div className="flex justify-center pt-16" style={{ width: `${100 / zoom}vw` }}>
             <div
               className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
-              style={{
-                width: `${viewportWidth}px`,
-                maxWidth: "100%",
-                transform: `scale(${zoom})`,
-                transformOrigin: "top center",
-                transition: "transform 150ms ease",
-              }}
+              style={{ width: `${viewportWidth}px` }}
             >
               <MenuPreview />
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Bottom zoom controls */}
-      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-background border-t border-border shrink-0">
-        <button
-          onClick={handleZoomOut}
-          title="Zoom out"
-          className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
+      {/* ── Viewport icons — fixed top-right ───────────────────────────── */}
+      <div className="absolute top-3 right-3 z-30 flex flex-col items-center gap-2 pointer-events-auto">
+        {viewportButtons.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => handleViewportClick(id)}
+            title={label}
+            className={cn(
+              "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm",
+              id === viewport
+                ? "bg-primary text-primary-foreground shadow-md"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20",
+            )}
+          >
+            <Icon className="w-5 h-5" />
+          </button>
+        ))}
+      </div>
 
-        <button
-          onClick={handleResetZoom}
-          title="Reset zoom"
-          className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors min-w-[3.5rem] text-center"
-        >
-          {Math.round(zoom * 100)}%
-        </button>
+      {/* ── Zoom controls — fixed bottom-center ────────────────────────── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-lg shadow-lg px-2 py-1.5">
+          <button
+            onClick={handleZoomOut}
+            title="Zoom out"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={handleZoomIn}
-          title="Zoom in"
-          className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
+          <button
+            onClick={handleFitView}
+            title="Fit to view"
+            className="px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted rounded-md transition-colors min-w-[4rem] text-center tabular-nums"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
 
-        <div className="w-px h-5 bg-border mx-1" />
-
-        <button
-          onClick={handleResetZoom}
-          title="Reset to default"
-          className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
+          <button
+            onClick={handleZoomIn}
+            title="Zoom in"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
