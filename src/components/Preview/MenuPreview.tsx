@@ -136,18 +136,18 @@ export default function MenuPreview() {
 
       {/* Featured image section at bottom */}
       {menuData.highlightImage && (
-        <div className="mx-4 mb-4 relative overflow-hidden rounded-md">
+        <div className="mx-5 mb-6 relative overflow-hidden rounded-md">
           <img
             src={menuData.highlightImage}
             alt={menuData.highlightTitle}
-            className="w-full h-20 object-cover"
+            className="w-full h-28 object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-2 left-3 right-3">
-            <p className="text-[7px] tracking-[0.25em] text-white/70 uppercase font-sans font-semibold mb-0.5">
+          <div className="absolute bottom-3 left-4 right-4">
+            <p className="text-[8px] tracking-[0.25em] text-white/70 uppercase font-sans font-semibold mb-0.5">
               {menuData.highlightLabel}
             </p>
-            <p className="text-sm font-light italic text-white">
+            <p className="text-base font-light italic text-white">
               {menuData.highlightTitle}
             </p>
           </div>
