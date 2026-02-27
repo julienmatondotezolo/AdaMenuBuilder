@@ -5,21 +5,18 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Tablet, Smartphone, QrCode, Minus, Plus, Maximize } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "ada-design-system";
-import { useMenu } from "../../context/MenuContext";
 import MenuPreview from "./MenuPreview";
-import type { Viewport } from "../../types/menu";
 
-/* ── Viewport config ─────────────────────────────────────────────────────── */
+/* ── Preview sidebar icons (display only) ────────────────────────────────── */
 
-const viewportButtons: { id: Viewport | "qr"; label: string; icon: LucideIcon; width: number }[] = [
-  { id: "paper", label: "Paper", icon: FileText, width: 794 },
-  { id: "desktop", label: "Desktop", icon: Monitor, width: 1024 },
-  { id: "tablet", label: "Tablet", icon: Tablet, width: 768 },
-  { id: "mobile", label: "Mobile", icon: Smartphone, width: 375 },
-  { id: "qr", label: "QR Code", icon: QrCode, width: 794 },
+const previewIcons: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "paper", label: "Paper", icon: FileText },
+  { id: "mobile", label: "Phone", icon: Smartphone },
+  { id: "desktop", label: "Desktop", icon: Monitor },
+  { id: "qr", label: "QR Code", icon: QrCode },
 ];
 
 /* ── Zoom constants ──────────────────────────────────────────────────────── */
@@ -29,8 +26,10 @@ const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 5;
 const DEFAULT_ZOOM = 0.7;
 
+const PREVIEW_WIDTH = 794;
+
 export default function PreviewPanel() {
-  const { viewport, setViewport } = useMenu();
+  const [selectedIcon, setSelectedIcon] = useState("paper");
 
   /* ── Canvas state ──────────────────────────────────────────────────────── */
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -40,11 +39,6 @@ export default function PreviewPanel() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-
-  const activeViewport = viewportButtons.find(
-    (v) => v.id === viewport,
-  );
-  const viewportWidth = activeViewport?.width ?? 794;
 
   /* ── Space key for hand tool ───────────────────────────────────────────── */
   useEffect(() => {
@@ -147,12 +141,6 @@ export default function PreviewPanel() {
     setPan({ x: 0, y: 0 });
   }, []);
 
-  /* ── Viewport click ────────────────────────────────────────────────────── */
-  const handleViewportClick = (id: string) => {
-    if (id === "qr") return; // TODO: QR code feature
-    setViewport(id as Viewport);
-  };
-
   /* ── Cursor ────────────────────────────────────────────────────────────── */
   const cursorClass = isPanning
     ? "cursor-grabbing"
@@ -184,7 +172,7 @@ export default function PreviewPanel() {
           <div className="flex justify-center pt-16" style={{ width: `${100 / zoom}vw` }}>
             <div
               className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
-              style={{ width: `${viewportWidth}px` }}
+              style={{ width: `${PREVIEW_WIDTH}px` }}
             >
               <MenuPreview />
             </div>
@@ -192,22 +180,22 @@ export default function PreviewPanel() {
         </div>
       </div>
 
-      {/* ── Viewport icons — fixed top-right ───────────────────────────── */}
-      <div className="absolute top-3 right-3 z-30 flex flex-col items-center gap-2 pointer-events-auto">
-        {viewportButtons.map(({ id, label, icon: Icon }) => (
-          <button
+      {/* ── Preview icons — vertically centered, fixed right ──────────── */}
+      <div className="absolute top-1/2 -translate-y-1/2 right-3 z-30 flex flex-col items-center gap-2 pointer-events-auto">
+        {previewIcons.map(({ id, label, icon: Icon }) => (
+          <div
             key={id}
-            onClick={() => handleViewportClick(id)}
+            onClick={() => setSelectedIcon(id)}
             title={label}
             className={cn(
-              "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm",
-              id === viewport
+              "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm cursor-pointer",
+              selectedIcon === id
                 ? "bg-primary text-primary-foreground shadow-md"
                 : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20",
             )}
           >
             <Icon className="w-5 h-5" />
-          </button>
+          </div>
         ))}
       </div>
 
