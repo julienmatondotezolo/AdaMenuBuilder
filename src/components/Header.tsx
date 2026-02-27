@@ -1,12 +1,27 @@
-import { useState } from "react";
-import { Search, Eye, Rocket, X as XIcon, Download, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, Eye, Rocket, X as XIcon, Download, Loader2, LogOut, User } from "lucide-react";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
+import { useAuth } from "../context/AuthContext";
 const navItems = ["Editor", "Menus", "Library", "Settings"] as const;
 
 export default function Header() {
   const { menuData, paperFormat, orientation } = useMenu();
+  const { user, logout } = useAuth();
   const [downloading, setDownloading] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -80,7 +95,40 @@ export default function Header() {
           Publish
         </button>
 
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-300 to-orange-500 border-2 border-white shadow-sm" />
+        {/* User Avatar & Menu */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-indigo-200 transition-all"
+            title={user?.full_name || user?.email || "Account"}
+          >
+            {user?.full_name
+              ? user.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+              : <User className="w-4 h-4" />
+            }
+          </button>
+
+          {showUserMenu && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <div className="px-4 py-2 border-b border-gray-100">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {user?.full_name || "User"}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 rounded">
+                  {user?.role || "user"}
+                </span>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

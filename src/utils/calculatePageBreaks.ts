@@ -21,7 +21,7 @@ export interface BlockMeasurement {
 export function calculatePageBreaks(
   blocks: BlockMeasurement[],
   pageHeight: number,
-  totalContentHeight: number,
+  _totalContentHeight: number,
   pageMargin: number = 0,
 ): number[] {
   if (blocks.length === 0) return [0];
