@@ -137,7 +137,17 @@ export default function PreviewPanel() {
   }, []);
 
   const handleFitView = useCallback(() => {
-    setZoom(DEFAULT_ZOOM);
+    const el = containerRef.current;
+    if (!el) {
+      setZoom(DEFAULT_ZOOM);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    // Fit menu width inside container with some padding
+    const padding = 80;
+    const available = el.clientWidth - padding;
+    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(available / PREVIEW_WIDTH).toFixed(2)));
+    setZoom(fitZoom);
     setPan({ x: 0, y: 0 });
   }, []);
 
@@ -199,8 +209,8 @@ export default function PreviewPanel() {
         ))}
       </div>
 
-      {/* ── Zoom controls — fixed bottom-center ────────────────────────── */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+      {/* ── Zoom controls — fixed top-left ──────────────────────────────── */}
+      <div className="absolute top-3 left-3 z-30 pointer-events-auto">
         <div className="flex items-center gap-1 bg-card border border-border rounded-lg shadow-lg px-2 py-1.5">
           <button
             onClick={handleZoomOut}
