@@ -17,7 +17,8 @@ export async function downloadMenuPdf(
     orientation,
   });
 
-  const blob = await pdf(doc).toBlob();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const blob = await pdf(doc as any).toBlob();
   const url = URL.createObjectURL(blob);
 
   const anchor = document.createElement("a");

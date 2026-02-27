@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type React from "react";
 import { ChevronDown, RectangleVertical, RectangleHorizontal } from "lucide-react";
-import { Button, Card, CardContent, Badge, cn } from "ada-design-system";
+import { Button, Card, CardContent, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import type { LayoutDirection } from "../../types/menu";
 

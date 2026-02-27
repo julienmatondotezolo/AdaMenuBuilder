@@ -49,7 +49,8 @@ export function usePdfUrl({
           layoutDirection,
           orientation,
         });
-        const blob = await pdf(doc).toBlob();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const blob = await pdf(doc as any).toBlob();
 
         if (abortRef.current) return;
 
