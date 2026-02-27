@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from "react";
 import { Trash2, Star, SeparatorHorizontal, GripVertical } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Card, Button, Input, Badge, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuItem } from "../../types/menu";
 
@@ -74,39 +75,47 @@ export default function MenuItemCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`group flex items-center gap-1 ${
+      className={cn(
+        "group flex items-center gap-1",
         isDragging ? "cursor-grabbing" : "cursor-grab"
-      }`}
+      )}
     >
       {/* Drag handle — outside the card */}
       <GripVertical
-        className={`w-4 h-4 shrink-0 text-gray-300 transition-opacity ${
-          isDragging
-            ? "opacity-100"
-            : "opacity-0 group-hover:opacity-100"
-        }`}
+        className={cn(
+          "w-4 h-4 shrink-0 text-muted-foreground transition-opacity",
+          isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
       />
 
       {/* Card */}
-      <div
-        className={`flex-1 relative border rounded-xl p-4 transition-all duration-200 ${
-          isOverlay
-            ? "border-indigo-primary/60 bg-white shadow-lg shadow-indigo-primary/20 z-50"
-            : isDragActive
-              ? "border-indigo-primary/60 bg-indigo-primary/8 shadow-md shadow-indigo-primary/15 z-50"
-              : isDragOver
-                ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
-                : isHighlighted && !isDraggingActive
-                  ? "border-indigo-primary/50 bg-indigo-primary/5 shadow-sm shadow-indigo-primary/10"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-        }`}
+      <Card
+        className={cn(
+          "flex-1 relative p-4 transition-all duration-200",
+          isOverlay &&
+            "border-primary/60 bg-card shadow-lg shadow-primary/20 z-50",
+          isDragActive &&
+            "border-primary/60 bg-primary/8 shadow-md shadow-primary/15 z-50",
+          isDragOver &&
+            "border-primary/50 bg-primary/5 shadow-sm shadow-primary/10",
+          isHighlighted && 
+            !isDraggingActive &&
+            "border-primary/50 bg-primary/5 shadow-sm shadow-primary/10",
+          !isOverlay && 
+            !isDragActive && 
+            !isDragOver && 
+            (!isHighlighted || isDraggingActive) &&
+            "border-border bg-card hover:border-muted-foreground"
+        )}
         onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
         onMouseLeave={() => clearHover(item.id)}
         onDoubleClick={() => !isDragging && setIsEditing(true)}
       >
         <div className="absolute top-3 right-3 flex items-center gap-1">
         {showPageBreak && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={(e) => {
               e.stopPropagation();
               updateItem(categoryId, item.id, {
@@ -114,44 +123,48 @@ export default function MenuItemCard({
               });
             }}
             title="Page break before this item"
-            className={`opacity-0 group-hover:opacity-100 p-1 transition-all ${
-              item.pageBreakBefore
-                ? "opacity-100! text-indigo-primary hover:text-indigo-hover"
-                : "text-gray-400 hover:text-gray-500"
-            }`}
+            className={cn(
+              "opacity-0 group-hover:opacity-100 transition-all",
+              item.pageBreakBefore &&
+                "opacity-100! text-primary hover:text-primary/80",
+              !item.pageBreakBefore &&
+                "text-muted-foreground hover:text-foreground"
+            )}
           >
             <SeparatorHorizontal className="w-4 h-4" />
-          </button>
+          </Button>
         )}
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={(e) => {
             e.stopPropagation();
             removeItem(categoryId, item.id);
           }}
-          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
         >
           <Trash2 className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       {isEditing ? (
         <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-2">
-            <input
+            <Input
               autoFocus
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 font-semibold text-sm text-gray-900 border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-primary/30"
+              className="flex-1 font-semibold text-sm"
               placeholder="Item name"
             />
             <div className="flex items-center">
-              <span className="text-sm text-gray-500 mr-1">$</span>
-              <input
+              <span className="text-sm text-muted-foreground mr-1">$</span>
+              <Input
                 value={editPrice}
                 onChange={(e) => setEditPrice(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-16 font-semibold text-sm text-indigo-primary border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-primary/30"
+                className="w-16 font-semibold text-sm text-primary"
                 type="number"
                 min="0"
                 step="1"
@@ -165,52 +178,57 @@ export default function MenuItemCard({
               if (e.key === "Escape") handleKeyDown(e);
             }}
             rows={2}
-            className="w-full text-xs text-gray-600 border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-primary/30 resize-none"
+            className="w-full text-xs text-muted-foreground border border-input rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-ring focus:border-input resize-none bg-background"
             placeholder="Description"
           />
           <div className="flex gap-2">
-            <button
+            <Button
+              size="sm"
               onClick={handleSave}
-              className="px-3 py-1 text-xs font-medium text-white bg-indigo-primary rounded-md hover:bg-indigo-hover transition-colors"
+              className="text-xs"
             >
               Save
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 setEditName(item.name);
                 setEditPrice(item.price);
                 setEditDesc(item.description);
                 setIsEditing(false);
               }}
-              className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              className="text-xs"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <>
           <div className="flex items-start justify-between pr-6">
             <div className="flex items-center gap-1.5">
-              <h4 className="font-semibold text-sm text-gray-900">
+              <h4 className="font-semibold text-sm text-card-foreground">
                 {item.name}
               </h4>
               {item.featured && (
-                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <Badge variant="secondary" className="h-5 px-1">
+                  <Star className="w-3 h-3 text-warning fill-warning" />
+                </Badge>
               )}
             </div>
-            <span className="font-semibold text-sm text-indigo-primary">
+            <span className="font-semibold text-sm text-primary">
               ${item.price}
             </span>
           </div>
           {item.description && (
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               {item.description}
             </p>
           )}
         </>
       )}
-      </div>
+      </Card>
     </div>
   );
 }

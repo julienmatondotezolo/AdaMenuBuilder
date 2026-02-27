@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { ChevronDown, Upload, Link, X } from "lucide-react";
+import { Button, Input, Label, Card, CardContent, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuData } from "../../types/menu";
 
@@ -43,35 +44,35 @@ export default function HeaderSection() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const inputClassName =
-    "w-full text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-primary/30";
-
   return (
-    <div className="mb-6 border border-gray-200 rounded-xl overflow-hidden">
-      <button
+    <Card className="mb-6">
+      <Button
+        variant="ghost"
         onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg rounded-b-none"
       >
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Menu Header
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={cn(
+            "w-4 h-4 text-muted-foreground transition-transform duration-200",
+            isOpen && "rotate-180"
+          )}
         />
-      </button>
+      </Button>
 
       {isOpen && (
-        <div className="px-4 py-4 space-y-4 bg-white">
+        <CardContent className="px-4 py-4 space-y-4">
           {textFields.map(({ key, label }) => (
             <div key={key}>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <Label className="block text-xs font-medium text-muted-foreground mb-1">
                 {label}
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={menuData[key] as string}
                 onChange={(e) => handleChange(key, e.target.value)}
-                className={inputClassName}
               />
             </div>
           ))}
@@ -79,44 +80,39 @@ export default function HeaderSection() {
           {/* Highlight Image — upload or URL */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-medium text-gray-500">
+              <Label className="block text-xs font-medium text-muted-foreground">
                 Highlight Image
-              </label>
-              <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
-                <button
+              </Label>
+              <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
+                <Button
+                  variant={imageMode === "url" ? "default" : "ghost"}
+                  size="sm"
                   onClick={() => setImageMode("url")}
                   title="Enter URL"
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
-                    imageMode === "url"
-                      ? "bg-white text-indigo-primary shadow-sm"
-                      : "text-gray-400 hover:text-gray-600"
-                  }`}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium"
                 >
                   <Link className="w-3 h-3" />
                   URL
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={imageMode === "upload" ? "default" : "ghost"}
+                  size="sm"
                   onClick={() => setImageMode("upload")}
                   title="Upload file"
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
-                    imageMode === "upload"
-                      ? "bg-white text-indigo-primary shadow-sm"
-                      : "text-gray-400 hover:text-gray-600"
-                  }`}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium"
                 >
                   <Upload className="w-3 h-3" />
                   Upload
-                </button>
+                </Button>
               </div>
             </div>
 
             {imageMode === "url" ? (
-              <input
+              <Input
                 type="text"
                 value={menuData.highlightImage.startsWith("data:") ? "" : menuData.highlightImage}
                 onChange={(e) => handleChange("highlightImage", e.target.value)}
                 placeholder="https://example.com/image.jpg"
-                className={inputClassName + " placeholder:text-gray-400"}
               />
             ) : (
               <div>
@@ -127,13 +123,14 @@ export default function HeaderSection() {
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 text-sm px-3 py-2 border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-indigo-primary/40 hover:text-indigo-primary transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border-dashed hover:border-primary/40 hover:text-primary"
                 >
                   <Upload className="w-4 h-4" />
                   Choose image file
-                </button>
+                </Button>
               </div>
             )}
 
@@ -142,19 +139,21 @@ export default function HeaderSection() {
                 <img
                   src={menuData.highlightImage}
                   alt="Highlight preview"
-                  className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                  className="w-full h-24 object-cover rounded-lg border border-border"
                 />
-                <button
+                <Button
+                  variant="destructive"
+                  size="icon-sm"
                   onClick={clearImage}
-                  className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-3 h-3" />
-                </button>
+                </Button>
               </div>
             )}
           </div>
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

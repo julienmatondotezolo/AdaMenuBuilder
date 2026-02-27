@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type React from "react";
 import { ChevronDown, RectangleVertical, RectangleHorizontal } from "lucide-react";
+import { Button, Card, CardContent, Badge, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import type { LayoutDirection } from "../../types/menu";
 
@@ -69,68 +70,66 @@ export default function LayoutSection() {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="mb-6 border border-gray-200 rounded-xl overflow-hidden">
-      <button
+    <Card className="mb-6">
+      <Button
+        variant="ghost"
         onClick={() => setIsOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg rounded-b-none"
       >
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Layout
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={cn(
+            "w-4 h-4 text-muted-foreground transition-transform duration-200",
+            isOpen && "rotate-180"
+          )}
         />
-      </button>
+      </Button>
 
       {isOpen && (
-        <div className="px-4 py-4 space-y-4 bg-white">
+        <CardContent className="px-4 py-4 space-y-4">
           {/* Orientation */}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">Orientation</span>
-            <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
-              <button
+            <span className="text-xs font-medium text-muted-foreground">Orientation</span>
+            <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
+              <Button
+                variant={orientation === "portrait" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => { setOrientation("portrait"); setViewport("paper"); }}
                 title="Portrait"
-                className={`flex items-center justify-center px-2 py-1 rounded transition-all ${
-                  orientation === "portrait"
-                    ? "bg-white text-indigo-primary shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                className="flex items-center justify-center px-2 py-1"
               >
                 <RectangleVertical className="w-3.5 h-3.5" />
                 <span className="ml-1.5 text-xs font-medium">Portrait</span>
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={orientation === "landscape" ? "default" : "ghost"}
+                size="sm"
                 onClick={() => { setOrientation("landscape"); setViewport("paper"); }}
                 title="Landscape"
-                className={`flex items-center justify-center px-2 py-1 rounded transition-all ${
-                  orientation === "landscape"
-                    ? "bg-white text-indigo-primary shadow-sm"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                className="flex items-center justify-center px-2 py-1"
               >
                 <RectangleHorizontal className="w-3.5 h-3.5" />
                 <span className="ml-1.5 text-xs font-medium">Landscape</span>
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Column count */}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">Columns</span>
-            <div className="flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-md">
+            <span className="text-xs font-medium text-muted-foreground">Columns</span>
+            <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-md">
               {columnOptions.map((n) => (
-                <button
+                <Button
                   key={n}
+                  variant={columnCount === n ? "default" : "ghost"}
+                  size="sm"
                   onClick={() => setColumnCount(n)}
-                  className={`w-7 h-7 flex items-center justify-center text-[11px] font-semibold rounded transition-all ${
-                    columnCount === n
-                      ? "bg-white text-indigo-primary shadow-sm"
-                      : "text-gray-400 hover:text-gray-600"
-                  }`}
+                  className="w-7 h-7 flex items-center justify-center text-[11px] font-semibold"
                 >
                   {n}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -138,33 +137,34 @@ export default function LayoutSection() {
           {/* Layout direction — only meaningful when columnCount > 1 */}
           {columnCount > 1 && (
             <div className="space-y-1.5">
-              <span className="text-xs font-medium text-gray-500">Direction</span>
+              <span className="text-xs font-medium text-muted-foreground">Direction</span>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 {directionOptions.map(({ id, label, description, Icon }) => {
                   const isActive = layoutDirection === id;
                   return (
-                    <button
+                    <Card
                       key={id}
-                      onClick={() => setLayoutDirection(id)}
-                      className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-lg border text-center transition-all ${
+                      className={cn(
+                        "cursor-pointer flex flex-col items-center gap-1.5 px-3 py-2.5 text-center transition-all border",
                         isActive
-                          ? "border-indigo-primary bg-indigo-primary/5 text-indigo-primary"
-                          : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
-                      }`}
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => setLayoutDirection(id)}
                     >
                       <Icon />
                       <div>
                         <p className="text-[11px] font-semibold leading-tight">{label}</p>
                         <p className="text-[10px] opacity-70 leading-tight">{description}</p>
                       </div>
-                    </button>
+                    </Card>
                   );
                 })}
               </div>
             </div>
           )}
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

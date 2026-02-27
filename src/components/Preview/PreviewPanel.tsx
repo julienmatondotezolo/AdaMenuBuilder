@@ -1,5 +1,6 @@
 import { Monitor, Tablet, Smartphone, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Button } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import MenuPreview from "./MenuPreview";
 import PdfViewer from "./PdfViewer";
@@ -27,26 +28,24 @@ export default function PreviewPanel() {
   const viewportWidth = activeViewport?.width ?? 1024;
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-gray-100">
+    <div className="absolute inset-0 flex flex-col bg-muted">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
-        <h2 className="text-sm font-semibold text-gray-600">Live Preview</h2>
+      <div className="flex items-center justify-between px-4 py-2.5 bg-background border-b border-border shrink-0">
+        <h2 className="text-sm font-semibold text-muted-foreground">Live Preview</h2>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
             {viewports.map(({ id, label, icon: Icon }) => (
-              <button
+              <Button
                 key={id}
+                variant={viewport === id ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setViewport(id)}
                 title={label}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  viewport === id
-                    ? "bg-white text-indigo-primary shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium"
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{label}</span>
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -60,7 +59,7 @@ export default function PreviewPanel() {
         ) : (
           <div className="h-full overflow-auto p-10 flex justify-center items-start">
             <div
-              className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-300 shrink-0"
+              className="bg-card rounded-xl shadow-lg border border-border overflow-hidden transition-all duration-300 shrink-0"
               style={{ width: `${viewportWidth}px`, maxWidth: "100%" }}
             >
               <MenuPreview />

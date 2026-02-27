@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
 import { Plus, X, Check, GripVertical, ChevronDown } from "lucide-react";
+import { Button, Input, Card, CardContent, Badge, cn } from "ada-design-system";
 import {
   DndContext,
   DragOverlay,
@@ -190,10 +191,10 @@ export default function EditorPanel() {
       <div className="p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-foreground">
               {menuData.title}
             </h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               Last edited {menuData.lastEditedTime} by {menuData.lastEditedBy}
             </p>
           </div>
@@ -202,61 +203,71 @@ export default function EditorPanel() {
         <HeaderSection />
         <LayoutSection />
 
-        <div className="mb-6 border border-gray-200 rounded-xl">
-          <button
+        <Card className="mb-6">
+          <Button
+            variant="ghost"
             onClick={() => setMenuItemsOpen((o) => !o)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg rounded-b-none"
           >
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Menu Items
             </span>
             <div className="flex items-center gap-2">
               {!isAddingCategory && (
-                <button
+                <Button
+                  size="icon-sm"
+                  variant="default"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsAddingCategory(true);
                     if (!menuItemsOpen) setMenuItemsOpen(true);
                   }}
-                  className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
+                  className="w-6 h-6 rounded-full bg-success hover:bg-success/90"
                 >
                   <Plus className="w-3 h-3" />
-                </button>
+                </Button>
               )}
               <ChevronDown
-                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${menuItemsOpen ? "rotate-180" : ""}`}
+                className={cn(
+                  "w-4 h-4 text-muted-foreground transition-transform duration-200",
+                  menuItemsOpen && "rotate-180"
+                )}
               />
             </div>
-          </button>
+          </Button>
 
           {menuItemsOpen && (
-            <div className="px-4 py-4 bg-white">
+            <CardContent className="px-4 py-4">
               {isAddingCategory && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <input
+                <Card className="flex items-center gap-2 mb-4 p-3 bg-muted">
+                  <Input
                     autoFocus
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Category name (e.g. Desserts)"
-                    className="flex-1 text-sm px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-primary/30 placeholder:text-gray-400"
+                    className="flex-1"
                   />
-                  <button
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
                     onClick={handleAddCategory}
-                    className="p-1.5 text-green-600 hover:text-green-700 transition-colors"
+                    className="text-success hover:text-success"
                   >
                     <Check className="w-5 h-5" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
                     onClick={() => {
                       setNewCategoryName("");
                       setIsAddingCategory(false);
                     }}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <X className="w-5 h-5" />
-                  </button>
-                </div>
+                  </Button>
+                </Card>
               )}
 
               <DndContext
@@ -300,31 +311,31 @@ export default function EditorPanel() {
                     </div>
                   )}
                   {activeCategory && (
-                    <div className="rotate-1 scale-105 flex items-center gap-2 px-3 py-2 bg-white rounded-xl shadow-lg border border-indigo-primary/30 ring-2 ring-indigo-primary/20">
-                      <GripVertical className="w-5 h-5 text-gray-400" />
-                      <span className="font-bold text-base text-gray-900">
+                    <div className="rotate-1 scale-105 flex items-center gap-2 px-3 py-2 bg-card rounded-xl shadow-lg border border-primary/30 ring-2 ring-primary/20">
+                      <GripVertical className="w-5 h-5 text-muted-foreground" />
+                      <span className="font-bold text-base text-card-foreground">
                         {activeCategory.name}
                       </span>
-                      <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
+                      <Badge className="bg-primary/10 text-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
                         {activeCategory.items.length}{" "}
                         {activeCategory.items.length === 1 ? "item" : "items"}
-                      </span>
+                      </Badge>
                     </div>
                   )}
                 </DragOverlay>
               </DndContext>
 
               {menuData.categories.length === 0 && (
-                <div className="text-center py-16 text-gray-400">
+                <div className="text-center py-16 text-muted-foreground">
                   <p className="text-lg font-medium">No categories yet</p>
                   <p className="text-sm mt-1">
                     Click the + button above to add your first category
                   </p>
                 </div>
               )}
-            </div>
+            </CardContent>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

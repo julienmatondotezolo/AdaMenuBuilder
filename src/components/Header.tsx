@@ -3,12 +3,20 @@ import {
   Search,
   Eye,
   Rocket,
-  X as XIcon,
   Download,
   Loader2,
   LogOut,
   User,
 } from "lucide-react";
+import { 
+  Button, 
+  AdaLogo, 
+  Avatar, 
+  AvatarFallback, 
+  Badge, 
+  Input, 
+  cn 
+} from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
 import { useAuth } from "../context/AuthContext";
@@ -52,53 +60,52 @@ export default function Header() {
     }
   };
   return (
-    <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-gray-200 shrink-0 z-20">
+    <header className="h-14 flex items-center justify-between px-4 bg-background border-b border-border shrink-0 z-20">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-primary flex items-center justify-center">
-            <XIcon className="w-4 h-4 text-white" strokeWidth={3} />
-          </div>
-          <span className="font-semibold text-gray-900 text-sm tracking-tight">
+          <AdaLogo className="w-8 h-8" />
+          <span className="font-semibold text-foreground text-sm tracking-tight">
             MenuBuilder{" "}
-            <span className="text-indigo-primary font-bold">AI</span>
+            <span className="text-primary font-bold">AI</span>
           </span>
         </div>
 
         <nav className="flex items-center gap-1">
           {navItems.map((item) => (
-            <button
+            <Button
               key={item}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                item === "Editor"
-                  ? "text-indigo-primary font-semibold border-b-2 border-indigo-primary"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
+              variant={item === "Editor" ? "default" : "ghost"}
+              size="sm"
+              className={cn(
+                item === "Editor" && "border-b-2 border-primary rounded-b-none"
+              )}
             >
               {item}
-            </button>
+            </Button>
           ))}
         </nav>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
             type="text"
             placeholder="Search menu items..."
-            className="pl-9 pr-4 py-1.5 w-52 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-primary/20 focus:border-indigo-primary/40 placeholder:text-gray-400"
+            className="pl-9 w-52"
           />
         </div>
 
-        <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <Button variant="outline" size="sm">
           <Eye className="w-4 h-4" />
           Preview
-        </button>
+        </Button>
 
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {downloading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -106,50 +113,54 @@ export default function Header() {
             <Download className="w-4 h-4" />
           )}
           {downloading ? "Generating…" : "Download"}
-        </button>
+        </Button>
 
-        <button className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-white bg-indigo-primary rounded-lg hover:bg-indigo-hover transition-colors">
+        <Button size="sm">
           <Rocket className="w-4 h-4" />
           Publish
-        </button>
+        </Button>
 
         {/* User Avatar & Menu */}
         <div className="relative" ref={userMenuRef}>
-          <button
+          <Avatar
+            className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold hover:ring-2 hover:ring-indigo-200 transition-all"
             title={user?.full_name || user?.email || "Account"}
           >
-            {user?.full_name ? (
-              user.full_name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)
-            ) : (
-              <User className="w-4 h-4" />
-            )}
-          </button>
+            <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-primary-foreground text-xs font-bold">
+              {user?.full_name ? (
+                user.full_name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)
+              ) : (
+                <User className="w-4 h-4" />
+              )}
+            </AvatarFallback>
+          </Avatar>
 
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-medium text-gray-900 truncate">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-card rounded-lg shadow-lg border border-border py-1 z-50">
+              <div className="px-4 py-2 border-b border-border">
+                <p className="text-sm font-medium text-card-foreground truncate">
                   {user?.full_name || "User"}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 rounded">
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <Badge variant="secondary" className="mt-1">
                   {user?.role || "user"}
-                </span>
+                </Badge>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={logout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="w-4 h-4" />
                 Sign out
-              </button>
+              </Button>
             </div>
           )}
         </div>

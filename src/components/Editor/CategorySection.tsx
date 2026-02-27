@@ -10,6 +10,7 @@ import {
   Rows3,
   Columns,
 } from "lucide-react";
+import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -105,99 +106,106 @@ export default function CategorySection({
     <div
       ref={setSortableRef}
       style={style}
-      className={`transition-all duration-200 ${
-        isDragActive
-          ? "ring-2 ring-indigo-primary/60 rounded-xl bg-indigo-primary/5"
-          : isDragOver
-            ? "ring-2 ring-indigo-primary/40 rounded-xl bg-indigo-primary/3"
-            : isHighlighted && !isDraggingActive
-              ? "ring-2 ring-indigo-primary/30 rounded-xl"
-              : ""
-      }`}
+      className={cn(
+        "transition-all duration-200",
+        isDragActive && "ring-2 ring-primary/60 rounded-xl bg-primary/5",
+        isDragOver && "ring-2 ring-primary/40 rounded-xl bg-primary/3",
+        isHighlighted && !isDraggingActive && "ring-2 ring-primary/30 rounded-xl"
+      )}
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
       {isDragging ? (
-        <div className="flex items-center gap-2 py-2 px-1 opacity-40 border-2 border-dashed border-gray-300 rounded-xl">
-          <GripVertical className="w-5 h-5 text-gray-300" />
-          <span className="font-bold text-base text-gray-900">{category.name}</span>
-          <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
-            {category.items.length}{" "}
-            {category.items.length === 1 ? "item" : "items"}
-          </span>
+        <div className="flex items-center gap-2 py-2 px-1 opacity-40 border-2 border-dashed border-muted-foreground/30 rounded-xl">
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+          <span className="font-bold text-base text-foreground">{category.name}</span>
+          <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
+            {category.items.length} {category.items.length === 1 ? "item" : "items"}
+          </Badge>
         </div>
       ) : isDraggingCategory ? (
-        <div className="flex items-center gap-2 py-2 px-1 border border-gray-200 rounded-xl bg-white">
-          <GripVertical className="w-5 h-5 text-gray-300" />
-          <span className="font-bold text-base text-gray-900">{category.name}</span>
-          <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
-            {category.items.length}{" "}
-            {category.items.length === 1 ? "item" : "items"}
-          </span>
+        <div className="flex items-center gap-2 py-2 px-1 border border-border rounded-xl bg-card">
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
+          <span className="font-bold text-base text-card-foreground">{category.name}</span>
+          <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
+            {category.items.length} {category.items.length === 1 ? "item" : "items"}
+          </Badge>
         </div>
       ) : (
       <>
       <div className="flex items-center gap-2 mb-3">
         {/* Drag handle — only this element activates the drag */}
-        <button
-          className={`text-gray-300 hover:text-gray-500 p-0.5 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className={cn(
+            "text-muted-foreground hover:text-foreground p-0.5 cursor-grab",
+            isDragging && "cursor-grabbing"
+          )}
           {...attributes}
           {...listeners}
         >
           <GripVertical className="w-5 h-5" />
-        </button>
+        </Button>
 
         {isEditingName ? (
           <div className="flex items-center gap-1.5">
-            <input
+            <Input
               autoFocus
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="font-bold text-base text-gray-900 border border-gray-300 rounded-md px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-primary/30"
+              className="font-bold text-base"
             />
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={handleSaveName}
-              className="p-1 text-green-600 hover:text-green-700"
+              className="text-success hover:text-success"
             >
               <Check className="w-4 h-4" />
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => {
                 setEditName(category.name);
                 setIsEditingName(false);
               }}
-              className="p-1 text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
         ) : (
           <h3
-            className="font-bold text-base text-gray-900 cursor-pointer"
+            className="font-bold text-base text-foreground cursor-pointer"
             onDoubleClick={() => setIsEditingName(true)}
           >
             {category.name}
           </h3>
         )}
 
-        <span className="px-2 py-0.5 bg-indigo-primary/10 text-indigo-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
-          {category.items.length}{" "}
-          {category.items.length === 1 ? "item" : "items"}
-        </span>
+        <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
+          {category.items.length} {category.items.length === 1 ? "item" : "items"}
+        </Badge>
 
         <div className="flex-1" />
 
         {!isEditingName && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setIsEditingName(true)}
-            className="p-1 text-gray-300 hover:text-gray-500 transition-colors"
+            className="text-muted-foreground hover:text-foreground"
           >
             <Pencil className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         )}
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() =>
             updateCategory(category.id, {
               pageBreakMode: pageBreakMode === "category" ? "item" : "category",
@@ -208,68 +216,76 @@ export default function CategorySection({
               ? "Page breaks: category level (click to switch to item level)"
               : "Page breaks: item level (click to switch to category level)"
           }
-          className={`p-1 transition-colors ${
+          className={cn(
             pageBreakMode === "item"
-              ? "text-indigo-primary hover:text-indigo-hover"
-              : "text-gray-300 hover:text-gray-500"
-          }`}
+              ? "text-primary hover:text-primary/80"
+              : "text-muted-foreground hover:text-foreground"
+          )}
         >
           <Rows3 className="w-3.5 h-3.5" />
-        </button>
+        </Button>
 
         {pageBreakMode === "category" && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() =>
               updateCategory(category.id, {
                 pageBreakBefore: !category.pageBreakBefore,
               })
             }
             title="Page break before this category"
-            className={`p-1 transition-colors ${
+            className={cn(
               category.pageBreakBefore
-                ? "text-indigo-primary hover:text-indigo-hover"
-                : "text-gray-300 hover:text-gray-500"
-            }`}
+                ? "text-primary hover:text-primary/80"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <SeparatorHorizontal className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         )}
 
         {columnCount > 1 && (
           <div className="flex items-center gap-0.5" title="Assign to column">
-            <Columns className="w-3 h-3 text-gray-400 mr-0.5" />
+            <Columns className="w-3 h-3 text-muted-foreground mr-0.5" />
             {Array.from({ length: columnCount }, (_, i) => i + 1).map((col) => (
-              <button
+              <Button
                 key={col}
+                variant={currentColumn === col ? "default" : "ghost"}
+                size="tiny"
                 onClick={() => updateCategory(category.id, { column: col })}
-                className={`w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
+                className={cn(
+                  "w-5 h-5 text-[10px] font-bold",
                   currentColumn === col
-                    ? "bg-indigo-primary text-white"
-                    : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                }`}
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
               >
                 {col}
-              </button>
+              </Button>
             ))}
           </div>
         )}
 
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => removeCategory(category.id)}
-          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+          className="text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        </Button>
       </div>
 
       <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
         <div
           ref={setDroppableRef}
-          className={`space-y-3 ml-7 rounded-lg transition-all duration-150 ${
-            isItemsOver && dragState.activeType === "item"
-              ? "ring-1 ring-indigo-primary/30 bg-indigo-primary/3 p-2 -m-2"
-              : ""
-          }`}
+          className={cn(
+            "space-y-3 ml-7 rounded-lg transition-all duration-150",
+            isItemsOver && 
+              dragState.activeType === "item" && 
+              "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
+          )}
         >
           {category.items.map((item) => (
             <MenuItemCard
@@ -281,13 +297,14 @@ export default function CategorySection({
             />
           ))}
 
-          <button
+          <Button
+            variant="outline"
             onClick={handleAddItem}
-            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-1.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 font-medium hover:border-indigo-primary/30 hover:text-indigo-primary/70 transition-colors"
+            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-1.5 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
           >
             <Plus className="w-4 h-4" />
             Add {singularName}
-          </button>
+          </Button>
         </div>
       </SortableContext>
       </>

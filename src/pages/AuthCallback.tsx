@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { Card, Button, Spinner } from "ada-design-system";
 import { useAuth } from "../context/AuthContext";
 
 type Status = "processing" | "success" | "error";
@@ -46,51 +47,51 @@ export default function AuthCallback() {
   }, [searchParams, navigate, login]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-sm w-full text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200">
+    <div className="min-h-screen flex items-center justify-center bg-muted">
+      <Card className="max-w-sm w-full text-center p-8">
         {/* Status Icon */}
         <div className="flex justify-center mb-4">
           {status === "processing" && (
-            <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <Spinner className="w-10 h-10" />
           )}
           {status === "success" && (
-            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">✓</span>
+            <div className="w-10 h-10 bg-success rounded-full flex items-center justify-center">
+              <span className="text-success-foreground text-lg">✓</span>
             </div>
           )}
           {status === "error" && (
-            <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">✕</span>
+            <div className="w-10 h-10 bg-destructive rounded-full flex items-center justify-center">
+              <span className="text-destructive-foreground text-lg">✕</span>
             </div>
           )}
         </div>
 
-        <h1 className="text-lg font-semibold text-gray-900 mb-1">
+        <h1 className="text-lg font-semibold text-card-foreground mb-1">
           MenuBuilder Authentication
         </h1>
         <p
           className={`text-sm ${
             status === "success"
-              ? "text-green-600"
+              ? "text-success"
               : status === "error"
-                ? "text-red-600"
-                : "text-gray-500"
+                ? "text-destructive"
+                : "text-muted-foreground"
           }`}
         >
           {message}
         </p>
 
         {status === "error" && (
-          <button
+          <Button
             onClick={() => {
               window.location.href = `${import.meta.env.VITE_AUTH_URL || "https://auth.adasystems.app"}/?redirect=${encodeURIComponent(window.location.origin + "/auth/callback?redirect=/")}`;
             }}
-            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+            className="mt-4"
           >
             Try Again
-          </button>
+          </Button>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
