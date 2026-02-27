@@ -7,7 +7,7 @@ import {
   Loader2,
   ChevronDown,
 } from "lucide-react";
-import { Button, AdaLogo, Input } from "ada-design-system";
+import { Button, AdaLogo } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
 
@@ -92,12 +92,12 @@ export default function Header() {
 
       {/* CENTER — Search */}
       <div className="flex-1 flex justify-center px-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
-          <Input
+        <div className="flex items-center gap-2 w-full max-w-sm h-9 rounded-md border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring focus-within:border-input">
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <input
             type="text"
             placeholder="Search menu items..."
-            className="pl-10 h-9 w-full"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
         </div>
       </div>

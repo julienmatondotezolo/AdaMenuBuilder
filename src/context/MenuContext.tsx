@@ -32,7 +32,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [menuData, setMenuData] = useState<MenuData>(sampleMenu);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredType, setHoveredType] = useState<HoveredType>(null);
-  const [viewport, setViewport] = useState<Viewport>("desktop");
+  const [viewport, setViewport] = useState<Viewport>("paper");
   const [orientation, setOrientation] = useState<Orientation>("portrait");
   const [columnCount, setColumnCountRaw] = useState<number>(1);
   const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>("N");
