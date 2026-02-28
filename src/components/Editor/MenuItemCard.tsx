@@ -20,10 +20,10 @@ export default function MenuItemCard({
   isDraggingActive,
   isOverlay,
 }: MenuItemCardProps) {
-  const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState } =
+  const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState, selectedItemId, selectItem } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
-  const [isSelected, setIsSelected] = useState(false);
+  const isSelected = selectedItemId === item.id;
   const [editName, setEditName] = useState(item.name);
   const [editPrice, setEditPrice] = useState<number | string>(item.price);
   const [editDesc, setEditDesc] = useState(item.description);
@@ -66,13 +66,13 @@ export default function MenuItemCard({
       setEditPrice(item.price);
       setEditDesc(item.description);
       setIsEditing(false);
-      setIsSelected(false);
+      selectItem(null);
     }
   };
 
   const handleCardClick = () => {
     if (!isDragging && !isEditing) {
-      setIsSelected((s) => !s);
+      selectItem(item.id);
     }
   };
 
@@ -163,7 +163,7 @@ export default function MenuItemCard({
                     setEditPrice(item.price);
                     setEditDesc(item.description);
                     setIsEditing(false);
-                    setIsSelected(false);
+                    selectItem(null);
                   }}
                   className="text-xs"
                 >
