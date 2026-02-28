@@ -200,30 +200,26 @@ export default function MenuItemCard({
               {/* Action buttons — only on hover or selected */}
               {showActions && (
                 <div className="flex items-center gap-1.5 mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsEditing(true);
                     }}
-                    className="h-5 text-[10px] font-medium px-2 bg-white/50"
+                    className="flex items-center gap-1 h-auto text-[9px] font-medium px-2 py-1 rounded border border-border bg-white/50"
                   >
-                    <Pencil className="w-2.5 h-2.5 mr-1" />
+                    <Pencil className="w-2.5 h-2.5" />
                     Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  </button>
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       removeItem(categoryId, item.id);
                     }}
-                    className="h-5 text-[10px] font-medium px-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    className="flex items-center gap-1 h-auto text-[9px] font-medium px-2 py-1 rounded border border-destructive/50 bg-destructive/10 text-destructive"
                   >
-                    <Trash2 className="w-2.5 h-2.5 mr-1" />
+                    <Trash2 className="w-2.5 h-2.5" />
                     Delete
-                  </Button>
+                  </button>
                 </div>
               )}
             </>
