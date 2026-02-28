@@ -223,11 +223,21 @@ export default function EditorPanel() {
             placeholder="Search menu items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-3 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
+            className="w-full h-10 pl-9 pr-9 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
             style={{ border: '1px solid hsl(220 13% 91%)' }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 text-muted-foreground transition-colors"
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(224 71% 4%)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -324,14 +334,14 @@ export default function EditorPanel() {
             </Button>
           </div>
         ) : (
-          <button
+          <Button
             onClick={() => setIsAddingCategory(true)}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
-            style={{ backgroundColor: 'hsl(232 100% 66%)' }}
+            className="w-full flex items-center justify-center gap-2 py-4 font-semibold"
+            size="lg"
           >
             <Plus className="w-4 h-4" />
             Create New Category
-          </button>
+          </Button>
         )}
       </div>
     </div>

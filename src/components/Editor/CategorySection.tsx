@@ -5,6 +5,7 @@ import {
   Check,
   X,
   ChevronDown,
+  Pencil,
   UtensilsCrossed,
   Beef,
   CakeSlice,
@@ -120,6 +121,17 @@ export default function CategorySection({
     setIsEditingName(false);
   };
 
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditName(category.name);
+    setIsEditingName(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(category.name);
+    setIsEditingName(false);
+  };
+
   const handleAddItem = () => {
     addItem(category.id, {
       name: "New Item",
@@ -132,10 +144,7 @@ export default function CategorySection({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSaveName();
-    if (e.key === "Escape") {
-      setEditName(category.name);
-      setIsEditingName(false);
-    }
+    if (e.key === "Escape") handleCancelEdit();
   };
 
   const handleHeaderClick = () => {
@@ -175,13 +184,13 @@ export default function CategorySection({
       {/* ── Category Header ─────────────────────────────────────────── */}
       <div
         className={cn(
-          "category-header flex items-center gap-2.5 px-4 py-3 select-none transition-colors duration-200",
+          "category-header flex items-center gap-2 px-4 py-3 select-none transition-colors duration-200",
           isExpanded && "category-expanded"
         )}
         onClick={handleHeaderClick}
         style={{ cursor: 'pointer' }}
       >
-        {/* Drag handle — only activates on long press / pointer down */}
+        {/* Drag handle — icon */}
         <span
           className={cn("shrink-0 cursor-grab", isExpanded ? "text-white/80" : "text-muted-foreground")}
           {...attributes}
@@ -191,16 +200,16 @@ export default function CategorySection({
           {getCategoryIcon(category.name)}
         </span>
 
-        {/* Name */}
+        {/* Name or Edit input */}
         {isEditingName ? (
-          <div className="flex items-center gap-1.5 flex-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5" style={{ width: '50%' }} onClick={(e) => e.stopPropagation()}>
             <Input
               autoFocus
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
               className={cn(
-                "font-bold text-sm",
+                "font-bold text-sm h-7",
                 isCollapsed ? "bg-white border-border text-foreground" : "bg-white/20 border-white/30 text-white"
               )}
             />
@@ -215,9 +224,9 @@ export default function CategorySection({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={() => {
-                setEditName(category.name);
-                setIsEditingName(false);
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleCancelEdit();
               }}
               className={isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
             >
@@ -230,24 +239,25 @@ export default function CategorySection({
               "font-bold text-sm",
               isExpanded ? "text-white" : "text-foreground"
             )}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              setIsEditingName(true);
-            }}
           >
             {category.name}
           </h3>
         )}
 
-        {/* Item count badge */}
-        <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={isCollapsed
-            ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
-            : { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
-          }
-        >
-          {category.items.length} {category.items.length === 1 ? "ITEM" : "ITEMS"}
-        </Badge>
+        {/* Edit button (pencil) — left of item count */}
+        {!isEditingName && (
+          <button
+            onClick={handleStartEdit}
+            className={cn(
+              "shrink-0 p-0.5 rounded transition-colors",
+              isExpanded
+                ? "text-white/60 hover:text-white"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+        )}
 
         <div className="flex-1" />
 
@@ -258,7 +268,7 @@ export default function CategorySection({
             removeCategory(category.id);
           }}
           className={cn(
-            "opacity-0 hover:opacity-100 transition-all group-hover/cat:opacity-100",
+            "shrink-0 opacity-0 hover:opacity-100 transition-all group-hover/cat:opacity-100",
             isExpanded ? "text-white/60 hover:text-red-300" : "text-muted-foreground hover:text-red-500"
           )}
           style={{ opacity: isHighlighted ? 1 : undefined }}
@@ -266,10 +276,20 @@ export default function CategorySection({
           <Trash2 className="w-3.5 h-3.5" />
         </button>
 
+        {/* Item count badge — right side, next to chevron */}
+        <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+          style={isCollapsed
+            ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
+            : { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
+          }
+        >
+          {category.items.length} {category.items.length === 1 ? "ITEM" : "ITEMS"}
+        </Badge>
+
         {/* Collapse chevron */}
         <span
           className={cn(
-            "transition-colors",
+            "shrink-0 transition-colors",
             isExpanded ? "text-white" : "text-muted-foreground"
           )}
         >
