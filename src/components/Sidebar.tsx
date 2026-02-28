@@ -111,12 +111,20 @@ export default function Sidebar() {
   };
 
   return (
-    <aside
-      className={cn(
-        "h-full flex flex-col bg-white border-r border-gray-200/80 transition-[width] duration-200 ease-in-out shrink-0 select-none",
-        collapsed ? "w-[60px]" : "w-[220px]",
+    <div className="relative h-full shrink-0 w-[60px]">
+      {/* Overlay backdrop when expanded */}
+      {!collapsed && (
+        <div
+          className="fixed inset-0 z-40 bg-black/10 transition-opacity"
+          onClick={() => setCollapsed(true)}
+        />
       )}
-    >
+      <aside
+        className={cn(
+          "absolute top-0 left-0 h-full flex flex-col bg-white border-r border-gray-300 shadow-sm transition-[width] duration-200 ease-in-out select-none overflow-x-auto overflow-y-hidden",
+          collapsed ? "w-[60px] z-10" : "w-[220px] z-50 shadow-xl",
+        )}
+      >
       {/* ═══ Header: Logo + Toggle ═══════════════════════════════════════ */}
       <div className={cn(
         "flex items-center h-14 shrink-0 border-b border-gray-100",
@@ -284,5 +292,6 @@ export default function Sidebar() {
         </Tooltip>
       </div>
     </aside>
+    </div>
   );
 }
