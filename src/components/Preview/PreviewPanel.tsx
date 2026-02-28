@@ -52,12 +52,28 @@ export default function PreviewPanel() {
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchStart = useRef<{ dist: number; zoom: number; midX: number; midY: number } | null>(null);
 
-  /* ── Measure container size ────────────────────────────────────────────── */
+  /* ── Measure container + auto-center on mount ───────────────────────────── */
+  const hasCentered = useRef(false);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const measure = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
-    measure();
+    const measure = () => {
+      setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+      // Center on first measure
+      if (!hasCentered.current) {
+        hasCentered.current = true;
+        const content = contentRef.current;
+        const contentH = content?.scrollHeight ?? 1000;
+        const padding = 100;
+        const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min((el.clientWidth - padding) / PREVIEW_WIDTH, (el.clientHeight - padding) / contentH).toFixed(2)));
+        const panX = (el.clientWidth - PREVIEW_WIDTH * fitZoom) / 2;
+        const panY = (el.clientHeight - contentH * fitZoom) / 2;
+        setZoom(fitZoom);
+        setPan({ x: panX, y: Math.max(panY, padding / 2) });
+      }
+    };
+    // Small delay for content to render
+    requestAnimationFrame(measure);
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
@@ -232,16 +248,17 @@ export default function PreviewPanel() {
       setPan({ x: 0, y: 0 });
       return;
     }
-    // Fit menu height inside container
+    // Fit menu inside container with padding
     const padding = 100;
-    const containerH = el.clientHeight - padding;
-    const containerW = el.clientWidth - padding;
+    const cW = el.clientWidth - padding;
+    const cH = el.clientHeight - padding;
     const contentH = content?.scrollHeight ?? 1000;
-    const fitByHeight = containerH / contentH;
-    const fitByWidth = containerW / PREVIEW_WIDTH;
-    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min(fitByHeight, fitByWidth).toFixed(2)));
+    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min(cW / PREVIEW_WIDTH, cH / contentH).toFixed(2)));
+    // Center content in container
+    const panX = (el.clientWidth - PREVIEW_WIDTH * fitZoom) / 2;
+    const panY = (el.clientHeight - contentH * fitZoom) / 2;
     setZoom(fitZoom);
-    setPan({ x: 0, y: 0 });
+    setPan({ x: panX, y: Math.max(panY, padding / 2) });
   }, []);
 
   /* ── Cursor ────────────────────────────────────────────────────────────── */
@@ -271,23 +288,12 @@ export default function PreviewPanel() {
           }}
           className="absolute top-0 left-0"
         >
-          {/* Center the content in the canvas */}
           <div
-            style={{
-              width: `${containerSize.w / zoom}px`,
-              minHeight: `${containerSize.h / zoom}px`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            ref={contentRef}
+            className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
+            style={{ width: `${PREVIEW_WIDTH}px` }}
           >
-            <div
-              ref={contentRef}
-              className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
-              style={{ width: `${PREVIEW_WIDTH}px` }}
-            >
-              <MenuPreview />
-            </div>
+            <MenuPreview />
           </div>
         </div>
       </div>
