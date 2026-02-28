@@ -5,7 +5,6 @@ import { Button } from "ada-design-system";
 import { useMenuById, updateMenu } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
 import Header from "../components/Header";
-import Sidebar from "../components/Sidebar";
 import EditorPanel from "../components/Editor/EditorPanel";
 import PreviewPanel from "../components/Preview/PreviewPanel";
 
@@ -33,7 +32,7 @@ export default function MenuEditor() {
 
   if (!menu) {
     return (
-      <div className="flex items-center justify-center h-screen text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
           <p>Loading menu...</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate("/")}>
@@ -46,19 +45,20 @@ export default function MenuEditor() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
+    <div className="h-full flex flex-col overflow-hidden">
       <Header />
-      <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar />
-        {/* Editor Panel */}
-        <div className="w-[360px] shrink-0 border-r border-border overflow-hidden">
+
+      <main className="flex-1 flex overflow-hidden">
+        {/* Editor Panel — same width as original develop branch */}
+        <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
           <EditorPanel />
         </div>
+
         {/* Preview */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-w-0 relative">
           <PreviewPanel />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

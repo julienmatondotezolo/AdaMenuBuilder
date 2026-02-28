@@ -98,9 +98,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="h-full overflow-y-auto bg-muted/30">
       {/* Top bar */}
-      <header className="h-14 flex items-center justify-between px-6 bg-background border-b border-border">
+      <header className="h-14 flex items-center justify-between px-6 bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">My Menus</h1>

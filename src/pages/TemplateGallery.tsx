@@ -107,7 +107,7 @@ export default function TemplateGallery() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="h-full overflow-y-auto bg-muted/30">
       {/* Top bar */}
       <header className="h-14 flex items-center justify-between px-6 bg-background border-b border-border">
         <div className="flex items-center gap-3">

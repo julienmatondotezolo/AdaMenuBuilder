@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "./context/MenuContext";
 import { seedDefaults } from "./db/dexie";
+import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import TemplateGallery from "./pages/TemplateGallery";
 import TemplateEditor from "./pages/TemplateEditor";
@@ -23,22 +24,25 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/templates" element={<TemplateGallery />} />
-        <Route path="/templates/:id/edit" element={<TemplateEditor />} />
-        <Route
-          path="/menus/:id/edit"
-          element={
-            <MenuProvider>
-              <MenuEditor />
-            </MenuProvider>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="h-screen flex overflow-hidden bg-background">
+      <Sidebar />
+      <div className="flex-1 overflow-hidden">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/templates" element={<TemplateGallery />} />
+          <Route path="/templates/:id/edit" element={<TemplateEditor />} />
+          <Route
+            path="/menus/:id/edit"
+            element={
+              <MenuProvider>
+                <MenuEditor />
+              </MenuProvider>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
 

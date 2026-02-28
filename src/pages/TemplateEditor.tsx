@@ -47,7 +47,7 @@ export default function TemplateEditor() {
   }, [template]);
 
   if (!template) {
-    return <div className="flex items-center justify-center h-screen text-muted-foreground text-sm">Loading...</div>;
+    return <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>;
   }
 
   const activeVariant = template.pageVariants.find((v) => v.id === activeVariantId);
@@ -96,7 +96,7 @@ export default function TemplateEditor() {
   const scale = Math.min(400 / previewW, 600 / previewH, 1);
 
   return (
-    <div className="h-screen flex flex-col bg-muted/30">
+    <div className="h-full flex flex-col bg-muted/30">
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-4 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3">

@@ -6,7 +6,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  LayoutDashboard,
+  Home,
   LayoutTemplate,
 } from "lucide-react";
 import { cn, AdaLogo, Avatar, AvatarFallback } from "ada-design-system";
@@ -67,7 +67,7 @@ function Tooltip({
 /* ── Nav items config ────────────────────────────────────────────────────── */
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { id: "dashboard", label: "Dashboard", icon: Home, path: "/" },
   { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/templates" },
   { id: "analytics", label: "Analytics", icon: BarChart3, path: "#" },
   { id: "settings", label: "Settings", icon: Settings, path: "#" },
@@ -245,14 +245,14 @@ export default function Sidebar() {
                     className={cn(
                       "flex items-center w-full gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150",
                       active
-                        ? "bg-gray-900 text-white shadow-sm"
+                        ? "bg-primary/10 text-primary shadow-sm"
                         : "text-gray-500 hover:bg-gray-100 hover:text-gray-700",
                     )}
                   >
                     <item.icon
                       className={cn(
                         "w-[18px] h-[18px] shrink-0",
-                        active ? "text-white" : "text-gray-400",
+                        active ? "text-primary" : "text-gray-400",
                       )}
                     />
                     <span
