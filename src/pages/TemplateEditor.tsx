@@ -18,7 +18,6 @@ import {
   Ruler,
   Check,
   Space,
-  Star,
   Download,
 } from "lucide-react";
 import {
@@ -742,7 +741,7 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale }: {
+function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
 }) {
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;

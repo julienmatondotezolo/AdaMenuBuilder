@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   AlertTriangle,
   FileText,
@@ -6,10 +6,9 @@ import {
   Pencil,
   Trash2,
   Check,
-  X,
   ChevronDown,
 } from "lucide-react";
-import { cn, Input, Button } from "ada-design-system";
+import { cn, Button } from "ada-design-system";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import CategorySection from "./CategorySection";
@@ -50,7 +49,7 @@ export default function PageCard({
   onActivate,
   onRemove,
   onChangeVariant,
-  onAddItem,
+  onAddItem: _onAddItem,
   searchQuery,
   collapseSignal,
   expandSignal,

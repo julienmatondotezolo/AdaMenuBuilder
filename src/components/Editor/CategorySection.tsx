@@ -101,8 +101,6 @@ export default function CategorySection({
       };
 
   const isHighlighted = hoveredId === category.id;
-  const isDragOver =
-    dragState.overId === category.id && dragState.activeId !== category.id;
 
   // Force collapsed when used as drag overlay
   const effectiveCollapsed = forceCollapsed || isCollapsed;

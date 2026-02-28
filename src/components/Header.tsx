@@ -9,7 +9,7 @@ import {
   X,
   Clock,
 } from "lucide-react";
-import { Button, cn } from "ada-design-system";
+import { Button } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
 import type { MenuTemplate } from "../types/template";
@@ -19,7 +19,7 @@ interface HeaderProps {
   lastSaved?: string; // ISO string
 }
 
-export default function Header({ template, lastSaved }: HeaderProps) {
+export default function Header({ template: _template, lastSaved }: HeaderProps) {
   const { menuData, setMenuData, orientation, columnCount, layoutDirection } = useMenu();
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

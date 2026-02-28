@@ -212,7 +212,6 @@ export default function EditorPanel() {
     activePageIndex,
     setActivePageIndex,
     addCategory,
-    reorderCategories,
     moveOrReorderItem,
     setDragState,
     dragState,
@@ -1004,7 +1003,7 @@ export default function EditorPanel() {
                 onActivate={() => setActivePageIndex(pageIndex)}
                 onRemove={() => removePage(pageIndex)}
                 onChangeVariant={(v) => changePageVariant(pageIndex, v)}
-                onAddItem={(catId) => {
+                onAddItem={() => {
                   /* handled by CategorySection */
                 }}
                 searchQuery={searchQuery}

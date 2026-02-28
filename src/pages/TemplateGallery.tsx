@@ -49,7 +49,7 @@ const DEFAULT_PAGE_VARIANT = {
   name: "Content",
   header: { show: true, style: "centered" as const, showSubtitle: true, showEstablished: true, showDivider: true },
   body: { columns: 1, categoryStyle: "lines" as const, itemAlignment: "center" as const, pricePosition: "below" as const, separatorStyle: "line" as const, showDescriptions: true, showFeaturedBadge: true },
-  highlight: { show: false, position: "none" as const },
+  highlight: { show: false, position: "none" as const, height: 200, marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0 },
 };
 
 const FORMAT_PREVIEWS: Record<string, { w: number; h: number }> = {

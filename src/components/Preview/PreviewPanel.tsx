@@ -36,7 +36,7 @@ interface PreviewPanelProps {
 }
 
 export default function PreviewPanel({ template }: PreviewPanelProps) {
-  const { selectedItemId, activePageIndex, setActivePageIndex } = useMenu();
+  const { selectedItemId, activePageIndex } = useMenu();
   const [selectedIcon, setSelectedIcon] = useState("paper");
 
   /* ── Canvas state ──────────────────────────────────────────────────────── */
