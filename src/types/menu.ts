@@ -86,7 +86,7 @@ export interface MenuContextValue {
   setColumnCount: (count: number) => void;
   layoutDirection: LayoutDirection;
   setLayoutDirection: (direction: LayoutDirection) => void;
-  addCategory: (name: string) => void;
+  addCategory: (name: string) => string;
   removeCategory: (categoryId: string) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
   addItem: (categoryId: string, item: Partial<MenuItem>) => void;

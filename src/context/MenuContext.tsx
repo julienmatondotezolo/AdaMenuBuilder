@@ -61,18 +61,20 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
   }, []);
 
   // ---- Category CRUD ----
-  const addCategory = useCallback((name: string) => {
+  const addCategory = useCallback((name: string): string => {
+    const catId = `cat-${uid()}`;
     setMenuData((prev) => ({
       ...prev,
       categories: [
         ...prev.categories,
         {
-          id: `cat-${uid()}`,
+          id: catId,
           name,
           items: [],
         },
       ],
     }));
+    return catId;
   }, []);
 
   const removeCategory = useCallback((categoryId: string) => {
