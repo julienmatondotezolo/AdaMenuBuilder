@@ -12,7 +12,7 @@ export default function MenuEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const menu = useMenuById(id);
-  const { menuData, setMenuData, templateId, setTemplateId } = useMenu();
+  const { menuData, setMenuData, templateId, setTemplateId, pages, setPages } = useMenu();
 
   // Live-query the template — auto-updates when template changes
   const template = useTemplateById(templateId || undefined);
@@ -22,17 +22,18 @@ export default function MenuEditor() {
     if (menu) {
       setMenuData(menu.data);
       setTemplateId(menu.templateId);
+      setPages(menu.pages);
     }
   }, [menu?.id]);
 
-  // Auto-save back to IndexedDB when menuData changes
+  // Auto-save back to IndexedDB when menuData or pages change
   useEffect(() => {
     if (!id || !menu) return;
     const timeout = setTimeout(() => {
-      updateMenu(id, { data: menuData });
+      updateMenu(id, { data: menuData, pages });
     }, 500);
     return () => clearTimeout(timeout);
-  }, [menuData, id]);
+  }, [menuData, pages, id]);
 
   // Persist templateId changes to IndexedDB
   useEffect(() => {

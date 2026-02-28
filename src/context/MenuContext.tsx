@@ -10,6 +10,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { sampleMenu } from "../data/sampleMenu";
 import type {
   MenuData,
+  MenuPage,
   MenuItem,
   Category,
   HoveredType,
@@ -32,6 +33,8 @@ const INITIAL_DRAG_STATE: DragState = {
 export function MenuProvider({ children, initialTemplateId }: { children: ReactNode; initialTemplateId?: string }) {
   const [menuData, setMenuData] = useState<MenuData>(sampleMenu);
   const [templateId, setTemplateId] = useState<string>(initialTemplateId || "");
+  const [pages, setPages] = useState<MenuPage[]>([]);
+  const [activePageIndex, setActivePageIndex] = useState<number>(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredType, setHoveredType] = useState<HoveredType>(null);
   const [viewport, setViewport] = useState<Viewport>("paper");
@@ -274,6 +277,10 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
     setMenuData,
     templateId,
     setTemplateId,
+    pages,
+    setPages,
+    activePageIndex,
+    setActivePageIndex,
     hoveredId,
     hoveredType,
     setHover,

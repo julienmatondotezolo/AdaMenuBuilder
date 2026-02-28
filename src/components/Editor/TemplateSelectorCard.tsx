@@ -1,73 +1,78 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Palette, ChevronDown, AlertTriangle, Layers, ExternalLink, Check } from "lucide-react";
-import { cn, Badge } from "ada-design-system";
+import {
+  Palette,
+  ChevronDown,
+  AlertTriangle,
+  Layers,
+  ExternalLink,
+  Check,
+  Plus,
+  Trash2,
+  FileText,
+} from "lucide-react";
+import { cn } from "ada-design-system";
+import { uid } from "../../utils/uid";
 import { useMenu } from "../../context/MenuContext";
 import { useTemplates, useTemplateById } from "../../db/hooks";
 import type { MenuTemplate, PageVariant } from "../../types/template";
+import type { MenuPage } from "../../types/menu";
+import { mmToPx } from "../../types/template";
 
-/* ── Content overflow detection ──────────────────────────────────────── */
+/* ── Content overflow detection (per page) ───────────────────────────── */
 
-interface OverflowInfo {
-  contentHeight: number;   // px — actual rendered content height
-  pageHeight: number;      // px — available page height at 96dpi
-  overflowPx: number;      // how many px the content exceeds the page (0 = fits)
-  overflowPercent: number; // overflow as % of page
+interface PageOverflow {
+  pageIndex: number;
+  contentHeight: number;
+  pageHeight: number;
+  overflowPx: number;
 }
 
-function useContentOverflow(template: MenuTemplate | undefined): OverflowInfo {
-  const [info, setInfo] = useState<OverflowInfo>({
-    contentHeight: 0,
-    pageHeight: 0,
-    overflowPx: 0,
-    overflowPercent: 0,
-  });
+function usePageOverflows(template: MenuTemplate | undefined, pageCount: number): PageOverflow[] {
+  const [overflows, setOverflows] = useState<PageOverflow[]>([]);
 
   const measure = useCallback(() => {
     if (!template) return;
+    const pageHeight = mmToPx(template.format.height);
+    const results: PageOverflow[] = [];
 
-    // Find the preview element in the DOM
-    const previewEl = document.querySelector("[data-menu-preview]") as HTMLElement | null;
-    if (!previewEl) return;
-
-    const contentHeight = previewEl.scrollHeight;
-    // Convert mm → px at 96 DPI (same as mmToPx in template.ts)
-    const pageHeight = Math.round((template.format.height / 25.4) * 96);
-
-    const overflowPx = Math.max(0, contentHeight - pageHeight);
-    const overflowPercent = pageHeight > 0 ? Math.round((overflowPx / pageHeight) * 100) : 0;
-
-    setInfo({ contentHeight, pageHeight, overflowPx, overflowPercent });
-  }, [template]);
+    for (let i = 0; i < pageCount; i++) {
+      const el = document.querySelector(`[data-menu-preview][data-page-index="${i}"]`) as HTMLElement | null;
+      if (!el) continue;
+      const contentHeight = el.scrollHeight;
+      const overflowPx = Math.max(0, contentHeight - pageHeight);
+      if (overflowPx > 4) { // 4px tolerance for rounding
+        results.push({ pageIndex: i, contentHeight, pageHeight, overflowPx });
+      }
+    }
+    setOverflows(results);
+  }, [template, pageCount]);
 
   useEffect(() => {
     measure();
-    // Re-measure on a short interval to catch menu data changes
-    const interval = setInterval(measure, 1000);
+    const interval = setInterval(measure, 1500);
     return () => clearInterval(interval);
   }, [measure]);
 
-  // Also measure when template changes
   useEffect(() => {
-    // Small delay to let the preview re-render
-    const timer = setTimeout(measure, 200);
+    const timer = setTimeout(measure, 300);
     return () => clearTimeout(timer);
   }, [template?.id, template?.updatedAt, measure]);
 
-  return info;
+  return overflows;
 }
 
 /* ── Main component ──────────────────────────────────────────────────── */
 
 export default function TemplateSelectorCard() {
-  const { templateId, setTemplateId } = useMenu();
+  const { templateId, setTemplateId, pages, setPages, menuData, activePageIndex, setActivePageIndex } = useMenu();
   const templates = useTemplates();
   const currentTemplate = useTemplateById(templateId || undefined);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const overflow = useContentOverflow(currentTemplate);
-  const hasOverflow = overflow.overflowPx > 0;
+  const overflows = usePageOverflows(currentTemplate, pages.length || 1);
+  const hasAnyOverflow = overflows.length > 0;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -81,13 +86,76 @@ export default function TemplateSelectorCard() {
     return () => document.removeEventListener("mousedown", onClick);
   }, [showDropdown]);
 
+  // When template changes and pages reference invalid variants, fix them
+  useEffect(() => {
+    if (!currentTemplate || pages.length === 0) return;
+    const validIds = new Set(currentTemplate.pageVariants.map(v => v.id));
+    const needsFix = pages.some(p => !validIds.has(p.variantId));
+    if (needsFix) {
+      setPages(prev => prev.map(p =>
+        validIds.has(p.variantId)
+          ? p
+          : { ...p, variantId: currentTemplate.pageVariants[0]?.id ?? "" }
+      ));
+    }
+  }, [currentTemplate?.id, currentTemplate?.pageVariants.length]);
+
+  const addPage = () => {
+    if (!currentTemplate) return;
+    // Pick a variant — prefer one not used yet, fallback to first content variant
+    const usedVariantIds = new Set(pages.map(p => p.variantId));
+    const availableVariant = currentTemplate.pageVariants.find(v => !usedVariantIds.has(v.id))
+      ?? currentTemplate.pageVariants.find(v => v.body && !v.header.show)
+      ?? currentTemplate.pageVariants[0];
+
+    const newPage: MenuPage = {
+      id: `page-${uid()}`,
+      variantId: availableVariant?.id ?? "",
+      categoryIds: [],
+    };
+    setPages(prev => [...prev, newPage]);
+    setActivePageIndex(pages.length); // select the new page
+  };
+
+  const removePage = (pageIndex: number) => {
+    if (pages.length <= 1) return; // can't remove last page
+    setPages(prev => prev.filter((_, i) => i !== pageIndex));
+    if (activePageIndex >= pages.length - 1) {
+      setActivePageIndex(Math.max(0, pages.length - 2));
+    }
+  };
+
+  const changePageVariant = (pageIndex: number, variantId: string) => {
+    setPages(prev => prev.map((p, i) =>
+      i === pageIndex ? { ...p, variantId } : p
+    ));
+  };
+
+  const toggleCategoryOnPage = (pageIndex: number, categoryId: string) => {
+    setPages(prev => prev.map((p, i) => {
+      if (i !== pageIndex) {
+        // Remove from other pages
+        return { ...p, categoryIds: p.categoryIds.filter(cid => cid !== categoryId) };
+      }
+      // Toggle on this page
+      if (p.categoryIds.includes(categoryId)) {
+        return { ...p, categoryIds: p.categoryIds.filter(cid => cid !== categoryId) };
+      }
+      return { ...p, categoryIds: [...p.categoryIds, categoryId] };
+    }));
+  };
+
   const isExpanded = !isCollapsed;
+
+  // Categories assigned across all pages
+  const assignedCategoryIds = new Set(pages.flatMap(p => p.categoryIds));
+  const unassignedCategories = menuData.categories.filter(c => !assignedCategoryIds.has(c.id));
 
   return (
     <div className={cn(
       "rounded-xl overflow-hidden transition-all duration-200",
       "border border-border bg-card",
-      hasOverflow && "border-amber-400",
+      hasAnyOverflow && "border-amber-400",
     )}>
       {/* Header */}
       <div
@@ -102,11 +170,10 @@ export default function TemplateSelectorCard() {
         </span>
 
         <h3 className={cn("font-bold text-sm", isExpanded ? "text-white" : "text-foreground")}>
-          Template
+          Template & Pages
         </h3>
 
-        {/* Overflow warning badge */}
-        {hasOverflow && (
+        {hasAnyOverflow && (
           <span
             className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
             style={{
@@ -121,13 +188,12 @@ export default function TemplateSelectorCard() {
 
         <div className="flex-1" />
 
-        {/* Template name chip */}
-        {currentTemplate && (
+        {pages.length > 0 && (
           <span className={cn(
-            "text-xs truncate max-w-[120px]",
+            "text-xs",
             isExpanded ? "text-white/70" : "text-muted-foreground",
           )}>
-            {currentTemplate.name}
+            {pages.length} page{pages.length !== 1 ? "s" : ""}
           </span>
         )}
 
@@ -153,7 +219,6 @@ export default function TemplateSelectorCard() {
               <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform", showDropdown && "rotate-180")} />
             </button>
 
-            {/* Dropdown */}
             {showDropdown && templates && (
               <div
                 className="absolute left-0 right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
@@ -162,10 +227,7 @@ export default function TemplateSelectorCard() {
                 {templates.map((tpl) => (
                   <button
                     key={tpl.id}
-                    onClick={() => {
-                      setTemplateId(tpl.id);
-                      setShowDropdown(false);
-                    }}
+                    onClick={() => { setTemplateId(tpl.id); setShowDropdown(false); }}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors"
                     style={{
                       backgroundColor: tpl.id === templateId ? "hsl(232 100% 66% / 0.08)" : "transparent",
@@ -173,13 +235,11 @@ export default function TemplateSelectorCard() {
                     onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = tpl.id === templateId ? "hsl(232 100% 66% / 0.12)" : "hsl(220 14% 96%)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = tpl.id === templateId ? "hsl(232 100% 66% / 0.08)" : "transparent"; }}
                   >
-                    {/* Color swatch preview */}
                     <div className="flex gap-0.5 shrink-0">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tpl.colors.primary }} />
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tpl.colors.background, border: "1px solid hsl(220 13% 91%)" }} />
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tpl.colors.accent }} />
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium truncate">{tpl.name}</span>
@@ -189,38 +249,175 @@ export default function TemplateSelectorCard() {
                       </div>
                       <span className="text-xs text-muted-foreground">{tpl.format.type} · {tpl.pageVariants.length} variant{tpl.pageVariants.length !== 1 ? "s" : ""}</span>
                     </div>
-
                     {tpl.id === templateId && (
                       <Check className="w-4 h-4 shrink-0 text-primary" />
                     )}
                   </button>
                 ))}
-
-                {(!templates || templates.length === 0) && (
-                  <div className="px-3 py-4 text-sm text-center text-muted-foreground">No templates available</div>
-                )}
               </div>
             )}
           </div>
 
-          {/* Page Variants list */}
-          {currentTemplate && currentTemplate.pageVariants.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+          {/* Pages section */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
-                Page Variants ({currentTemplate.pageVariants.length})
+                Pages ({pages.length || 1})
               </label>
-              <div className="space-y-1.5">
-                {currentTemplate.pageVariants.map((variant, index) => (
-                  <VariantRow key={variant.id} variant={variant} index={index} template={currentTemplate} />
-                ))}
-              </div>
+              <button
+                onClick={addPage}
+                className="flex items-center gap-1 text-[11px] font-semibold text-primary transition-colors"
+                style={{ opacity: 0.8 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.8"; }}
+              >
+                <Plus className="w-3 h-3" />
+                Add Page
+              </button>
             </div>
-          )}
 
-          {/* Overflow alert */}
-          {hasOverflow && (
+            <div className="space-y-2">
+              {(pages.length > 0 ? pages : [{ id: "fallback", variantId: currentTemplate?.pageVariants[0]?.id ?? "", categoryIds: menuData.categories.map(c => c.id) } as MenuPage]).map((page, pageIndex) => {
+                const variant = currentTemplate?.pageVariants.find(v => v.id === page.variantId);
+                const pageOverflow = overflows.find(o => o.pageIndex === pageIndex);
+                const pageCats = page.categoryIds
+                  .map(cid => menuData.categories.find(c => c.id === cid))
+                  .filter(Boolean);
+
+                return (
+                  <div
+                    key={page.id}
+                    className={cn(
+                      "rounded-lg transition-all cursor-pointer",
+                      activePageIndex === pageIndex
+                        ? "ring-1"
+                        : "",
+                    )}
+                    style={{
+                      backgroundColor: activePageIndex === pageIndex ? "hsl(232 100% 66% / 0.06)" : "hsl(220 14% 96%)",
+                      ringColor: activePageIndex === pageIndex ? (currentTemplate?.colors.primary || "hsl(232 80% 62%)") : undefined,
+                      border: activePageIndex === pageIndex ? `1px solid ${currentTemplate?.colors.primary || "hsl(232 80% 62%)"}33` : "1px solid transparent",
+                    }}
+                    onClick={() => setActivePageIndex(pageIndex)}
+                  >
+                    {/* Page header row */}
+                    <div className="flex items-center gap-2.5 px-3 py-2">
+                      {/* Page number */}
+                      <span
+                        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{
+                          backgroundColor: activePageIndex === pageIndex
+                            ? (currentTemplate?.colors.primary || "#4d5cc5")
+                            : "hsl(220 14% 80%)",
+                          color: "#fff",
+                        }}
+                      >
+                        {pageIndex + 1}
+                      </span>
+
+                      {/* Variant name + info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {variant?.name || "Page"}
+                          </p>
+                          {pageOverflow && (
+                            <AlertTriangle className="w-3 h-3 shrink-0" style={{ color: "#b45309" }} />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {pageCats.length > 0
+                            ? pageCats.map(c => c!.name).join(", ")
+                            : "No categories assigned"
+                          }
+                        </p>
+                      </div>
+
+                      {/* Variant selector (small) */}
+                      {currentTemplate && pages.length > 0 && (
+                        <select
+                          value={page.variantId}
+                          onChange={(e) => { e.stopPropagation(); changePageVariant(pageIndex, e.target.value); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[10px] bg-background rounded px-1.5 py-1 text-muted-foreground shrink-0 outline-none"
+                          style={{ border: "1px solid hsl(220 13% 91%)", maxWidth: "90px" }}
+                        >
+                          {currentTemplate.pageVariants.map(v => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Delete page */}
+                      {pages.length > 1 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removePage(pageIndex); }}
+                          className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground transition-colors shrink-0"
+                          onMouseEnter={(e) => { e.currentTarget.style.color = "#dc2626"; e.currentTarget.style.backgroundColor = "hsl(0 80% 50% / 0.1)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = ""; e.currentTarget.style.backgroundColor = ""; }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Category assignment — shown when page is active */}
+                    {activePageIndex === pageIndex && pages.length > 0 && menuData.categories.length > 0 && (
+                      <div className="px-3 pb-2.5 pt-0.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Assign categories
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {menuData.categories.map((cat) => {
+                            const isOnThisPage = page.categoryIds.includes(cat.id);
+                            const isOnOtherPage = !isOnThisPage && assignedCategoryIds.has(cat.id);
+                            return (
+                              <button
+                                key={cat.id}
+                                onClick={(e) => { e.stopPropagation(); toggleCategoryOnPage(pageIndex, cat.id); }}
+                                className="text-[11px] font-medium px-2 py-1 rounded-md transition-all"
+                                style={{
+                                  backgroundColor: isOnThisPage
+                                    ? (currentTemplate?.colors.primary || "#4d5cc5")
+                                    : isOnOtherPage
+                                      ? "hsl(220 14% 90%)"
+                                      : "hsl(220 14% 93%)",
+                                  color: isOnThisPage ? "#fff" : isOnOtherPage ? "hsl(220 9% 60%)" : "hsl(224 71% 4%)",
+                                  opacity: isOnOtherPage ? 0.6 : 1,
+                                  border: isOnThisPage ? "1px solid transparent" : "1px solid hsl(220 13% 88%)",
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isOnThisPage) {
+                                    e.currentTarget.style.backgroundColor = "hsl(232 100% 66% / 0.15)";
+                                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.3)";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isOnThisPage) {
+                                    e.currentTarget.style.backgroundColor = isOnOtherPage ? "hsl(220 14% 90%)" : "hsl(220 14% 93%)";
+                                    e.currentTarget.style.borderColor = "hsl(220 13% 88%)";
+                                  }
+                                }}
+                              >
+                                {cat.name}
+                                {isOnThisPage && <Check className="w-2.5 h-2.5 inline ml-1" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Overflow alerts */}
+          {overflows.map((o) => (
             <div
+              key={o.pageIndex}
               className="flex items-start gap-2.5 p-3 rounded-lg text-sm"
               style={{
                 backgroundColor: "hsl(38 92% 50% / 0.08)",
@@ -230,11 +427,31 @@ export default function TemplateSelectorCard() {
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#b45309" }} />
               <div>
                 <p className="font-semibold" style={{ color: "#92400e" }}>
-                  Content overflows by {overflow.overflowPx}px ({overflow.overflowPercent}%)
+                  Page {o.pageIndex + 1} overflows by {o.overflowPx}px
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: "#a16207" }}>
-                  The content exceeds the {currentTemplate?.format.type ?? "page"} page height.
                   Move some categories to another page or reduce content.
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Unassigned categories warning */}
+          {pages.length > 0 && unassignedCategories.length > 0 && (
+            <div
+              className="flex items-start gap-2.5 p-3 rounded-lg text-sm"
+              style={{
+                backgroundColor: "hsl(232 100% 66% / 0.06)",
+                border: "1px solid hsl(232 100% 66% / 0.2)",
+              }}
+            >
+              <FileText className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
+              <div>
+                <p className="font-semibold text-foreground">
+                  {unassignedCategories.length} unassigned
+                </p>
+                <p className="text-xs mt-0.5 text-muted-foreground">
+                  {unassignedCategories.map(c => c.name).join(", ")} — assign to a page above.
                 </p>
               </div>
             </div>
@@ -255,43 +472,6 @@ export default function TemplateSelectorCard() {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Variant Row ─────────────────────────────────────────────────────── */
-
-function VariantRow({ variant, index, template }: { variant: PageVariant; index: number; template: MenuTemplate }) {
-  const features: string[] = [];
-  if (variant.header.show) features.push("Header");
-  if (variant.body.columns > 1) features.push(`${variant.body.columns} cols`);
-  if (variant.highlight.show) features.push("Image");
-
-  return (
-    <div
-      className="flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
-      style={{ backgroundColor: "hsl(220 14% 96%)" }}
-      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 96%)"; }}
-    >
-      {/* Page number */}
-      <span
-        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-        style={{
-          backgroundColor: template.colors.primary,
-          color: "#fff",
-        }}
-      >
-        {index + 1}
-      </span>
-
-      {/* Name + features */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{variant.name}</p>
-        {features.length > 0 && (
-          <p className="text-[11px] text-muted-foreground">{features.join(" · ")}</p>
-        )}
-      </div>
     </div>
   );
 }

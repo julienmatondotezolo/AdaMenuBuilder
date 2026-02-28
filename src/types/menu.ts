@@ -70,6 +70,10 @@ export interface MenuContextValue {
   setMenuData: React.Dispatch<React.SetStateAction<MenuData>>;
   templateId: string;
   setTemplateId: (id: string) => void;
+  pages: MenuPage[];
+  setPages: React.Dispatch<React.SetStateAction<MenuPage[]>>;
+  activePageIndex: number;
+  setActivePageIndex: (index: number) => void;
   hoveredId: string | null;
   hoveredType: HoveredType;
   setHover: (id: string, type: "item" | "category") => void;

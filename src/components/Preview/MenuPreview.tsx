@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useMenu } from "../../context/MenuContext";
-import type { MenuTemplate } from "../../types/template";
+import type { MenuTemplate, PageVariant } from "../../types/template";
+import type { MenuPage, Category } from "../../types/menu";
+import { mmToPx } from "../../types/template";
 import { loadTemplateFonts } from "../../data/fonts";
 
 interface MenuPreviewProps {
@@ -8,7 +10,20 @@ interface MenuPreviewProps {
 }
 
 export default function MenuPreview({ template }: MenuPreviewProps) {
-  const { menuData, hoveredId, setHover, clearHover, dragState, columnCount, layoutDirection, selectedItemId, selectItem } = useMenu();
+  const {
+    menuData,
+    pages,
+    hoveredId,
+    setHover,
+    clearHover,
+    dragState,
+    columnCount,
+    layoutDirection,
+    selectedItemId,
+    selectItem,
+    activePageIndex,
+    setActivePageIndex,
+  } = useMenu();
 
   // Load template fonts
   useEffect(() => {
@@ -32,8 +47,183 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     marginTop: 48, marginBottom: 24, marginLeft: 32, marginRight: 32, categoryGap: 40, itemGap: 24,
   };
 
-  // Use first page variant with header enabled, or first variant overall
-  const variant = template?.pageVariants.find(v => v.header.show) ?? template?.pageVariants[0];
+  // Page dimensions
+  const pageWidthPx = template ? mmToPx(template.format.width) : 794;
+  const pageHeightPx = template ? mmToPx(template.format.height) : 1123;
+
+  // Build effective pages: if no pages defined, show all categories on a single page
+  const effectivePages: { page: MenuPage; variant: PageVariant | undefined; categories: Category[] }[] = (() => {
+    if (pages.length === 0 || !template) {
+      // Fallback: single page with all categories, using first variant
+      const variant = template?.pageVariants[0];
+      return [{
+        page: { id: "fallback", variantId: variant?.id ?? "", categoryIds: menuData.categories.map(c => c.id) },
+        variant,
+        categories: menuData.categories,
+      }];
+    }
+
+    return pages.map((page) => {
+      const variant = template.pageVariants.find(v => v.id === page.variantId);
+      // Filter categories by the page's categoryIds; preserve order from categoryIds
+      const pageCats = page.categoryIds.length > 0
+        ? page.categoryIds
+            .map(cid => menuData.categories.find(c => c.id === cid))
+            .filter((c): c is Category => !!c)
+        : []; // Empty page — no categories assigned
+      return { page, variant, categories: pageCats };
+    });
+  })();
+
+  // Check if any categories are unassigned (not on any page)
+  const assignedCategoryIds = new Set(pages.flatMap(p => p.categoryIds));
+  const unassignedCategories = menuData.categories.filter(c => !assignedCategoryIds.has(c.id));
+
+  return (
+    <div className="flex flex-col items-center" style={{ gap: "40px" }}>
+      {effectivePages.map((ep, pageIndex) => (
+        <div key={ep.page.id} className="relative">
+          {/* Page number label */}
+          {effectivePages.length > 1 && (
+            <div
+              className="absolute -top-6 left-0 right-0 flex items-center justify-center"
+              style={{ pointerEvents: "none" }}
+            >
+              <span
+                className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: activePageIndex === pageIndex ? (colors.primary || "#4d5cc5") : "hsl(220 14% 90%)",
+                  color: activePageIndex === pageIndex ? "#fff" : "hsl(220 9% 46%)",
+                  pointerEvents: "auto",
+                  cursor: "pointer",
+                }}
+                onClick={() => setActivePageIndex(pageIndex)}
+              >
+                Page {pageIndex + 1}
+              </span>
+            </div>
+          )}
+
+          {/* Paper sheet */}
+          <div
+            data-menu-preview
+            data-page-index={pageIndex}
+            className="bg-card rounded-sm shadow-lg border border-border overflow-hidden shrink-0 relative"
+            style={{
+              width: `${pageWidthPx}px`,
+              minHeight: `${pageHeightPx}px`,
+              fontFamily: fonts.body,
+              color: colors.text,
+              backgroundColor: colors.background,
+            }}
+            onClick={() => setActivePageIndex(pageIndex)}
+          >
+            {/* Active page indicator — subtle border */}
+            {effectivePages.length > 1 && activePageIndex === pageIndex && (
+              <div
+                className="absolute inset-0 pointer-events-none rounded-sm"
+                style={{
+                  outline: `2px solid ${colors.primary || "#4d5cc5"}`,
+                  outlineOffset: "-1px",
+                  zIndex: 10,
+                }}
+              />
+            )}
+
+            <PageContent
+              variant={ep.variant}
+              categories={ep.categories}
+              pageIndex={pageIndex}
+              template={template}
+              colors={colors}
+              fonts={fonts}
+              spacing={spacing}
+              menuData={menuData}
+              isActiveDrag={isActiveDrag}
+              hoveredId={hoveredId}
+              setHover={setHover}
+              clearHover={clearHover}
+              dragState={dragState}
+              columnCount={columnCount}
+              layoutDirection={layoutDirection}
+              selectedItemId={selectedItemId}
+              selectItem={selectItem}
+            />
+
+            {/* Page height guide line — shows where the page ends */}
+            <div
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{
+                top: `${pageHeightPx}px`,
+                borderTop: "1px dashed hsl(0 80% 55% / 0.4)",
+                zIndex: 5,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+
+      {/* Unassigned categories indicator (only when multi-page) */}
+      {pages.length > 0 && unassignedCategories.length > 0 && (
+        <div
+          className="rounded-lg border-2 border-dashed p-6 text-center"
+          style={{
+            width: `${pageWidthPx}px`,
+            borderColor: "hsl(38 92% 50% / 0.4)",
+            backgroundColor: "hsl(38 92% 50% / 0.05)",
+          }}
+        >
+          <p className="text-sm font-semibold" style={{ color: "#b45309" }}>
+            {unassignedCategories.length} unassigned categor{unassignedCategories.length === 1 ? "y" : "ies"}
+          </p>
+          <p className="text-xs mt-1" style={{ color: "#a16207" }}>
+            {unassignedCategories.map(c => c.name).join(", ")}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Page Content Renderer ───────────────────────────────────────────── */
+
+interface PageContentProps {
+  variant: PageVariant | undefined;
+  categories: Category[];
+  pageIndex: number;
+  template: MenuTemplate | undefined;
+  colors: { primary: string; background: string; text: string; accent: string; muted: string };
+  fonts: { heading: string; body: string };
+  spacing: { marginTop: number; marginBottom: number; marginLeft: number; marginRight: number; categoryGap: number; itemGap: number };
+  menuData: { title: string; restaurantName: string; subtitle: string; established: string; highlightImage: string; highlightLabel: string; highlightTitle: string; categories: Category[] };
+  isActiveDrag: boolean;
+  hoveredId: string | null;
+  setHover: (id: string, type: "item" | "category") => void;
+  clearHover: (id: string) => void;
+  dragState: { activeId: string | null; activeType: string | null; overId: string | null; overType: string | null };
+  columnCount: number;
+  layoutDirection: string;
+  selectedItemId: string | null;
+  selectItem: (id: string | null) => void;
+}
+
+function PageContent({
+  variant,
+  categories,
+  colors,
+  fonts,
+  spacing,
+  menuData,
+  isActiveDrag,
+  hoveredId,
+  setHover,
+  clearHover,
+  dragState,
+  columnCount,
+  layoutDirection,
+  selectedItemId,
+  selectItem,
+}: PageContentProps) {
   const headerConfig = variant?.header ?? { show: true, style: "centered" as const, showSubtitle: true, showEstablished: true, showDivider: true };
   const bodyConfig = variant?.body ?? { columns: 1, categoryStyle: "lines" as const, itemAlignment: "center" as const, pricePosition: "below" as const, separatorStyle: "line" as const, showDescriptions: true, showFeaturedBadge: true };
   const highlightConfig = variant?.highlight ?? { show: true, position: "bottom" as const, height: 200, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 };
@@ -73,15 +263,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
   const isCenter = bodyConfig.itemAlignment === "center";
 
   return (
-    <div
-      data-menu-preview
-      className="min-h-full"
-      style={{
-        fontFamily: fonts.body,
-        color: colors.text,
-        backgroundColor: colors.background,
-      }}
-    >
+    <>
       {/* Header section */}
       {headerConfig.show && (
         <div style={{
@@ -150,14 +332,15 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
         paddingLeft: `${spacing.marginLeft}px`,
         paddingRight: `${spacing.marginRight}px`,
         paddingBottom: `${spacing.marginBottom}px`,
+        paddingTop: !headerConfig.show ? `${spacing.marginTop}px` : undefined,
       }}>
         {effectiveColumns > 1 ? (
           layoutDirection === "Z" ? (
             <div>
               {Array.from(
-                { length: Math.ceil(menuData.categories.length / effectiveColumns) },
+                { length: Math.ceil(categories.length / effectiveColumns) },
                 (_, rowIdx) => {
-                  const rowCats = menuData.categories.slice(
+                  const rowCats = categories.slice(
                     rowIdx * effectiveColumns,
                     rowIdx * effectiveColumns + effectiveColumns,
                   );
@@ -188,7 +371,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
             >
               {Array.from({ length: effectiveColumns }, (_, i) => i + 1).map((col) => (
                 <div key={col}>
-                  {menuData.categories
+                  {categories
                     .filter((cat) => (cat.column ?? 1) === col)
                     .map((category) => renderCategory(category))}
                 </div>
@@ -197,14 +380,28 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
           )
         ) : (
           <div>
-            {menuData.categories.map((category) => renderCategory(category))}
+            {categories.map((category) => renderCategory(category))}
+          </div>
+        )}
+
+        {categories.length === 0 && (
+          <div
+            className="flex items-center justify-center text-center"
+            style={{
+              minHeight: "120px",
+              color: `${colors.muted}80`,
+              fontStyle: "italic",
+              fontSize: "13px",
+            }}
+          >
+            No categories on this page
           </div>
         )}
       </div>
 
       {/* Highlight image — bottom position */}
       {highlightConfig.show && highlightConfig.position !== "top" && menuData.highlightImage && renderHighlight()}
-    </div>
+    </>
   );
 
   function renderHighlight() {
@@ -243,7 +440,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     );
   }
 
-  function renderCategory(category: (typeof menuData.categories)[number]) {
+  function renderCategory(category: Category) {
     const catState = getCategoryHighlight(category.id);
     return (
       <div

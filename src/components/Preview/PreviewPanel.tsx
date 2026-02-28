@@ -11,6 +11,7 @@ import { cn, Button, Input } from "ada-design-system";
 import MenuPreview from "./MenuPreview";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuTemplate } from "../../types/template";
+import { mmToPx } from "../../types/template";
 
 /* ── Preview sidebar icons (display only) ────────────────────────────────── */
 
@@ -339,8 +340,8 @@ export default function PreviewPanel({ template }: PreviewPanelProps) {
         >
           <div
             ref={contentRef}
-            className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
-            style={{ width: `${PREVIEW_WIDTH}px` }}
+            className="shrink-0"
+            style={{ width: `${template ? mmToPx(template.format.width) : PREVIEW_WIDTH}px` }}
           >
             <MenuPreview template={template} />
           </div>
