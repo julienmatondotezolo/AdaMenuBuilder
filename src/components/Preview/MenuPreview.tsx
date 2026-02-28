@@ -47,7 +47,7 @@ export default function MenuPreview() {
     if (state === "drag-over")
       return "bg-primary/8 ring-1 ring-primary/30 px-2 rounded-md";
     if (state === "selected")
-      return "ring-2 ring-primary px-2 rounded-md";
+      return "ring-2 ring-primary bg-primary/8 px-2 py-1 rounded-md";
     if (state === "hovered")
       return "bg-primary/8 ring-1 ring-primary/20 px-2 rounded-md";
     return "";

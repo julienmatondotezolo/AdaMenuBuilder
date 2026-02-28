@@ -82,12 +82,10 @@ export default function MenuItemCard({
       style={style}
       onClick={handleCardClick}
       className={cn(
-        "group relative rounded-lg transition-all duration-150 cursor-pointer",
+        "menu-item-card group relative rounded-lg transition-all duration-150 cursor-pointer",
         "border border-border/60 bg-card",
-        /* Hover — light blue bg */
-        "hover:bg-[hsl(232,100%,66%,0.05)]",
         /* Selected — blue border + blue bg */
-        isSelected && !isEditing && "border-primary bg-[hsl(232,100%,66%,0.05)]",
+        isSelected && !isEditing && "selected",
         /* Editing — blue border, stronger */
         isEditing && "border-primary ring-1 ring-primary/30",
         /* Featured — yellow left accent */

@@ -39,6 +39,15 @@ body {
   color: var(--color-foreground);
 }
 
+/* Menu item card states */
+.menu-item-card:hover {
+  background-color: hsl(232 100% 66% / 0.05);
+}
+.menu-item-card.selected {
+  border-color: hsl(232 100% 66%);
+  background-color: hsl(232 100% 66% / 0.05);
+}
+
 /* Action button hovers */
 .edit-action-btn:hover {
   background-color: hsl(232 100% 66% / 0.1);
