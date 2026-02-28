@@ -69,8 +69,10 @@ export default function PageCard({
   // Edit mode — inline variant picker (like category edit mode)
   const [isEditing, setIsEditing] = useState(false);
   const [showVariantDropdown, setShowVariantDropdown] = useState(false);
+  const editRowRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Close variant dropdown when clicking outside
   useEffect(() => {
     if (!showVariantDropdown) return;
     const onClick = (e: MouseEvent) => {
@@ -81,6 +83,25 @@ export default function PageCard({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [showVariantDropdown]);
+
+  // Cancel edit mode when clicking anywhere outside the edit row
+  useEffect(() => {
+    if (!isEditing) return;
+    const onClick = (e: MouseEvent) => {
+      if (editRowRef.current && !editRowRef.current.contains(e.target as Node)) {
+        setIsEditing(false);
+        setShowVariantDropdown(false);
+      }
+    };
+    // Use setTimeout so the click that opened edit mode doesn't immediately close it
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", onClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [isEditing]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -148,7 +169,7 @@ export default function PageCard({
 
         {/* ── Edit mode: variant dropdown + delete ── */}
         {isEditing ? (
-          <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+          <div ref={editRowRef} className="flex items-center gap-1.5 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
             {/* Variant selector dropdown */}
             <div className="relative flex-1 min-w-0" ref={dropdownRef}>
               <button
@@ -232,7 +253,12 @@ export default function PageCard({
           </div>
         ) : (
           <>
-            {/* Edit button (pen) — only visible when active/selected */}
+            {/* Page name */}
+            <h3 className="font-semibold text-sm text-foreground">
+              {variant?.name || `Page ${pageIndex + 1}`}
+            </h3>
+
+            {/* Edit button (pen) — only visible when active/selected, RIGHT of name */}
             {isActive && (
               <button
                 onClick={handleStartEdit}
@@ -247,11 +273,6 @@ export default function PageCard({
                 <Pencil className="w-3 h-3" />
               </button>
             )}
-
-            {/* Page name */}
-            <h3 className="font-semibold text-sm text-foreground">
-              {variant?.name || `Page ${pageIndex + 1}`}
-            </h3>
 
             {/* Overflow badge */}
             {hasOverflow && (

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Pencil,
   GripVertical,
+  Trash2,
 } from "lucide-react";
 import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -41,6 +42,7 @@ export default function CategorySection({
   const {
     addItem,
     updateCategory,
+    removeCategory,
     setHover,
     clearHover,
     hoveredId,
@@ -244,6 +246,17 @@ export default function CategorySection({
               className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white hover:text-white/80"}
             >
               <X className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                removeCategory(category.id);
+              }}
+              className={effectiveCollapsed ? "text-red-500 hover:text-red-600" : "text-red-300 hover:text-red-100"}
+            >
+              <Trash2 className="w-4 h-4" />
             </Button>
           </div>
         ) : (
