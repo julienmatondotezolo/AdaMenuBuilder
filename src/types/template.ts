@@ -74,6 +74,11 @@ export interface VariantBodyConfig {
 export interface VariantHighlightConfig {
   show: boolean;
   position: HighlightPosition;
+  height: number;        // px — image height in preview
+  marginTop: number;     // px
+  marginBottom: number;  // px
+  marginLeft: number;    // px
+  marginRight: number;   // px
 }
 
 export interface PageVariant {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,7 +14,7 @@ import {
   GripVertical,
   Eye,
   EyeOff,
-  Check,
+  Ruler,
 } from "lucide-react";
 import {
   Button,
@@ -118,7 +118,7 @@ export default function TemplateEditor() {
       name: `Page ${template.pageVariants.length + 1}`,
       header: { show: false, style: "none", showSubtitle: false, showEstablished: false, showDivider: false },
       body: { columns: 1, categoryStyle: "lines", itemAlignment: "center", pricePosition: "below", separatorStyle: "line", showDescriptions: true, showFeaturedBadge: true },
-      highlight: { show: false, position: "none" },
+      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
     };
     save({ pageVariants: [...template.pageVariants, newVar] });
     setActiveVariantId(newVar.id);
@@ -267,53 +267,64 @@ export default function TemplateEditor() {
           <div className="flex-1 overflow-y-auto">
             {activeVariant && (
               <div className="p-3 space-y-1">
-                {/* ── Page Format ── */}
-                <SettingButton
-                  label="Page Format"
-                  icon={<Badge variant="secondary" className="text-[9px] px-1.5 py-0">{template.format.type}</Badge>}
-                  isSelected={selectedSection === "format"}
-                  onClick={() => setSelectedSection(selectedSection === "format" ? null : "format")}
-                />
-                {selectedSection === "format" && (
-                  <div className="pl-2 pr-1 pb-3 space-y-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {FORMATS.map((f) => (
-                        <button
-                          key={f.key}
-                          onClick={() => {
-                            const fmt = f.key === "CUSTOM"
-                              ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height }
-                              : PAGE_FORMATS[f.key as keyof typeof PAGE_FORMATS];
-                            save({ format: fmt });
-                          }}
-                          className={cn(
-                            "flex flex-col items-center px-3 py-2 rounded-lg border transition-all",
-                            template.format.type === f.key
-                              ? "border-primary bg-primary/5 text-primary"
-                              : "border-border hover:border-primary/30 text-muted-foreground"
-                          )}
-                        >
-                          <span className="text-xs font-semibold">{f.label}</span>
-                          {f.sub && <span className="text-[9px] opacity-60">{f.sub}</span>}
-                        </button>
-                      ))}
-                    </div>
-                    {template.format.type === "CUSTOM" && (
-                      <div className="flex gap-2">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px]">Width (mm)</Label>
-                          <Input type="number" value={template.format.width} className="h-8 text-xs"
-                            onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })} />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px]">Height (mm)</Label>
-                          <Input type="number" value={template.format.height} className="h-8 text-xs"
-                            onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })} />
-                        </div>
-                      </div>
+                {/* ── Page Format (big card) ── */}
+                <div className={cn(
+                  "rounded-lg border transition-all",
+                  selectedSection === "format" ? "ring-1 ring-primary/30 border-border" : "border-border",
+                )}>
+                  <button
+                    onClick={() => setSelectedSection(selectedSection === "format" ? null : "format")}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
+                      selectedSection === "format" ? "bg-primary/5" : "hover:bg-muted/30",
                     )}
-                  </div>
-                )}
+                  >
+                    <Ruler className={cn("w-4 h-4 shrink-0", selectedSection === "format" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="text-xs font-semibold text-foreground flex-1 text-left">Page Format</span>
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 mr-1">{template.format.type}</Badge>
+                    {selectedSection === "format" ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </button>
+                  {selectedSection === "format" && (
+                    <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/50">
+                      <div className="flex flex-wrap gap-1.5">
+                        {FORMATS.map((f) => (
+                          <button
+                            key={f.key}
+                            onClick={() => {
+                              const fmt = f.key === "CUSTOM"
+                                ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height }
+                                : PAGE_FORMATS[f.key as keyof typeof PAGE_FORMATS];
+                              save({ format: fmt });
+                            }}
+                            className={cn(
+                              "flex flex-col items-center px-3 py-2.5 rounded-lg border-2 transition-all",
+                              template.format.type === f.key
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border hover:border-primary/30 text-muted-foreground"
+                            )}
+                          >
+                            <span className="text-xs font-semibold">{f.label}</span>
+                            {f.sub && <span className="text-[9px] opacity-60">{f.sub}</span>}
+                          </button>
+                        ))}
+                      </div>
+                      {template.format.type === "CUSTOM" && (
+                        <div className="flex gap-2">
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[10px]">Width (mm)</Label>
+                            <Input type="number" value={template.format.width} className="h-8 text-xs"
+                              onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })} />
+                          </div>
+                          <div className="flex-1 space-y-1">
+                            <Label className="text-[10px]">Height (mm)</Label>
+                            <Input type="number" value={template.format.height} className="h-8 text-xs"
+                              onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* ── Section separator ── */}
                 <div className="pt-2 pb-1">
@@ -435,9 +446,23 @@ export default function TemplateEditor() {
                             </>
                           )}
                           {section === "highlight" && (
-                            <SelectRow label="Position" value={activeVariant.highlight.position}
-                              options={[{ v: "bottom", l: "Bottom of Page" }, { v: "top", l: "Above Menu Items" }]}
-                              onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: v as any } })} />
+                            <>
+                              <NumberRow label="Height" value={activeVariant.highlight.height ?? 80} unit="px"
+                                onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, height: v } })} />
+                              <div className="pt-1">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Margin</Label>
+                                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                                  <NumberRow label="Top" value={activeVariant.highlight.marginTop ?? 12} unit="px" compact
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginTop: v } })} />
+                                  <NumberRow label="Bottom" value={activeVariant.highlight.marginBottom ?? 0} unit="px" compact
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginBottom: v } })} />
+                                  <NumberRow label="Left" value={activeVariant.highlight.marginLeft ?? 0} unit="px" compact
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginLeft: v } })} />
+                                  <NumberRow label="Right" value={activeVariant.highlight.marginRight ?? 0} unit="px" compact
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginRight: v } })} />
+                                </div>
+                              </div>
+                            </>
                           )}
                         </div>
                       )}
@@ -445,26 +470,42 @@ export default function TemplateEditor() {
                   );
                 })}
 
-                {/* ── Colors ── */}
-                <div className="pt-2" />
-                <SettingButton
-                  label="Colors"
-                  icon={<Palette className="w-3.5 h-3.5 text-muted-foreground" />}
-                  isSelected={selectedSection === "colors"}
-                  onClick={() => setSelectedSection(selectedSection === "colors" ? null : "colors")}
-                />
-                {selectedSection === "colors" && (
-                  <div className="pl-2 pr-1 pb-3 space-y-2.5">
-                    <ColorRow label="Primary" value={template.colors.primary}
-                      onChange={(v) => save({ colors: { ...template.colors, primary: v, accent: v } })} />
-                    <ColorRow label="Background" value={template.colors.background}
-                      onChange={(v) => save({ colors: { ...template.colors, background: v } })} />
-                    <ColorRow label="Text" value={template.colors.text}
-                      onChange={(v) => save({ colors: { ...template.colors, text: v } })} />
-                    <ColorRow label="Muted" value={template.colors.muted}
-                      onChange={(v) => save({ colors: { ...template.colors, muted: v } })} />
-                  </div>
-                )}
+                {/* ── Colors (big card) ── */}
+                <div className="pt-1" />
+                <div className={cn(
+                  "rounded-lg border transition-all",
+                  selectedSection === "colors" ? "ring-1 ring-primary/30 border-border" : "border-border",
+                )}>
+                  <button
+                    onClick={() => setSelectedSection(selectedSection === "colors" ? null : "colors")}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
+                      selectedSection === "colors" ? "bg-primary/5" : "hover:bg-muted/30",
+                    )}
+                  >
+                    <Palette className={cn("w-4 h-4 shrink-0", selectedSection === "colors" ? "text-primary" : "text-muted-foreground")} />
+                    <span className="text-xs font-semibold text-foreground flex-1 text-left">Colors</span>
+                    {/* Color swatches preview */}
+                    <div className="flex gap-1 mr-1">
+                      {[template.colors.primary, template.colors.background, template.colors.text].map((c, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full border border-border/60" style={{ backgroundColor: c.startsWith("#") ? c : "#4d6aff" }} />
+                      ))}
+                    </div>
+                    {selectedSection === "colors" ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                  </button>
+                  {selectedSection === "colors" && (
+                    <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/50">
+                      <ColorRow label="Primary" value={template.colors.primary}
+                        onChange={(v) => save({ colors: { ...template.colors, primary: v, accent: v } })} />
+                      <ColorRow label="Background" value={template.colors.background}
+                        onChange={(v) => save({ colors: { ...template.colors, background: v } })} />
+                      <ColorRow label="Text" value={template.colors.text}
+                        onChange={(v) => save({ colors: { ...template.colors, text: v } })} />
+                      <ColorRow label="Muted" value={template.colors.muted}
+                        onChange={(v) => save({ colors: { ...template.colors, muted: v } })} />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -558,6 +599,25 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
+function NumberRow({ label, value, unit, onChange, compact }: {
+  label: string; value: number; unit: string; onChange: (v: number) => void; compact?: boolean;
+}) {
+  return (
+    <div className={cn("flex items-center justify-between gap-2", compact ? "py-0" : "py-0.5")}>
+      <Label className={cn("font-normal text-foreground/80 shrink-0", compact ? "text-[10px]" : "text-[11px]")}>{label}</Label>
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className={cn("text-xs text-right", compact ? "w-16 h-7" : "w-20 h-7")}
+        />
+        <span className="text-[9px] text-muted-foreground w-4">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
 function VariantPreview({ template, variant, sectionOrder }: {
@@ -641,17 +701,26 @@ function VariantPreview({ template, variant, sectionOrder }: {
           </div>
         );
 
-      case "highlight":
+      case "highlight": {
         if (!variant.highlight.show || !data.highlightImage) return null;
+        const hl = variant.highlight;
         return (
-          <div key="highlight" style={{ borderRadius: "4px", overflow: "hidden", position: "relative" }}>
-            <img src={data.highlightImage} alt="" style={{ width: "100%", height: "60px", objectFit: "cover" }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
-              <p style={{ fontSize: "5px", color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{data.highlightLabel}</p>
-              <p style={{ fontSize: "8px", color: "white", fontStyle: "italic" }}>{data.highlightTitle}</p>
+          <div key="highlight" style={{
+            marginTop: `${hl.marginTop ?? 12}px`,
+            marginBottom: `${hl.marginBottom ?? 0}px`,
+            marginLeft: `${hl.marginLeft ?? 0}px`,
+            marginRight: `${hl.marginRight ?? 0}px`,
+          }}>
+            <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative" }}>
+              <img src={data.highlightImage} alt="" style={{ width: "100%", height: `${hl.height ?? 80}px`, objectFit: "cover" }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
+                <p style={{ fontSize: "5px", color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{data.highlightLabel}</p>
+                <p style={{ fontSize: "8px", color: "white", fontStyle: "italic" }}>{data.highlightTitle}</p>
+              </div>
             </div>
           </div>
         );
+      }
     }
   };
 

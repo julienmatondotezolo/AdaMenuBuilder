@@ -46,7 +46,7 @@ export const LUMIERE_TEMPLATE: MenuTemplate = {
         showDescriptions: true,
         showFeaturedBadge: true,
       },
-      highlight: { show: false, position: "none" },
+      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
     },
     {
       id: "content",
@@ -67,7 +67,7 @@ export const LUMIERE_TEMPLATE: MenuTemplate = {
         showDescriptions: true,
         showFeaturedBadge: true,
       },
-      highlight: { show: false, position: "none" },
+      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
     },
     {
       id: "content-image",
@@ -88,7 +88,7 @@ export const LUMIERE_TEMPLATE: MenuTemplate = {
         showDescriptions: true,
         showFeaturedBadge: true,
       },
-      highlight: { show: true, position: "bottom" },
+      highlight: { show: true, position: "bottom", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
     },
     {
       id: "back-cover",
@@ -109,7 +109,7 @@ export const LUMIERE_TEMPLATE: MenuTemplate = {
         showDescriptions: false,
         showFeaturedBadge: false,
       },
-      highlight: { show: false, position: "none" },
+      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
     },
   ],
   createdAt: new Date().toISOString(),
