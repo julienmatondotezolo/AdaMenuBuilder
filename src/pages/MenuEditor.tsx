@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "ada-design-system";
@@ -13,6 +13,7 @@ export default function MenuEditor() {
   const navigate = useNavigate();
   const menu = useMenuById(id);
   const { menuData, setMenuData, templateId, setTemplateId, pages, setPages } = useMenu();
+  const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
 
   // Live-query the template — auto-updates when template changes
   const template = useTemplateById(templateId || undefined);
@@ -23,6 +24,7 @@ export default function MenuEditor() {
       setMenuData(menu.data);
       setTemplateId(menu.templateId);
       setPages(menu.pages);
+      setLastSaved(menu.updatedAt);
     }
   }, [menu?.id]);
 
@@ -30,7 +32,9 @@ export default function MenuEditor() {
   useEffect(() => {
     if (!id || !menu) return;
     const timeout = setTimeout(() => {
+      const now = new Date().toISOString();
       updateMenu(id, { data: menuData, pages });
+      setLastSaved(now);
     }, 500);
     return () => clearTimeout(timeout);
   }, [menuData, pages, id]);
@@ -38,7 +42,9 @@ export default function MenuEditor() {
   // Persist templateId changes to IndexedDB
   useEffect(() => {
     if (!id || !menu || !templateId || templateId === menu.templateId) return;
+    const now = new Date().toISOString();
     updateMenu(id, { templateId });
+    setLastSaved(now);
   }, [templateId, id]);
 
   if (!menu) {
@@ -57,7 +63,7 @@ export default function MenuEditor() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <Header template={template} />
+      <Header template={template} lastSaved={lastSaved} />
 
       <main className="flex-1 flex overflow-hidden">
         {/* Editor Panel */}

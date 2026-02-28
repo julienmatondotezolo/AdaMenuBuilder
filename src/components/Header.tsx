@@ -1,32 +1,37 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Eye,
   Download,
   Rocket,
   Loader2,
-  LayoutTemplate,
-  ChevronDown,
+  Pencil,
   Check,
+  X,
+  Clock,
 } from "lucide-react";
-import {
-  Button,
-  Badge,
-  cn,
-} from "ada-design-system";
+import { Button, cn } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
-import { useTemplates } from "../db/hooks";
 import type { MenuTemplate } from "../types/template";
 
 interface HeaderProps {
   template?: MenuTemplate;
+  lastSaved?: string; // ISO string
 }
 
-export default function Header({ template }: HeaderProps) {
-  const { menuData, orientation, columnCount, layoutDirection, templateId, setTemplateId } = useMenu();
+export default function Header({ template, lastSaved }: HeaderProps) {
+  const { menuData, setMenuData, orientation, columnCount, layoutDirection } = useMenu();
   const [downloading, setDownloading] = useState(false);
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
-  const templates = useTemplates();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(menuData.title || "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -45,99 +50,115 @@ export default function Header({ template }: HeaderProps) {
     }
   };
 
-  const handleSelectTemplate = (id: string) => {
-    setTemplateId(id);
-    setShowTemplatePicker(false);
+  const handleStartEdit = () => {
+    setEditValue(menuData.title || "");
+    setIsEditing(true);
   };
+
+  const handleSaveEdit = () => {
+    const trimmed = editValue.trim();
+    if (trimmed) {
+      setMenuData((prev) => ({ ...prev, title: trimmed }));
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSaveEdit();
+    if (e.key === "Escape") handleCancelEdit();
+  };
+
+  // Format last saved timestamp
+  const formatSaved = (iso: string | undefined) => {
+    if (!iso) return null;
+    try {
+      const d = new Date(iso);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      const seconds = String(d.getSeconds()).padStart(2, "0");
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const savedText = formatSaved(lastSaved);
 
   return (
     <header className="h-14 flex items-center px-4 bg-background border-b border-border shrink-0 z-20">
-      {/* LEFT — Template selector */}
-      <div className="flex-1 flex items-center gap-2">
-        <div className="relative">
-          <button
-            onClick={() => setShowTemplatePicker(!showTemplatePicker)}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-left",
-              showTemplatePicker
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/30 hover:bg-muted/30"
-            )}
-          >
-            <LayoutTemplate className="w-4 h-4 text-primary shrink-0" />
-            <div className="min-w-0">
-              <span className="text-xs font-semibold text-foreground truncate block max-w-[160px]">
-                {template?.name || "No template"}
-              </span>
-              {template && (
-                <span className="text-[9px] text-muted-foreground">
-                  {template.format.type} · {template.pageVariants.length} variants
-                </span>
-              )}
-            </div>
-            <ChevronDown className={cn(
-              "w-3.5 h-3.5 text-muted-foreground transition-transform",
-              showTemplatePicker && "rotate-180"
-            )} />
-          </button>
+      {/* LEFT — empty spacer for balance */}
+      <div className="flex-1" />
 
-          {/* Template dropdown */}
-          {showTemplatePicker && templates && (
-            <>
-              {/* Backdrop */}
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setShowTemplatePicker(false)}
+      {/* CENTER — Menu name + edit + saved */}
+      <div className="flex flex-col items-center justify-center">
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={inputRef}
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="font-semibold text-foreground text-sm bg-transparent outline-none text-center px-2 py-0.5 rounded-md"
+                style={{
+                  border: "1px solid hsl(232 100% 66% / 0.5)",
+                  minWidth: "120px",
+                  maxWidth: "300px",
+                }}
               />
-              <div className="absolute top-full left-0 mt-1 z-50 w-72 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-                <div className="px-3 py-2 border-b border-border">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Choose Template
-                  </span>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto py-1">
-                  {templates.map((tpl) => {
-                    const isActive = tpl.id === templateId;
-                    return (
-                      <button
-                        key={tpl.id}
-                        onClick={() => handleSelectTemplate(tpl.id)}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
-                          isActive ? "bg-primary/5" : "hover:bg-muted/30"
-                        )}
-                      >
-                        {/* Color preview dots */}
-                        <div className="flex flex-col gap-0.5 shrink-0">
-                          <div className="w-5 h-5 rounded border border-border/60" style={{ backgroundColor: tpl.colors.background }}>
-                            <div className="w-2 h-2 rounded-full mt-1.5 ml-1.5" style={{ backgroundColor: tpl.colors.primary }} />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-foreground truncate">{tpl.name}</span>
-                            <Badge variant="secondary" className="text-[8px] px-1 py-0 shrink-0">{tpl.format.type}</Badge>
-                          </div>
-                          {tpl.description && (
-                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{tpl.description}</p>
-                          )}
-                        </div>
-                        {isActive && <Check className="w-4 h-4 text-primary shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <button
+                onClick={handleSaveEdit}
+                className="w-6 h-6 flex items-center justify-center rounded-md text-primary transition-colors"
+                style={{ backgroundColor: "hsl(232 100% 66% / 0.1)" }}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground transition-colors"
+                style={{ backgroundColor: "hsl(220 14% 93%)" }}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <span className="font-semibold text-foreground text-sm">
+                {menuData.title || "Untitled Menu"}
+              </span>
+              <button
+                onClick={handleStartEdit}
+                className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground transition-colors"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)";
+                  e.currentTarget.style.color = "hsl(224 71% 4%)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "";
+                  e.currentTarget.style.color = "";
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
             </>
           )}
         </div>
-      </div>
-
-      {/* CENTER — Menu name */}
-      <div className="flex items-center justify-center">
-        <span className="font-semibold text-foreground text-sm">
-          {menuData.title || "Untitled Menu"}
-        </span>
+        {savedText && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Clock className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">
+              Saved: {savedText}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* RIGHT — Actions */}

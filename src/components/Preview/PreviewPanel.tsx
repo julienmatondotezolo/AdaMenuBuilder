@@ -36,7 +36,7 @@ interface PreviewPanelProps {
 }
 
 export default function PreviewPanel({ template }: PreviewPanelProps) {
-  const { selectedItemId } = useMenu();
+  const { selectedItemId, activePageIndex, setActivePageIndex } = useMenu();
   const [selectedIcon, setSelectedIcon] = useState("paper");
 
   /* ── Canvas state ──────────────────────────────────────────────────────── */
@@ -59,6 +59,9 @@ export default function PreviewPanel({ template }: PreviewPanelProps) {
   /* ── Pinch-to-zoom state ───────────────────────────────────────────────── */
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchStart = useRef<{ dist: number; zoom: number; midX: number; midY: number } | null>(null);
+
+  /* ── Track active page index for zoom-to-page ──────────────────────────── */
+  const prevActivePageRef = useRef(activePageIndex);
 
   /* ── Measure container + auto-center on mount ───────────────────────────── */
   const hasCentered = useRef(false);
@@ -279,6 +282,54 @@ export default function PreviewPanel({ template }: PreviewPanelProps) {
     const timer = setTimeout(() => setIsAnimating(false), 500);
     return () => clearTimeout(timer);
   }, [selectedItemId]);
+
+  /* ── Zoom-to-page when activePageIndex changes (from clicking page in preview) */
+  useEffect(() => {
+    // Only trigger when page index actually changed (not on mount)
+    if (prevActivePageRef.current === activePageIndex) return;
+    prevActivePageRef.current = activePageIndex;
+
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    // Find the page element by data-page-index
+    const pageEl = content.querySelector(`[data-menu-preview][data-page-index="${activePageIndex}"]`) as HTMLElement | null;
+    if (!pageEl) return;
+
+    // Small delay to let React re-render the active page indicator
+    requestAnimationFrame(() => {
+      const contentRect = content.getBoundingClientRect();
+      const pageRect = pageEl.getBoundingClientRect();
+      const currentZoom = zoomRef.current;
+
+      // Unscaled position and dimensions of the page
+      const pageY = (pageRect.top - contentRect.top) / currentZoom;
+      const pageW = pageRect.width / currentZoom;
+      const pageH = pageRect.height / currentZoom;
+
+      const cW = container.clientWidth;
+      const cH = container.clientHeight;
+      const padding = 60;
+
+      // Zoom so the page height fills the container height (with padding)
+      const targetZoom = Math.max(
+        ZOOM_MIN,
+        Math.min(ZOOM_MAX, (cH - padding) / pageH),
+      );
+
+      // Center page horizontally and vertically
+      const newPanX = (cW - pageW * targetZoom) / 2;
+      const newPanY = (cH - pageH * targetZoom) / 2 - pageY * targetZoom;
+
+      setIsAnimating(true);
+      setZoom(targetZoom);
+      setPan({ x: newPanX, y: newPanY });
+      const timer = setTimeout(() => setIsAnimating(false), 500);
+      // Store cleanup ref
+      return () => clearTimeout(timer);
+    });
+  }, [activePageIndex]);
 
   /* ── Zoom helpers ──────────────────────────────────────────────────────── */
   const handleZoomIn = useCallback(() => {
