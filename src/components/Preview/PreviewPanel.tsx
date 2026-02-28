@@ -49,6 +49,7 @@ export default function PreviewPanel() {
   const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
+  const [isAnimating, setIsAnimating] = useState(false);
 
   /* ── Pinch-to-zoom state ───────────────────────────────────────────────── */
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -267,8 +268,11 @@ export default function PreviewPanel() {
     const newPanX = (cW - itemW * targetZoom) / 2 - itemX * targetZoom;
     const newPanY = (cH - itemH * targetZoom) / 2 - itemY * targetZoom;
 
+    setIsAnimating(true);
     setZoom(targetZoom);
     setPan({ x: newPanX, y: newPanY });
+    const timer = setTimeout(() => setIsAnimating(false), 500);
+    return () => clearTimeout(timer);
   }, [selectedItemId]);
 
   /* ── Zoom helpers ──────────────────────────────────────────────────────── */
@@ -325,6 +329,7 @@ export default function PreviewPanel() {
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
             willChange: "transform",
+            transition: isAnimating ? "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
           }}
           className="absolute top-0 left-0"
         >
