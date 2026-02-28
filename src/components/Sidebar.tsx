@@ -136,8 +136,14 @@ export default function Sidebar() {
         }}
       >
         <aside
-          className="h-full flex flex-col bg-white transition-[width] duration-200 ease-in-out select-none overflow-hidden"
+          className="h-full flex flex-col bg-white transition-[width] duration-200 ease-in-out select-none overflow-hidden cursor-pointer"
           style={{ width: collapsed ? COLLAPSED_W : EXPANDED_W }}
+          onClick={(e) => {
+            // Only toggle if click was on empty space, not on a button/link/input
+            const target = e.target as HTMLElement;
+            if (target.closest("button, a, input")) return;
+            setCollapsed((c) => !c);
+          }}
         >
         {/* ═══ Header: Logo ══════════════════════════════════════════════ */}
         <div className={cn("flex items-center h-14 shrink-0 px-3", !collapsed && "border-b border-gray-100")}>
