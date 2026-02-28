@@ -293,7 +293,7 @@ export default function Sidebar() {
           <ChevronLeft
             className={cn(
               "w-4 h-4 text-gray-500 transition-transform duration-200",
-              collapsed && "rotate-180",
+              !collapsed && "rotate-180",
             )}
           />
         </button>
