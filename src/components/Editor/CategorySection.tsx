@@ -9,6 +9,7 @@ import {
   SeparatorHorizontal,
   Rows3,
   Columns,
+  ChevronDown,
 } from "lucide-react";
 import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -41,6 +42,7 @@ export default function CategorySection({
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Sortable for the category row itself
   const {
@@ -190,6 +192,20 @@ export default function CategorySection({
           {category.items.length} {category.items.length === 1 ? "item" : "items"}
         </Badge>
 
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setIsCollapsed((c) => !c)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 transition-transform duration-200",
+              isCollapsed && "-rotate-90"
+            )}
+          />
+        </Button>
+
         <div className="flex-1" />
 
         {!isEditingName && (
@@ -277,36 +293,38 @@ export default function CategorySection({
         </Button>
       </div>
 
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div
-          ref={setDroppableRef}
-          className={cn(
-            "space-y-3 ml-7 rounded-lg transition-all duration-150",
-            isItemsOver && 
-              dragState.activeType === "item" && 
-              "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
-          )}
-        >
-          {category.items.map((item) => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              categoryId={category.id}
-              showPageBreak={pageBreakMode === "item"}
-              isDraggingActive={isDraggingActive}
-            />
-          ))}
-
-          <Button
-            variant="outline"
-            onClick={handleAddItem}
-            className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-2 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
+      {!isCollapsed && (
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+          <div
+            ref={setDroppableRef}
+            className={cn(
+              "space-y-3 ml-7 rounded-lg transition-all duration-150",
+              isItemsOver && 
+                dragState.activeType === "item" && 
+                "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
+            )}
           >
-            <Plus className="w-4 h-4" />
-            Add {singularName}
-          </Button>
-        </div>
-      </SortableContext>
+            {category.items.map((item) => (
+              <MenuItemCard
+                key={item.id}
+                item={item}
+                categoryId={category.id}
+                showPageBreak={pageBreakMode === "item"}
+                isDraggingActive={isDraggingActive}
+              />
+            ))}
+
+            <Button
+              variant="outline"
+              onClick={handleAddItem}
+              className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-2 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
+            >
+              <Plus className="w-4 h-4" />
+              Add {singularName}
+            </Button>
+          </div>
+        </SortableContext>
+      )}
       </>
       )}
     </div>
