@@ -9,7 +9,6 @@ import type { MenuItem } from "../../types/menu";
 interface MenuItemCardProps {
   item: MenuItem;
   categoryId: string;
-  showPageBreak?: boolean;
   isDraggingActive: boolean;
   isOverlay?: boolean;
 }
@@ -47,7 +46,6 @@ export default function MenuItemCard({
 
   const isDragOver =
     dragState.overId === item.id && dragState.activeId !== item.id;
-  const showActions = isSelected;
 
   const handleSave = () => {
     updateItem(categoryId, item.id, {
@@ -82,28 +80,27 @@ export default function MenuItemCard({
       onClick={handleCardClick}
       className={cn(
         "menu-item-card group relative rounded-lg transition-all duration-150 cursor-pointer",
-        "border border-border/60 bg-card",
-        /* Selected — blue border + blue bg */
+        "border border-border/40 bg-background",
+        /* Selected */
         isSelected && !isEditing && "selected",
-        /* Editing — blue border, stronger */
-        isEditing && "border-primary ring-1 ring-primary/30",
-        /* Featured — yellow left accent */
+        /* Editing */
+        isEditing && "selected",
+        /* Featured — accent */
         item.featured && !isSelected && !isEditing && "border-l-[3px] border-l-warning",
-        item.featured && (isSelected || isEditing) && "border-l-[3px] border-l-primary",
-        /* Overlay / drag states */
+        /* Overlay / drag */
         isOverlay && "shadow-lg border-primary/60 z-50",
-        isDragOver && "border-primary/50 bg-primary/5",
+        isDragOver && "border-primary/50",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
       onMouseLeave={() => clearHover(item.id)}
     >
-      <div className="flex gap-3 p-3.5">
+      <div className="flex gap-3 p-3">
         {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
           className={cn(
-            "flex items-start pt-0.5 shrink-0 text-muted-foreground/30 transition-colors",
+            "flex items-start pt-1 shrink-0 text-muted-foreground/25 transition-colors",
             "hover:text-muted-foreground cursor-grab",
             isDragging && "cursor-grabbing"
           )}
@@ -183,7 +180,7 @@ export default function MenuItemCard({
                   )}
                 </div>
                 <span className="font-bold text-sm text-primary shrink-0">
-                  €{item.price}
+                  €{item.price.toFixed(2)}
                 </span>
               </div>
 
@@ -194,9 +191,9 @@ export default function MenuItemCard({
                 </p>
               )}
 
-              {/* Action buttons — only on hover or selected */}
-              {showActions && (
-                <div className="flex items-center gap-1.5 mt-2">
+              {/* Action buttons — only when selected */}
+              {isSelected && (
+                <div className="flex items-center gap-1.5 mt-2.5">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -204,8 +201,7 @@ export default function MenuItemCard({
                     }}
                     className="edit-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
                   >
-                    <Pencil className="w-2.5 h-2.5" />
-                    Edit
+                    <Pencil className="w-3 h-3" />
                   </button>
                   <button
                     onClick={(e) => {
@@ -215,9 +211,19 @@ export default function MenuItemCard({
                     className="delete-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
                     style={{ color: 'hsl(346 87% 43%)' }}
                   >
-                    <Trash2 className="w-2.5 h-2.5" />
-                    Delete
+                    <Trash2 className="w-3 h-3" />
                   </button>
+
+                  {/* Status dot */}
+                  <div className="flex-1" />
+                  <div className="w-3 h-3 rounded-full bg-success border-2 border-success/30" />
+                </div>
+              )}
+
+              {/* Status dot when not selected */}
+              {!isSelected && (
+                <div className="flex justify-end mt-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-success/60" />
                 </div>
               )}
             </>

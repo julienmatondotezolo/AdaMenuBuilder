@@ -39,6 +39,11 @@ body {
   color: var(--color-foreground);
 }
 
+/* Category header gradient */
+.category-header {
+  background: linear-gradient(135deg, hsl(232 100% 66%) 0%, hsl(232 80% 55%) 100%);
+}
+
 /* Menu item card states */
 .menu-item-card:hover {
   background-color: hsl(232 100% 66% / 0.05);

@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
-import { Plus, X, Check, GripVertical } from "lucide-react";
-import { Button, Input, Badge } from "ada-design-system";
+import { Plus, X, Check, Search } from "lucide-react";
+import { Button, Input } from "ada-design-system";
 import {
   DndContext,
   DragOverlay,
@@ -36,6 +36,7 @@ export default function EditorPanel() {
   } = useMenu();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -164,16 +165,18 @@ export default function EditorPanel() {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto">
-      <div className="p-6">
-        {/* Page title */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Menu Editor
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Curate your culinary offerings with precision and light.
-          </p>
+    <div className="w-full h-full overflow-y-auto bg-muted/30">
+      <div className="p-4">
+        {/* Search bar */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search menu items..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-card"
+          />
         </div>
 
         {/* Category list */}
@@ -187,13 +190,13 @@ export default function EditorPanel() {
           onDragCancel={handleDragCancel}
         >
           <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
-            <div className="space-y-10">
+            <div className="space-y-4">
               {menuData.categories.map((category) => (
                 <CategorySection
                   key={category.id}
                   category={category}
                   isDraggingActive={dragState.activeId !== null}
-                  isDraggingCategory={dragState.activeType === "category"}
+                  searchQuery={searchQuery}
                 />
               ))}
             </div>
@@ -211,23 +214,22 @@ export default function EditorPanel() {
               </div>
             )}
             {activeCategory && (
-              <div className="rotate-1 scale-105 flex items-center gap-2 px-3 py-2 bg-card rounded-lg shadow-lg border border-primary/30">
-                <GripVertical className="w-5 h-5 text-muted-foreground" />
-                <span className="font-bold text-sm uppercase tracking-wider text-card-foreground">
-                  {activeCategory.name}
-                </span>
-                <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
-                  {activeCategory.items.length} {activeCategory.items.length === 1 ? "item" : "items"}
-                </Badge>
+              <div className="rotate-1 scale-[1.02] opacity-90">
+                <CategorySection
+                  category={activeCategory}
+                  isDraggingActive
+                  isOverlay
+                  searchQuery=""
+                />
               </div>
             )}
           </DragOverlay>
         </DndContext>
 
-        {/* Add category */}
-        <div className="mt-10">
+        {/* Create New Category */}
+        <div className="mt-4">
           {isAddingCategory ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/50">
+            <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
               <Input
                 autoFocus
                 value={newCategoryName}
@@ -259,10 +261,11 @@ export default function EditorPanel() {
           ) : (
             <button
               onClick={() => setIsAddingCategory(true)}
-              className="flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
+              style={{ backgroundColor: 'hsl(232 100% 66%)' }}
             >
               <Plus className="w-4 h-4" />
-              Add category
+              Create New Category
             </button>
           )}
         </div>
@@ -270,7 +273,7 @@ export default function EditorPanel() {
         {menuData.categories.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-medium">No categories yet</p>
-            <p className="text-sm mt-1">Add your first category to get started</p>
+            <p className="text-sm mt-1">Create your first category to get started</p>
           </div>
         )}
       </div>
