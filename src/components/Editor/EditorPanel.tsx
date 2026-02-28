@@ -165,10 +165,17 @@ export default function EditorPanel() {
   };
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-muted/30">
-      <div className="p-4">
-        {/* Search bar */}
-        <div className="relative mb-4">
+    <div className="w-full h-full flex flex-col bg-muted/30">
+      {/* Title */}
+      <div className="px-4 pt-4 pb-2 shrink-0">
+        <h2 className="text-base font-bold text-foreground text-center">
+          {menuData.title || "Untitled Menu"}
+        </h2>
+      </div>
+
+      {/* Search bar */}
+      <div className="px-4 pb-3 shrink-0">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
@@ -178,8 +185,10 @@ export default function EditorPanel() {
             className="pl-9 bg-card"
           />
         </div>
+      </div>
 
-        {/* Category list */}
+      {/* Scrollable category list */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
@@ -226,55 +235,55 @@ export default function EditorPanel() {
           </DragOverlay>
         </DndContext>
 
-        {/* Create New Category */}
-        <div className="mt-4">
-          {isAddingCategory ? (
-            <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
-              <Input
-                autoFocus
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Category name (e.g. Desserts)"
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleAddCategory}
-                className="text-success hover:text-success"
-              >
-                <Check className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  setNewCategoryName("");
-                  setIsAddingCategory(false);
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsAddingCategory(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
-              style={{ backgroundColor: 'hsl(232 100% 66%)' }}
-            >
-              <Plus className="w-4 h-4" />
-              Create New Category
-            </button>
-          )}
-        </div>
-
         {menuData.categories.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-medium">No categories yet</p>
             <p className="text-sm mt-1">Create your first category to get started</p>
           </div>
+        )}
+      </div>
+
+      {/* Fixed bottom — Create New Category */}
+      <div className="shrink-0 px-4 py-3 border-t border-border bg-background">
+        {isAddingCategory ? (
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
+            <Input
+              autoFocus
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Category name (e.g. Desserts)"
+              className="flex-1"
+            />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleAddCategory}
+              className="text-success hover:text-success"
+            >
+              <Check className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                setNewCategoryName("");
+                setIsAddingCategory(false);
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsAddingCategory(true)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
+            style={{ backgroundColor: 'hsl(232 100% 66%)' }}
+          >
+            <Plus className="w-4 h-4" />
+            Create New Category
+          </button>
         )}
       </div>
     </div>

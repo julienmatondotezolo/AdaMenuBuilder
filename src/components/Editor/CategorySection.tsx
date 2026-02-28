@@ -153,12 +153,15 @@ export default function CategorySection({
     >
       {/* ── Category Header ─────────────────────────────────────────── */}
       <div
-        className="category-header flex items-center gap-2.5 px-4 py-3 cursor-grab select-none"
+        className={cn(
+          "category-header flex items-center gap-2.5 px-4 py-3 cursor-grab select-none transition-colors duration-200",
+          !isCollapsed && "category-expanded"
+        )}
         {...attributes}
         {...listeners}
       >
         {/* Icon */}
-        <span className="text-primary-foreground/80 shrink-0">
+        <span className={cn("shrink-0", isCollapsed ? "text-muted-foreground" : "text-primary-foreground/80")}>
           {getCategoryIcon(category.name)}
         </span>
 
@@ -170,13 +173,16 @@ export default function CategorySection({
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="font-bold text-sm bg-white/20 border-white/30 text-white"
+              className={cn(
+                "font-bold text-sm",
+                isCollapsed ? "bg-white border-border text-foreground" : "bg-white/20 border-white/30 text-white"
+              )}
             />
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleSaveName}
-              className="text-white hover:text-white/80"
+              className={isCollapsed ? "text-foreground hover:text-foreground/80" : "text-white hover:text-white/80"}
             >
               <Check className="w-4 h-4" />
             </Button>
@@ -187,14 +193,17 @@ export default function CategorySection({
                 setEditName(category.name);
                 setIsEditingName(false);
               }}
-              className="text-white/60 hover:text-white"
+              className={isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
             >
               <X className="w-4 h-4" />
             </Button>
           </div>
         ) : (
           <h3
-            className="font-bold text-sm text-primary-foreground cursor-pointer"
+            className={cn(
+              "font-bold text-sm cursor-pointer",
+              isCollapsed ? "text-foreground" : "text-primary-foreground"
+            )}
             onDoubleClick={(e) => {
               e.stopPropagation();
               setIsEditingName(true);
@@ -206,7 +215,10 @@ export default function CategorySection({
 
         {/* Item count badge */}
         <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }}
+          style={isCollapsed
+            ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
+            : { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }
+          }
         >
           {category.items.length} {category.items.length === 1 ? "ITEM" : "ITEMS"}
         </Badge>
@@ -219,7 +231,10 @@ export default function CategorySection({
             e.stopPropagation();
             removeCategory(category.id);
           }}
-          className="opacity-0 hover:opacity-100 text-primary-foreground/60 hover:text-red-300 transition-all group-hover/cat:opacity-100"
+          className={cn(
+            "opacity-0 hover:opacity-100 transition-all group-hover/cat:opacity-100",
+            isCollapsed ? "text-muted-foreground hover:text-red-500" : "text-primary-foreground/60 hover:text-red-300"
+          )}
           style={{ opacity: isHighlighted ? 1 : undefined }}
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -231,7 +246,10 @@ export default function CategorySection({
             e.stopPropagation();
             setIsCollapsed((c) => !c);
           }}
-          className="text-primary-foreground/70 hover:text-primary-foreground transition-colors"
+          className={cn(
+            "transition-colors",
+            isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-primary-foreground/70 hover:text-primary-foreground"
+          )}
         >
           <ChevronDown
             className={cn(
