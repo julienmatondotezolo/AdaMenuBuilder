@@ -43,9 +43,9 @@ body {
 .category-header {
   background: hsl(220 14% 96%);
 }
-/* Blue gradient when category is expanded */
+/* Lighter blue when category is expanded */
 .category-header.category-expanded {
-  background: linear-gradient(135deg, hsl(232 100% 66%) 0%, hsl(232 80% 55%) 100%);
+  background: linear-gradient(135deg, hsl(232 80% 72%) 0%, hsl(232 70% 64%) 100%);
 }
 
 /* Menu item card states */

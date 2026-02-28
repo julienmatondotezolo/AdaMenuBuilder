@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Plus, X, Check, Search } from "lucide-react";
+import { Plus, X, Check, Search, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
   DndContext,
@@ -37,6 +37,10 @@ export default function EditorPanel() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [allCollapsed, setAllCollapsed] = useState(false);
+  // Increment to signal all categories to collapse/expand
+  const [collapseSignal, setCollapseSignal] = useState(0);
+  const [expandSignal, setExpandSignal] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -164,25 +168,65 @@ export default function EditorPanel() {
     }
   };
 
+  const handleToggleAll = () => {
+    if (allCollapsed) {
+      setExpandSignal((s) => s + 1);
+      setAllCollapsed(false);
+    } else {
+      setCollapseSignal((s) => s + 1);
+      setAllCollapsed(true);
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-muted/30">
-      {/* Title */}
-      <div className="px-4 pt-4 pb-2 shrink-0">
-        <h2 className="text-base font-bold text-foreground text-center">
+      {/* Header: title + subtitle */}
+      <div className="px-4 pt-4 pb-1 shrink-0">
+        <h2 className="text-lg font-bold text-foreground">Menu Editor</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Curate your culinary offerings with precision and light.
+        </p>
+      </div>
+
+      {/* Menu title + fold/unfold */}
+      <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">
           {menuData.title || "Untitled Menu"}
-        </h2>
+        </h3>
+        <button
+          onClick={handleToggleAll}
+          className="flex items-center gap-1 text-xs text-muted-foreground transition-colors"
+          style={{ padding: '2px 6px', borderRadius: '6px' }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'hsl(220 14% 93%)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
+        >
+          {allCollapsed ? (
+            <>
+              <ChevronsUpDown className="w-3.5 h-3.5" />
+              Expand all
+            </>
+          ) : (
+            <>
+              <ChevronsDownUp className="w-3.5 h-3.5" />
+              Collapse all
+            </>
+          )}
+        </button>
       </div>
 
       {/* Search bar */}
       <div className="px-4 pb-3 shrink-0">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
+        <div className="relative flex items-center">
+          <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
             type="text"
             placeholder="Search menu items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card"
+            className="w-full h-10 pl-9 pr-3 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
+            style={{ border: '1px solid hsl(220 13% 91%)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
           />
         </div>
       </div>
@@ -206,6 +250,8 @@ export default function EditorPanel() {
                   category={category}
                   isDraggingActive={dragState.activeId !== null}
                   searchQuery={searchQuery}
+                  collapseSignal={collapseSignal}
+                  expandSignal={expandSignal}
                 />
               ))}
             </div>
@@ -229,6 +275,8 @@ export default function EditorPanel() {
                   isDraggingActive
                   isOverlay
                   searchQuery=""
+                  collapseSignal={0}
+                  expandSignal={0}
                 />
               </div>
             )}
@@ -278,7 +326,7 @@ export default function EditorPanel() {
         ) : (
           <button
             onClick={() => setIsAddingCategory(true)}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm text-primary-foreground transition-colors"
             style={{ backgroundColor: 'hsl(232 100% 66%)' }}
           >
             <Plus className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState, useEffect, type KeyboardEvent } from "react";
 import {
   Plus,
   Trash2,
@@ -51,6 +51,8 @@ interface CategorySectionProps {
   isDraggingActive: boolean;
   isOverlay?: boolean;
   searchQuery: string;
+  collapseSignal: number;
+  expandSignal: number;
 }
 
 export default function CategorySection({
@@ -58,6 +60,8 @@ export default function CategorySection({
   isDraggingActive,
   isOverlay,
   searchQuery,
+  collapseSignal,
+  expandSignal,
 }: CategorySectionProps) {
   const {
     addItem,
@@ -71,6 +75,15 @@ export default function CategorySection({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Respond to collapse/expand all signals
+  useEffect(() => {
+    if (collapseSignal > 0) setIsCollapsed(true);
+  }, [collapseSignal]);
+
+  useEffect(() => {
+    if (expandSignal > 0) setIsCollapsed(false);
+  }, [expandSignal]);
 
   const {
     attributes,
@@ -125,6 +138,12 @@ export default function CategorySection({
     }
   };
 
+  const handleHeaderClick = () => {
+    if (!isEditingName) {
+      setIsCollapsed((c) => !c);
+    }
+  };
+
   // Filter items by search
   const filteredItems = searchQuery
     ? category.items.filter(
@@ -135,6 +154,8 @@ export default function CategorySection({
     : category.items;
 
   const itemIds = filteredItems.map((i) => i.id);
+
+  const isExpanded = !isCollapsed;
 
   return (
     <div
@@ -154,14 +175,19 @@ export default function CategorySection({
       {/* ── Category Header ─────────────────────────────────────────── */}
       <div
         className={cn(
-          "category-header flex items-center gap-2.5 px-4 py-3 cursor-grab select-none transition-colors duration-200",
-          !isCollapsed && "category-expanded"
+          "category-header flex items-center gap-2.5 px-4 py-3 select-none transition-colors duration-200",
+          isExpanded && "category-expanded"
         )}
-        {...attributes}
-        {...listeners}
+        onClick={handleHeaderClick}
+        style={{ cursor: 'pointer' }}
       >
-        {/* Icon */}
-        <span className={cn("shrink-0", isCollapsed ? "text-muted-foreground" : "text-primary-foreground/80")}>
+        {/* Drag handle — only activates on long press / pointer down */}
+        <span
+          className={cn("shrink-0 cursor-grab", isExpanded ? "text-white/80" : "text-muted-foreground")}
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+        >
           {getCategoryIcon(category.name)}
         </span>
 
@@ -201,8 +227,8 @@ export default function CategorySection({
         ) : (
           <h3
             className={cn(
-              "font-bold text-sm cursor-pointer",
-              isCollapsed ? "text-foreground" : "text-primary-foreground"
+              "font-bold text-sm",
+              isExpanded ? "text-white" : "text-foreground"
             )}
             onDoubleClick={(e) => {
               e.stopPropagation();
@@ -217,7 +243,7 @@ export default function CategorySection({
         <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full"
           style={isCollapsed
             ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
-            : { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' }
+            : { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
           }
         >
           {category.items.length} {category.items.length === 1 ? "ITEM" : "ITEMS"}
@@ -233,7 +259,7 @@ export default function CategorySection({
           }}
           className={cn(
             "opacity-0 hover:opacity-100 transition-all group-hover/cat:opacity-100",
-            isCollapsed ? "text-muted-foreground hover:text-red-500" : "text-primary-foreground/60 hover:text-red-300"
+            isExpanded ? "text-white/60 hover:text-red-300" : "text-muted-foreground hover:text-red-500"
           )}
           style={{ opacity: isHighlighted ? 1 : undefined }}
         >
@@ -241,14 +267,10 @@ export default function CategorySection({
         </button>
 
         {/* Collapse chevron */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsCollapsed((c) => !c);
-          }}
+        <span
           className={cn(
             "transition-colors",
-            isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-primary-foreground/70 hover:text-primary-foreground"
+            isExpanded ? "text-white" : "text-muted-foreground"
           )}
         >
           <ChevronDown
@@ -257,11 +279,11 @@ export default function CategorySection({
               isCollapsed && "-rotate-90"
             )}
           />
-        </button>
+        </span>
       </div>
 
       {/* ── Category Body (items) ───────────────────────────────────── */}
-      {!isCollapsed && (
+      {isExpanded && (
         <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
           <div
             ref={setDroppableRef}
