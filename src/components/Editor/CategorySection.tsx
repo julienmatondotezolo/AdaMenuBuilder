@@ -22,6 +22,8 @@ interface CategorySectionProps {
   searchQuery: string;
   collapseSignal: number;
   expandSignal: number;
+  dragCollapseSignal: number;
+  dragRestoreSignal: number;
   forceCollapsed?: boolean;
 }
 
@@ -32,6 +34,8 @@ export default function CategorySection({
   searchQuery,
   collapseSignal,
   expandSignal,
+  dragCollapseSignal,
+  dragRestoreSignal,
   forceCollapsed,
 }: CategorySectionProps) {
   const {
@@ -45,7 +49,7 @@ export default function CategorySection({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const wasExpandedBeforeDrag = useRef(false);
+  const stateBeforeDrag = useRef<boolean | null>(null);
 
   // Respond to collapse/expand all signals
   useEffect(() => {
@@ -56,6 +60,22 @@ export default function CategorySection({
     if (expandSignal > 0) setIsCollapsed(false);
   }, [expandSignal]);
 
+  // All categories collapse when any category drag starts
+  useEffect(() => {
+    if (dragCollapseSignal > 0) {
+      stateBeforeDrag.current = isCollapsed;
+      setIsCollapsed(true);
+    }
+  }, [dragCollapseSignal]);
+
+  // All categories restore their state when drag ends
+  useEffect(() => {
+    if (dragRestoreSignal > 0 && stateBeforeDrag.current !== null) {
+      setIsCollapsed(stateBeforeDrag.current);
+      stateBeforeDrag.current = null;
+    }
+  }, [dragRestoreSignal]);
+
   const {
     attributes,
     listeners,
@@ -64,17 +84,6 @@ export default function CategorySection({
     transition,
     isDragging,
   } = useSortable({ id: category.id, disabled: isOverlay });
-
-  // Collapse while dragging, restore on drop
-  useEffect(() => {
-    if (isDragging) {
-      wasExpandedBeforeDrag.current = !isCollapsed;
-      setIsCollapsed(true);
-    } else if (wasExpandedBeforeDrag.current) {
-      wasExpandedBeforeDrag.current = false;
-      setIsCollapsed(false);
-    }
-  }, [isDragging]);
 
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
     id: `${category.id}-items`,
@@ -146,6 +155,27 @@ export default function CategorySection({
           item.description.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : category.items;
+
+  // Auto-expand categories that have matching search results
+  const hasSearchResults = searchQuery && filteredItems.length > 0;
+  const wasCollapsedBeforeSearch = useRef(false);
+  const prevSearchQuery = useRef("");
+
+  useEffect(() => {
+    if (searchQuery && !prevSearchQuery.current) {
+      // Search just started — remember current collapsed state
+      wasCollapsedBeforeSearch.current = isCollapsed;
+    }
+    if (hasSearchResults && isCollapsed) {
+      setIsCollapsed(false);
+    }
+    if (!searchQuery && prevSearchQuery.current && wasCollapsedBeforeSearch.current) {
+      // Search cleared — restore collapsed state
+      setIsCollapsed(true);
+      wasCollapsedBeforeSearch.current = false;
+    }
+    prevSearchQuery.current = searchQuery;
+  }, [searchQuery, hasSearchResults]);
 
   const itemIds = filteredItems.map((i) => i.id);
 

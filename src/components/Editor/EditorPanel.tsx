@@ -42,6 +42,9 @@ export default function EditorPanel() {
   // Increment to signal all categories to collapse/expand
   const [collapseSignal, setCollapseSignal] = useState(0);
   const [expandSignal, setExpandSignal] = useState(0);
+  // Increment to signal all categories to collapse/restore on category drag
+  const [dragCollapseSignal, setDragCollapseSignal] = useState(0);
+  const [dragRestoreSignal, setDragRestoreSignal] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -90,6 +93,9 @@ export default function EditorPanel() {
     const activeId = String(event.active.id);
     const activeType = getIdType(activeId);
     setDragState({ activeId, activeType, overId: null, overType: null });
+    if (activeType === "category") {
+      setDragCollapseSignal((s) => s + 1);
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -126,6 +132,7 @@ export default function EditorPanel() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setDragState({ activeId: null, activeType: null, overId: null, overType: null });
+    setDragRestoreSignal((s) => s + 1);
 
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -152,6 +159,7 @@ export default function EditorPanel() {
 
   const handleDragCancel = () => {
     setDragState({ activeId: null, activeType: null, overId: null, overType: null });
+    setDragRestoreSignal((s) => s + 1);
   };
 
   const handleAddCategory = () => {
@@ -264,6 +272,8 @@ export default function EditorPanel() {
                   searchQuery={searchQuery}
                   collapseSignal={collapseSignal}
                   expandSignal={expandSignal}
+                  dragCollapseSignal={dragCollapseSignal}
+                  dragRestoreSignal={dragRestoreSignal}
                 />
               ))}
             </div>
@@ -290,6 +300,8 @@ export default function EditorPanel() {
                   searchQuery=""
                   collapseSignal={0}
                   expandSignal={0}
+                  dragCollapseSignal={0}
+                  dragRestoreSignal={0}
                 />
               </div>
             )}
