@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
-  ChevronsLeft,
-  ChevronsRight,
+  PanelLeftClose,
   BarChart3,
   Settings,
   LogOut,
@@ -55,7 +54,6 @@ function Tooltip({
       {show && (
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 bg-gray-900 text-white text-[11px] font-medium rounded-md whitespace-nowrap z-50 pointer-events-none opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 shadow-lg">
           {label}
-          {/* Arrow */}
           <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
         </div>
       )}
@@ -69,6 +67,11 @@ const NAV_ITEMS = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "settings", label: "Settings", icon: Settings },
 ];
+
+/* ── Sidebar width constants ─────────────────────────────────────────────── */
+
+const EXPANDED_W = 220;
+const COLLAPSED_W = 60;
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
@@ -111,187 +114,190 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="relative h-full shrink-0 w-[60px]">
+    <>
       {/* Overlay backdrop when expanded */}
       {!collapsed && (
         <div
-          className="fixed inset-0 z-40 bg-black/10 transition-opacity"
+          className="fixed inset-0 z-[60] bg-black/10"
           onClick={() => setCollapsed(true)}
         />
       )}
-      <aside
-        className={cn(
-          "absolute top-0 left-0 h-full flex flex-col bg-white border-r border-gray-300 shadow-sm transition-[width] duration-200 ease-in-out select-none overflow-x-auto overflow-y-hidden",
-          collapsed ? "w-[60px] z-10" : "w-[220px] z-50 shadow-xl",
-        )}
-      >
-      {/* ═══ Header: Logo + Toggle ═══════════════════════════════════════ */}
-      <div className={cn(
-        "flex items-center h-14 shrink-0 border-b border-gray-100",
-        collapsed ? "justify-center" : "px-3 justify-between",
-      )}>
-        <div className={cn(
-          "flex items-center gap-2 min-w-0 overflow-hidden",
-          collapsed && "justify-center w-full",
-        )}>
-          <AdaLogo size="sm" variant="primary" className="shrink-0 w-7 h-7" />
-          <span className={cn(
-            "font-semibold text-[13px] text-gray-900 truncate transition-opacity duration-200",
-            collapsed ? "w-0 opacity-0" : "opacity-100",
-          )}>
-            Menu Builder <span className="text-blue-600 font-bold">AI</span>
-          </span>
-        </div>
 
-        {!collapsed && (
-          <button
-            onClick={() => setCollapsed(true)}
-            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
-            title="Collapse (⌘B)"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      {/* Spacer — always takes collapsed width in the flow */}
+      <div className="h-full shrink-0" style={{ width: COLLAPSED_W }} />
 
-      {/* ═══ User profile section ════════════════════════════════════════ */}
+      {/* Sidebar — fixed position, overlays page when expanded */}
       <div
-        ref={userMenuRef}
-        className={cn("relative", collapsed ? "px-1.5 py-2" : "px-2 py-2")}
+        className="fixed top-0 left-0 h-full overflow-visible transition-[width] duration-200 ease-in-out"
+        style={{
+          width: collapsed ? COLLAPSED_W : EXPANDED_W,
+          zIndex: collapsed ? 10 : 70,
+          boxShadow: collapsed ? "1px 0 0 0 #d1d5db" : "4px 0 12px rgba(0,0,0,0.08), 1px 0 0 0 #d1d5db",
+        }}
       >
-        <Tooltip label={user ? getUserDisplayName(user) : "Profile"} show={collapsed}>
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className={cn(
-              "flex items-center w-full rounded-lg transition-colors",
-              collapsed
-                ? "justify-center p-2 hover:bg-gray-100"
-                : "gap-2.5 px-2 py-2 hover:bg-gray-50",
-            )}
-          >
-            <Avatar className="h-7 w-7 shrink-0 ring-1 ring-gray-200">
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold">
-                {user ? getUserInitials(user) : "?"}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && user && (
-              <>
-                <div className="text-left min-w-0 flex-1">
-                  <div className="text-[13px] font-medium text-gray-900 truncate leading-tight">
-                    {getUserDisplayName(user)}
-                  </div>
-                  <div className="text-[11px] text-gray-400 truncate leading-tight">
-                    {user.email}
-                  </div>
-                </div>
-                <ChevronDown className={cn(
-                  "w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform",
-                  showUserMenu && "rotate-180",
-                )} />
-              </>
-            )}
-          </button>
-        </Tooltip>
-
-        {/* Dropdown */}
-        {showUserMenu && (
-          <div className={cn(
-            "absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden",
-            collapsed ? "left-full top-1 ml-2 w-52" : "left-2 right-2 top-full mt-1",
-          )}>
-            <div className="px-3 py-2.5 bg-gray-50/80">
-              <div className="text-[13px] font-semibold text-gray-900">
-                {user ? getUserDisplayName(user) : "User"}
-              </div>
-              <div className="text-[11px] text-gray-500">{user?.email}</div>
-            </div>
-            <div className="p-1">
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-2.5 py-2 text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2.5 rounded-md transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Sign out
-              </button>
-            </div>
+        <aside
+          className="h-full flex flex-col bg-white transition-[width] duration-200 ease-in-out select-none overflow-hidden"
+          style={{ width: collapsed ? COLLAPSED_W : EXPANDED_W }}
+        >
+        {/* ═══ Header: Logo ══════════════════════════════════════════════ */}
+        <div className="flex items-center h-14 shrink-0 border-b border-gray-100 px-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <AdaLogo size="sm" variant="primary" className="shrink-0 w-7 h-7" />
+            <span className={cn(
+              "font-semibold text-[13px] text-gray-900 whitespace-nowrap transition-opacity duration-200",
+              collapsed ? "opacity-0" : "opacity-100",
+            )}>
+              Menu Builder <span className="text-blue-600 font-bold">AI</span>
+            </span>
           </div>
-        )}
-      </div>
-
-      {/* Separator */}
-      <div className="mx-3 border-t border-gray-100" />
-
-      {/* ═══ Navigation ══════════════════════════════════════════════════ */}
-      <nav className={cn(
-        "flex-1 overflow-y-auto py-2",
-        collapsed ? "px-1.5" : "px-2",
-      )}>
-        <div className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            const active = activeItem === item.id;
-            return (
-              <Tooltip key={item.id} label={item.label} show={collapsed}>
-                <button
-                  onClick={() => setActiveItem(active ? null : item.id)}
-                  className={cn(
-                    "flex items-center w-full rounded-lg transition-all duration-150",
-                    collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-2",
-                    active
-                      ? "bg-gray-900 text-white shadow-sm"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700",
-                  )}
-                >
-                  <item.icon className={cn(
-                    "w-[18px] h-[18px] shrink-0",
-                    active ? "text-white" : "text-gray-400 group-hover:text-gray-600",
-                  )} />
-                  {!collapsed && (
-                    <span className={cn(
-                      "text-[13px] truncate",
-                      active ? "font-semibold" : "font-medium",
-                    )}>
-                      {item.label}
-                    </span>
-                  )}
-                </button>
-              </Tooltip>
-            );
-          })}
         </div>
-      </nav>
 
-      {/* ═══ Footer: Collapse toggle (when collapsed) + Logout ═══════════ */}
-      <div className={cn(
-        "border-t border-gray-100",
-        collapsed ? "px-1.5 py-2" : "px-2 py-2",
-      )}>
-        {collapsed && (
-          <Tooltip label="Expand (⌘B)" show>
+        {/* ═══ User profile section ══════════════════════════════════════ */}
+        <div ref={userMenuRef} className="relative py-2 px-2">
+          <Tooltip label={user ? getUserDisplayName(user) : "Profile"} show={collapsed}>
             <button
-              onClick={() => setCollapsed(false)}
-              className="flex items-center justify-center w-full p-2.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors mb-0.5"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center w-full gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <ChevronsRight className="w-[18px] h-[18px]" />
+              <Avatar className="h-7 w-7 shrink-0 ring-1 ring-gray-200">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white text-[10px] font-bold">
+                  {user ? getUserInitials(user) : "?"}
+                </AvatarFallback>
+              </Avatar>
+              {user && (
+                <>
+                  <div className={cn(
+                    "text-left min-w-0 flex-1 transition-opacity duration-200",
+                    collapsed ? "opacity-0" : "opacity-100",
+                  )}>
+                    <div className="text-[13px] font-medium text-gray-900 truncate leading-tight whitespace-nowrap">
+                      {getUserDisplayName(user)}
+                    </div>
+                    <div className="text-[11px] text-gray-400 truncate leading-tight whitespace-nowrap">
+                      {user.email}
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "w-3.5 h-3.5 text-gray-400 shrink-0 transition-all duration-200",
+                      collapsed ? "opacity-0" : "opacity-100",
+                      showUserMenu && "rotate-180",
+                    )}
+                  />
+                </>
+              )}
             </button>
           </Tooltip>
-        )}
 
-        <Tooltip label="Sign out" show={collapsed}>
-          <button
-            onClick={handleLogout}
+          {/* Dropdown */}
+          {showUserMenu && (
+            <div
+              className={cn(
+                "absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden",
+                collapsed
+                  ? "left-full top-1 ml-2 w-52"
+                  : "left-2 right-2 top-full mt-1",
+              )}
+            >
+              <div className="px-3 py-2.5 bg-gray-50/80">
+                <div className="text-[13px] font-semibold text-gray-900">
+                  {user ? getUserDisplayName(user) : "User"}
+                </div>
+                <div className="text-[11px] text-gray-500">{user?.email}</div>
+              </div>
+              <div className="p-1">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-2.5 py-2 text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2.5 rounded-md transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Separator */}
+        <div className="mx-3 border-t border-gray-100" />
+
+        {/* ═══ Navigation ════════════════════════════════════════════════ */}
+        <nav className="flex-1 py-2 px-2">
+          <div className="space-y-0.5">
+            {NAV_ITEMS.map((item) => {
+              const active = activeItem === item.id;
+              return (
+                <Tooltip key={item.id} label={item.label} show={collapsed}>
+                  <button
+                    onClick={() => setActiveItem(active ? null : item.id)}
+                    className={cn(
+                      "flex items-center w-full gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150",
+                      active
+                        ? "bg-gray-900 text-white shadow-sm"
+                        : "text-gray-500 hover:bg-gray-100 hover:text-gray-700",
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "w-[18px] h-[18px] shrink-0",
+                        active ? "text-white" : "text-gray-400",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-[13px] truncate whitespace-nowrap transition-opacity duration-200",
+                        collapsed ? "opacity-0" : "opacity-100",
+                        active ? "font-semibold" : "font-medium",
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* ═══ Footer: Logout ════════════════════════════════════════════ */}
+        <div className="border-t border-gray-100 py-2 px-2">
+          <Tooltip label="Sign out" show={collapsed}>
+            <button
+              onClick={handleLogout}
+              className="flex items-center w-full gap-2.5 px-2.5 py-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+            >
+              <LogOut className="w-[18px] h-[18px] shrink-0" />
+              <span className={cn(
+                "text-[13px] font-medium whitespace-nowrap transition-opacity duration-200",
+                collapsed ? "opacity-0" : "opacity-100",
+              )}>Sign out</span>
+            </button>
+          </Tooltip>
+        </div>
+      </aside>
+
+        {/* ═══ Toggle button — AFTER aside so it paints on top ═══ */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="absolute top-4 z-20 flex items-center justify-center rounded-full hover:scale-110 transition-all"
+          style={{
+            right: -14,
+            width: 28,
+            height: 28,
+            backgroundColor: "#fff",
+            border: "1px solid #d1d5db",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06)",
+          }}
+          title={collapsed ? "Expand (⌘B)" : "Collapse (⌘B)"}
+        >
+          <PanelLeftClose
             className={cn(
-              "flex items-center w-full rounded-lg transition-colors",
-              collapsed
-                ? "justify-center p-2.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                : "gap-2.5 px-2.5 py-2 text-gray-400 hover:bg-red-50 hover:text-red-500",
+              "w-4 h-4 text-gray-500 transition-transform duration-200",
+              collapsed && "rotate-180",
             )}
-          >
-            <LogOut className="w-[18px] h-[18px] shrink-0" />
-            {!collapsed && <span className="text-[13px] font-medium">Sign out</span>}
-          </button>
-        </Tooltip>
+          />
+        </button>
       </div>
-    </aside>
-    </div>
+    </>
   );
 }
