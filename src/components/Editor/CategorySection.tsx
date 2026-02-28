@@ -1,19 +1,11 @@
 import { useState, useEffect, type KeyboardEvent } from "react";
 import {
   Plus,
-  Trash2,
   Check,
   X,
   ChevronDown,
   Pencil,
-  UtensilsCrossed,
-  Beef,
-  CakeSlice,
-  Wine,
-  Coffee,
-  Soup,
-  Salad,
-  Fish,
+  GripVertical,
 } from "lucide-react";
 import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -23,30 +15,6 @@ import { useMenu } from "../../context/MenuContext";
 import MenuItemCard from "./MenuItemCard";
 import type { Category } from "../../types/menu";
 
-/* Map category names to icons */
-const CATEGORY_ICONS: Record<string, typeof UtensilsCrossed> = {
-  starters: UtensilsCrossed,
-  appetizers: UtensilsCrossed,
-  "main courses": Beef,
-  mains: Beef,
-  entrees: Beef,
-  desserts: CakeSlice,
-  drinks: Wine,
-  beverages: Wine,
-  wines: Wine,
-  cocktails: Wine,
-  coffee: Coffee,
-  soups: Soup,
-  salads: Salad,
-  fish: Fish,
-  seafood: Fish,
-};
-
-function getCategoryIcon(name: string) {
-  const Icon = CATEGORY_ICONS[name.toLowerCase()] ?? UtensilsCrossed;
-  return <Icon className="w-4 h-4" />;
-}
-
 interface CategorySectionProps {
   category: Category;
   isDraggingActive: boolean;
@@ -54,6 +22,7 @@ interface CategorySectionProps {
   searchQuery: string;
   collapseSignal: number;
   expandSignal: number;
+  forceCollapsed?: boolean;
 }
 
 export default function CategorySection({
@@ -63,10 +32,10 @@ export default function CategorySection({
   searchQuery,
   collapseSignal,
   expandSignal,
+  forceCollapsed,
 }: CategorySectionProps) {
   const {
     addItem,
-    removeCategory,
     updateCategory,
     setHover,
     clearHover,
@@ -112,6 +81,10 @@ export default function CategorySection({
   const isDragOver =
     dragState.overId === category.id && dragState.activeId !== category.id;
 
+  // Force collapsed when used as drag overlay
+  const effectiveCollapsed = forceCollapsed || isCollapsed;
+  const isExpanded = !effectiveCollapsed;
+
   const handleSaveName = () => {
     if (editName.trim()) {
       updateCategory(category.id, { name: editName.trim() });
@@ -148,7 +121,7 @@ export default function CategorySection({
   };
 
   const handleHeaderClick = () => {
-    if (!isEditingName) {
+    if (!isEditingName && !forceCollapsed) {
       setIsCollapsed((c) => !c);
     }
   };
@@ -163,8 +136,6 @@ export default function CategorySection({
     : category.items;
 
   const itemIds = filteredItems.map((i) => i.id);
-
-  const isExpanded = !isCollapsed;
 
   return (
     <div
@@ -190,14 +161,14 @@ export default function CategorySection({
         onClick={handleHeaderClick}
         style={{ cursor: 'pointer' }}
       >
-        {/* Drag handle — icon */}
+        {/* Drag handle */}
         <span
-          className={cn("shrink-0 cursor-grab", isExpanded ? "text-white/80" : "text-muted-foreground")}
+          className={cn("shrink-0 cursor-grab", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
           {...attributes}
           {...listeners}
           onClick={(e) => e.stopPropagation()}
         >
-          {getCategoryIcon(category.name)}
+          <GripVertical className="w-4 h-4" />
         </span>
 
         {/* Name or Edit input */}
@@ -210,14 +181,14 @@ export default function CategorySection({
               onKeyDown={handleKeyDown}
               className={cn(
                 "font-bold text-sm h-7",
-                isCollapsed ? "bg-white border-border text-foreground" : "bg-white/20 border-white/30 text-white"
+                effectiveCollapsed ? "bg-white border-border text-foreground" : "bg-white/20 border-white/30 text-white"
               )}
             />
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleSaveName}
-              className={isCollapsed ? "text-foreground hover:text-foreground/80" : "text-white hover:text-white/80"}
+              className={effectiveCollapsed ? "text-foreground hover:text-foreground/80" : "text-white hover:text-white/80"}
             >
               <Check className="w-4 h-4" />
             </Button>
@@ -228,7 +199,7 @@ export default function CategorySection({
                 e.stopPropagation();
                 handleCancelEdit();
               }}
-              className={isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
+              className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -244,14 +215,14 @@ export default function CategorySection({
           </h3>
         )}
 
-        {/* Edit button (pencil) — left of item count */}
+        {/* Edit button (pencil) — always white when expanded */}
         {!isEditingName && (
           <button
             onClick={handleStartEdit}
             className={cn(
               "shrink-0 p-0.5 rounded transition-colors",
               isExpanded
-                ? "text-white/60 hover:text-white"
+                ? "text-white hover:text-white/80"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -261,24 +232,9 @@ export default function CategorySection({
 
         <div className="flex-1" />
 
-        {/* Delete — shown on hover */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            removeCategory(category.id);
-          }}
-          className={cn(
-            "shrink-0 opacity-0 hover:opacity-100 transition-all group-hover/cat:opacity-100",
-            isExpanded ? "text-white/60 hover:text-red-300" : "text-muted-foreground hover:text-red-500"
-          )}
-          style={{ opacity: isHighlighted ? 1 : undefined }}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-
         {/* Item count badge — right side, next to chevron */}
         <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-          style={isCollapsed
+          style={effectiveCollapsed
             ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
             : { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
           }
@@ -296,7 +252,7 @@ export default function CategorySection({
           <ChevronDown
             className={cn(
               "w-4 h-4 transition-transform duration-200",
-              isCollapsed && "-rotate-90"
+              effectiveCollapsed && "-rotate-90"
             )}
           />
         </span>

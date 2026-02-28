@@ -284,6 +284,7 @@ export default function EditorPanel() {
                   category={activeCategory}
                   isDraggingActive
                   isOverlay
+                  forceCollapsed
                   searchQuery=""
                   collapseSignal={0}
                   expandSignal={0}
