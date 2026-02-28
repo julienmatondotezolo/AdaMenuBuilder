@@ -24,6 +24,7 @@ import {
 import { useMenu } from "../../context/MenuContext";
 import CategorySection from "./CategorySection";
 import EditorCard from "./EditorCard";
+import TemplateSelectorCard from "./TemplateSelectorCard";
 import MenuItemCard from "./MenuItemCard";
 import type { MenuItem } from "../../types/menu";
 
@@ -255,6 +256,11 @@ export default function EditorPanel() {
 
       {/* Scrollable category list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Template Selector */}
+        <TemplateSelectorCard />
+
+        <div className="h-4" />
+
         {/* Menu Header Editor */}
         <EditorCard
           icon={<Type className="w-4 h-4" />}
