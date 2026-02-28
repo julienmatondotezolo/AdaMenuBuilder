@@ -207,7 +207,7 @@ export default function MenuItemCard({
                       e.stopPropagation();
                       setIsEditing(true);
                     }}
-                    className="h-5 text-[10px] font-medium px-2"
+                    className="h-5 text-[10px] font-medium px-2 bg-white/50"
                   >
                     <Pencil className="w-2.5 h-2.5 mr-1" />
                     Edit
@@ -219,7 +219,7 @@ export default function MenuItemCard({
                       e.stopPropagation();
                       removeItem(categoryId, item.id);
                     }}
-                    className="h-5 text-[10px] font-medium px-2"
+                    className="h-5 text-[10px] font-medium px-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
                   >
                     <Trash2 className="w-2.5 h-2.5 mr-1" />
                     Delete
