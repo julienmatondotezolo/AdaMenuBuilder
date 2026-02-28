@@ -39,6 +39,17 @@ body {
   color: var(--color-foreground);
 }
 
+/* Action button hovers */
+.edit-action-btn:hover {
+  background-color: hsl(232 100% 66% / 0.1);
+  border-color: hsl(232 100% 66%);
+  color: hsl(232 100% 66%);
+}
+.delete-action-btn:hover {
+  background-color: hsl(346 87% 43% / 0.2);
+  border-color: hsl(346 87% 43%);
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
