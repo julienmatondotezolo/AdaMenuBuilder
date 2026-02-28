@@ -48,7 +48,7 @@ export default function CategorySection({
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const stateBeforeDrag = useRef<boolean | null>(null);
 
   // Respond to collapse/expand all signals
@@ -182,18 +182,26 @@ export default function CategorySection({
   return (
     <div
       ref={setSortableRef}
-      style={style}
+      style={{
+        ...style,
+        ...(isDragOver ? { border: '2px dashed hsl(232 80% 62%)', background: 'hsl(232 80% 62% / 0.06)' } : {}),
+        ...(isDragging ? { border: '2px dashed hsl(232 80% 62% / 0.4)', opacity: 0.4 } : {}),
+      }}
       className={cn(
         "rounded-xl overflow-hidden transition-all duration-200",
         "border border-border bg-card",
-        isDragging && "border-2 border-dashed border-primary/40",
-        isDragOver && "ring-2 ring-primary/40",
         isHighlighted && !isDraggingActive && "ring-1 ring-primary/20",
         isOverlay && "shadow-xl border-primary/50",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
+      {/* Drop here indicator when dragging over */}
+      {isDragOver && dragState.activeType === "category" && (
+        <div className="flex items-center justify-center py-2" style={{ color: 'hsl(232 80% 62%)' }}>
+          <span className="text-xs font-semibold tracking-wide">Drop here</span>
+        </div>
+      )}
       {/* ── Category Header ─────────────────────────────────────────── */}
       <div
         className={cn(

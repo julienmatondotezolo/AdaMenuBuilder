@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Plus, X, Check, Search, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Plus, X, Check, Search, ChevronsDownUp, ChevronsUpDown, Type, ImageIcon } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
   DndContext,
@@ -23,12 +23,14 @@ import {
 } from "@dnd-kit/sortable";
 import { useMenu } from "../../context/MenuContext";
 import CategorySection from "./CategorySection";
+import EditorCard from "./EditorCard";
 import MenuItemCard from "./MenuItemCard";
 import type { MenuItem } from "../../types/menu";
 
 export default function EditorPanel() {
   const {
     menuData,
+    setMenuData,
     addCategory,
     reorderCategories,
     moveOrReorderItem,
@@ -253,6 +255,55 @@ export default function EditorPanel() {
 
       {/* Scrollable category list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Menu Header Editor */}
+        <EditorCard
+          icon={<Type className="w-4 h-4" />}
+          title="Menu Header"
+          defaultCollapsed
+        >
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Subtitle</label>
+            <input
+              type="text"
+              value={menuData.subtitle}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, subtitle: e.target.value }))}
+              placeholder="e.g. SUMMER COLLECTION"
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Restaurant Name</label>
+            <input
+              type="text"
+              value={menuData.restaurantName}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, restaurantName: e.target.value }))}
+              placeholder="e.g. Lumière Dining"
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Established Year</label>
+            <input
+              type="text"
+              value={menuData.established}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, established: e.target.value }))}
+              placeholder="e.g. 2024"
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+        </EditorCard>
+
+        <div className="h-4" />
+
         <DndContext
           sensors={sensors}
           collisionDetection={collisionDetection}
@@ -314,6 +365,74 @@ export default function EditorPanel() {
             <p className="text-sm mt-1">Create your first category to get started</p>
           </div>
         )}
+
+        <div className="h-4" />
+
+        {/* Highlight Image Editor */}
+        <EditorCard
+          icon={<ImageIcon className="w-4 h-4" />}
+          title="Highlight Image"
+          defaultCollapsed
+        >
+          {menuData.highlightImage && (
+            <div className="relative rounded-lg overflow-hidden" style={{ maxHeight: '200px' }}>
+              {/* Blurred background fill */}
+              <img
+                src={menuData.highlightImage}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{ filter: 'blur(20px)', transform: 'scale(1.1)' }}
+              />
+              {/* Actual image, fit in height */}
+              <img
+                src={menuData.highlightImage}
+                alt="Highlight preview"
+                className="relative w-full object-contain mx-auto"
+                style={{ maxHeight: '200px' }}
+              />
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Image URL</label>
+            <input
+              type="text"
+              value={menuData.highlightImage}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, highlightImage: e.target.value }))}
+              placeholder="https://..."
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Label</label>
+            <input
+              type="text"
+              value={menuData.highlightLabel}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, highlightLabel: e.target.value }))}
+              placeholder="e.g. TODAY'S HIGHLIGHT"
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
+            <input
+              type="text"
+              value={menuData.highlightTitle}
+              onChange={(e) => setMenuData((prev) => ({ ...prev, highlightTitle: e.target.value }))}
+              placeholder="e.g. The Nordic Atlantic Salmon"
+              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+              style={{ border: '1px solid hsl(220 13% 91%)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
+            />
+          </div>
+        </EditorCard>
       </div>
 
       {/* Fixed bottom — Create New Category */}
