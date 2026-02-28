@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { uid } from "../utils/uid";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -73,7 +74,7 @@ export default function TemplateGallery() {
 
     const now = new Date().toISOString();
     const template: MenuTemplate = {
-      id: `tpl-${crypto.randomUUID()}`,
+      id: `tpl-${uid()}`,
       name: newName.trim(),
       description: "",
       isBuiltIn: false,
@@ -82,7 +83,7 @@ export default function TemplateGallery() {
       colors: DEFAULT_COLORS,
       fonts: { heading: "serif", body: "sans-serif" },
       spacing: DEFAULT_SPACING,
-      pageVariants: [{ ...DEFAULT_PAGE_VARIANT, id: `var-${crypto.randomUUID()}` }],
+      pageVariants: [{ ...DEFAULT_PAGE_VARIANT, id: `var-${uid()}` }],
       createdAt: now,
       updatedAt: now,
     };

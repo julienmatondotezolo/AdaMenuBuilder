@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { uid } from "../utils/uid";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -15,6 +16,7 @@ import {
   Eye,
   EyeOff,
   Ruler,
+  Check,
 } from "lucide-react";
 import {
   Button,
@@ -114,7 +116,7 @@ export default function TemplateEditor() {
 
   const addVariant = () => {
     const newVar: PageVariant = {
-      id: `var-${crypto.randomUUID()}`,
+      id: `var-${uid()}`,
       name: `Page ${template.pageVariants.length + 1}`,
       header: { show: false, style: "none", showSubtitle: false, showEstablished: false, showDivider: false },
       body: { columns: 1, categoryStyle: "lines", itemAlignment: "center", pricePosition: "below", separatorStyle: "line", showDescriptions: true, showFeaturedBadge: true },
@@ -134,7 +136,7 @@ export default function TemplateEditor() {
   const duplicateVariant = (variantId: string) => {
     const src = template.pageVariants.find((v) => v.id === variantId);
     if (!src) return;
-    const copy: PageVariant = { ...src, id: `var-${crypto.randomUUID()}`, name: `${src.name} (Copy)` };
+    const copy: PageVariant = { ...src, id: `var-${uid()}`, name: `${src.name} (Copy)` };
     save({ pageVariants: [...template.pageVariants, copy] });
     setActiveVariantId(copy.id);
   };
@@ -213,6 +215,10 @@ export default function TemplateEditor() {
             </Badge>
           </div>
         </div>
+        <Button size="sm" onClick={() => navigate("/templates")}>
+          <Check className="w-4 h-4 mr-1.5" />
+          Save
+        </Button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">

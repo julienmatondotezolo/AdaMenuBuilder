@@ -1,3 +1,4 @@
+import { uid } from "../utils/uid";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "./dexie";
 import type { Menu } from "../types/menu";
@@ -33,12 +34,12 @@ export async function duplicateMenu(id: string): Promise<Menu | undefined> {
   const now = new Date().toISOString();
   const copy: Menu = {
     ...original,
-    id: `menu-${crypto.randomUUID()}`,
+    id: `menu-${uid()}`,
     title: `${original.title} (Copy)`,
     status: "draft",
     createdAt: now,
     updatedAt: now,
-    pages: original.pages.map((p) => ({ ...p, id: `page-${crypto.randomUUID()}` })),
+    pages: original.pages.map((p) => ({ ...p, id: `page-${uid()}` })),
   };
   await db.menus.add(copy);
   return copy;
@@ -76,12 +77,12 @@ export async function duplicateTemplate(id: string): Promise<MenuTemplate | unde
   const now = new Date().toISOString();
   const copy: MenuTemplate = {
     ...original,
-    id: `tpl-${crypto.randomUUID()}`,
+    id: `tpl-${uid()}`,
     name: `${original.name} (Copy)`,
     isBuiltIn: false,
     createdAt: now,
     updatedAt: now,
-    pageVariants: original.pageVariants.map((v) => ({ ...v, id: `var-${crypto.randomUUID()}` })),
+    pageVariants: original.pageVariants.map((v) => ({ ...v, id: `var-${uid()}` })),
   };
   await db.templates.add(copy);
   return copy;

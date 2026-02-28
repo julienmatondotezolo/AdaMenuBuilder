@@ -1,3 +1,4 @@
+import { uid } from "../utils/uid";
 import {
   createContext,
   useContext,
@@ -62,7 +63,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       categories: [
         ...prev.categories,
         {
-          id: `cat-${crypto.randomUUID()}`,
+          id: `cat-${uid()}`,
           name,
           items: [],
         },
@@ -93,7 +94,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const addItem = useCallback(
     (categoryId: string, item: Partial<MenuItem>) => {
       const newItem: MenuItem = {
-        id: `item-${crypto.randomUUID()}`,
+        id: `item-${uid()}`,
         name: item.name || "New Item",
         price: item.price || 0,
         description: item.description || "",

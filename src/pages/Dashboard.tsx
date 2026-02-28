@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { uid } from "../utils/uid";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -60,13 +61,13 @@ export default function Dashboard() {
 
     const now = new Date().toISOString();
     const menu: Menu = {
-      id: `menu-${crypto.randomUUID()}`,
+      id: `menu-${uid()}`,
       title: newTitle.trim(),
       templateId: selectedTemplateId,
       status: "draft",
       data: { ...emptyMenuData, title: newTitle.trim() },
       pages: [
-        { id: `page-${crypto.randomUUID()}`, variantId: template.pageVariants[0]?.id || "cover", categoryIds: [] },
+        { id: `page-${uid()}`, variantId: template.pageVariants[0]?.id || "cover", categoryIds: [] },
       ],
       createdAt: now,
       updatedAt: now,
