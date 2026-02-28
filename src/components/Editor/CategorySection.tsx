@@ -3,21 +3,49 @@ import {
   GripVertical,
   Plus,
   Trash2,
-  Pencil,
   Check,
   X,
-  SeparatorHorizontal,
-  Rows3,
-  Columns,
   ChevronDown,
+  UtensilsCrossed,
+  Beef,
+  CakeSlice,
+  Wine,
+  Coffee,
+  Soup,
+  Salad,
+  Fish,
 } from "lucide-react";
-import { Button, Badge, Input, cn } from "ada-design-system";
+import { Button, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useMenu } from "../../context/MenuContext";
 import MenuItemCard from "./MenuItemCard";
 import type { Category } from "../../types/menu";
+
+/* Map category names to icons */
+const CATEGORY_ICONS: Record<string, typeof UtensilsCrossed> = {
+  starters: UtensilsCrossed,
+  appetizers: UtensilsCrossed,
+  "main courses": Beef,
+  mains: Beef,
+  entrees: Beef,
+  desserts: CakeSlice,
+  drinks: Wine,
+  beverages: Wine,
+  wines: Wine,
+  cocktails: Wine,
+  coffee: Coffee,
+  soups: Soup,
+  salads: Salad,
+  fish: Fish,
+  seafood: Fish,
+};
+
+function getCategoryIcon(name: string) {
+  const Icon = CATEGORY_ICONS[name.toLowerCase()] ?? UtensilsCrossed;
+  return <Icon className="w-4 h-4" />;
+}
 
 interface CategorySectionProps {
   category: Category;
@@ -38,13 +66,11 @@ export default function CategorySection({
     clearHover,
     hoveredId,
     dragState,
-    columnCount,
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Sortable for the category row itself
   const {
     attributes,
     listeners,
@@ -54,7 +80,6 @@ export default function CategorySection({
     isDragging,
   } = useSortable({ id: category.id });
 
-  // Droppable for the items list (allows dropping items into empty categories)
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
     id: `${category.id}-items`,
     data: { type: "category", categoryId: category.id },
@@ -69,8 +94,6 @@ export default function CategorySection({
   const isDragActive = dragState.activeId === category.id;
   const isDragOver =
     dragState.overId === category.id && dragState.activeId !== category.id;
-  const pageBreakMode = category.pageBreakMode ?? "category";
-  const currentColumn = category.column ?? 1;
 
   const handleSaveName = () => {
     if (editName.trim()) {
@@ -120,212 +143,151 @@ export default function CategorySection({
       {isDragging ? (
         <div className="flex items-center gap-2 py-2 px-1 opacity-40 border-2 border-dashed border-muted-foreground/30 rounded-xl">
           <GripVertical className="w-5 h-5 text-muted-foreground" />
-          <span className="font-bold text-base text-foreground">{category.name}</span>
-          <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
-            {category.items.length} {category.items.length === 1 ? "item" : "items"}
-          </Badge>
+          <span className="font-bold text-sm uppercase tracking-wider text-foreground">
+            {category.name}
+          </span>
         </div>
       ) : isDraggingCategory ? (
         <div className="flex items-center gap-2 py-2 px-1 border border-border rounded-xl bg-card">
           <GripVertical className="w-5 h-5 text-muted-foreground" />
-          <span className="font-bold text-base text-card-foreground">{category.name}</span>
-          <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
-            {category.items.length} {category.items.length === 1 ? "item" : "items"}
-          </Badge>
+          <span className="font-bold text-sm uppercase tracking-wider text-card-foreground">
+            {category.name}
+          </span>
         </div>
       ) : (
-      <>
-      <div className="flex items-center gap-2 mb-3">
-        {/* Drag handle — only this element activates the drag */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className={cn(
-            "text-muted-foreground hover:text-foreground p-0.5 cursor-grab",
-            isDragging && "cursor-grabbing"
-          )}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="w-5 h-5" />
-        </Button>
-
-        {isEditingName ? (
-          <div className="flex items-center gap-1.5">
-            <Input
-              autoFocus
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="font-bold text-base"
-            />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleSaveName}
-              className="text-success hover:text-success"
+        <>
+          {/* Category header */}
+          <div className="flex items-center gap-2 mb-1 group/cat">
+            {/* Drag handle */}
+            <div
+              className={cn(
+                "text-muted-foreground/30 hover:text-muted-foreground cursor-grab shrink-0",
+                "opacity-0 group-hover/cat:opacity-100 transition-opacity",
+              )}
+              {...attributes}
+              {...listeners}
             >
-              <Check className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => {
-                setEditName(category.name);
-                setIsEditingName(false);
-              }}
-              className="text-muted-foreground hover:text-foreground"
+              <GripVertical className="w-4 h-4" />
+            </div>
+
+            {/* Icon */}
+            <span className="text-primary shrink-0">
+              {getCategoryIcon(category.name)}
+            </span>
+
+            {/* Name */}
+            {isEditingName ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="font-bold text-sm uppercase tracking-wider"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleSaveName}
+                  className="text-success hover:text-success"
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    setEditName(category.name);
+                    setIsEditingName(false);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <h3
+                className="font-bold text-sm uppercase tracking-wider text-foreground cursor-pointer"
+                onDoubleClick={() => setIsEditingName(true)}
+              >
+                {category.name}
+              </h3>
+            )}
+
+            {/* Collapse toggle */}
+            <button
+              onClick={() => setIsCollapsed((c) => !c)}
+              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        ) : (
-          <h3
-            className="font-bold text-base text-foreground cursor-pointer"
-            onDoubleClick={() => setIsEditingName(true)}
-          >
-            {category.name}
-          </h3>
-        )}
-
-        <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
-          {category.items.length} {category.items.length === 1 ? "item" : "items"}
-        </Badge>
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => setIsCollapsed((c) => !c)}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 transition-transform duration-200",
-              isCollapsed && "-rotate-90"
-            )}
-          />
-        </Button>
-
-        <div className="flex-1" />
-
-        {!isEditingName && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setIsEditingName(true)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-        )}
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() =>
-            updateCategory(category.id, {
-              pageBreakMode: pageBreakMode === "category" ? "item" : "category",
-            })
-          }
-          title={
-            pageBreakMode === "category"
-              ? "Page breaks: category level (click to switch to item level)"
-              : "Page breaks: item level (click to switch to category level)"
-          }
-          className={cn(
-            pageBreakMode === "item"
-              ? "text-primary hover:text-primary/80"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Rows3 className="w-3.5 h-3.5" />
-        </Button>
-
-        {pageBreakMode === "category" && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() =>
-              updateCategory(category.id, {
-                pageBreakBefore: !category.pageBreakBefore,
-              })
-            }
-            title="Page break before this category"
-            className={cn(
-              category.pageBreakBefore
-                ? "text-primary hover:text-primary/80"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <SeparatorHorizontal className="w-3.5 h-3.5" />
-          </Button>
-        )}
-
-        {columnCount > 1 && (
-          <div className="flex items-center gap-0.5" title="Assign to column">
-            <Columns className="w-3 h-3 text-muted-foreground mr-0.5" />
-            {Array.from({ length: columnCount }, (_, i) => i + 1).map((col) => (
-              <Button
-                key={col}
-                variant={currentColumn === col ? "default" : "ghost"}
-                size="tiny"
-                onClick={() => updateCategory(category.id, { column: col })}
+              <ChevronDown
                 className={cn(
-                  "w-5 h-5 text-[10px] font-bold",
-                  currentColumn === col
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  "w-3.5 h-3.5 transition-transform duration-200",
+                  isCollapsed && "-rotate-90"
+                )}
+              />
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Delete — hover only */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => removeCategory(category.id)}
+              className="opacity-0 group-hover/cat:opacity-100 text-muted-foreground hover:text-destructive transition-all w-7 h-7"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+
+            {/* + ADD ITEM */}
+            <button
+              onClick={handleAddItem}
+              className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add item
+            </button>
+          </div>
+
+          {/* Accent line */}
+          <div className="h-px bg-primary/30 mb-4" />
+
+          {/* Items */}
+          {!isCollapsed && (
+            <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+              <div
+                ref={setDroppableRef}
+                className={cn(
+                  "space-y-3 rounded-lg transition-all duration-150",
+                  isItemsOver &&
+                    dragState.activeType === "item" &&
+                    "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
                 )}
               >
-                {col}
-              </Button>
-            ))}
-          </div>
-        )}
+                {category.items.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    categoryId={category.id}
+                    isDraggingActive={isDraggingActive}
+                  />
+                ))}
 
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => removeCategory(category.id)}
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
-      </div>
+                {category.items.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground/60 text-sm">
+                    No items yet — click + Add item above
+                  </div>
+                )}
+              </div>
+            </SortableContext>
+          )}
 
-      {!isCollapsed && (
-        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-          <div
-            ref={setDroppableRef}
-            className={cn(
-              "space-y-3 ml-7 rounded-lg transition-all duration-150",
-              isItemsOver && 
-                dragState.activeType === "item" && 
-                "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
-            )}
-          >
-            {category.items.map((item) => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                categoryId={category.id}
-                showPageBreak={pageBreakMode === "item"}
-                isDraggingActive={isDraggingActive}
-              />
-            ))}
-
-            <Button
-              variant="outline"
-              onClick={handleAddItem}
-              className="ml-5 w-[calc(100%-1.25rem)] flex items-center justify-center gap-2 py-2.5 border-dashed text-muted-foreground font-medium hover:border-primary/30 hover:text-primary/70"
-            >
-              <Plus className="w-4 h-4" />
-              Add {singularName}
-            </Button>
-          </div>
-        </SortableContext>
-      )}
-      </>
+          {isCollapsed && (
+            <p className="text-xs text-muted-foreground/50 mb-2">
+              {category.items.length} {category.items.length === 1 ? "item" : "items"} · double-click name to rename
+            </p>
+          )}
+        </>
       )}
     </div>
   );

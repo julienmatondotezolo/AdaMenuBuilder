@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
-import { Plus, X, Check, GripVertical, ChevronDown } from "lucide-react";
-import { Button, Input, Card, CardContent, Badge, cn } from "ada-design-system";
+import { Plus, X, Check, GripVertical } from "lucide-react";
+import { Button, Input, Card, Badge, cn } from "ada-design-system";
 import {
   DndContext,
   DragOverlay,
@@ -23,7 +23,6 @@ import {
 import { useMenu } from "../../context/MenuContext";
 import CategorySection from "./CategorySection";
 import MenuItemCard from "./MenuItemCard";
-import HeaderSection from "./HeaderSection";
 import type { MenuItem } from "../../types/menu";
 
 export default function EditorPanel() {
@@ -37,7 +36,6 @@ export default function EditorPanel() {
   } = useMenu();
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [menuItemsOpen, setMenuItemsOpen] = useState(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -62,7 +60,6 @@ export default function EditorPanel() {
     return closestCorners(args);
   };
 
-  // Find active item for the drag overlay
   const activeItem: (MenuItem & { categoryId: string }) | null = (() => {
     if (!dragState.activeId || dragState.activeType !== "item") return null;
     for (const cat of menuData.categories) {
@@ -72,15 +69,12 @@ export default function EditorPanel() {
     return null;
   })();
 
-  // Find active category for the drag overlay
   const activeCategory = (() => {
     if (!dragState.activeId || dragState.activeType !== "category") return null;
     return menuData.categories.find((c) => c.id === dragState.activeId) ?? null;
   })();
 
-  const getIdType = (
-    id: string,
-  ): "category" | "item" => {
+  const getIdType = (id: string): "category" | "item" => {
     if (menuData.categories.some((c) => c.id === id)) return "category";
     return "item";
   };
@@ -88,12 +82,7 @@ export default function EditorPanel() {
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = String(event.active.id);
     const activeType = getIdType(activeId);
-    setDragState({
-      activeId,
-      activeType,
-      overId: null,
-      overType: null,
-    });
+    setDragState({ activeId, activeType, overId: null, overType: null });
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -105,14 +94,12 @@ export default function EditorPanel() {
 
     const activeId = String(active.id);
     const rawOverId = String(over.id);
-    // Resolve "-items" droppable IDs back to the category ID
     const overId = rawOverId.endsWith("-items") ? rawOverId.replace(/-items$/, "") : rawOverId;
     const activeType = getIdType(activeId);
     const overType = getIdType(overId);
 
     setDragState((prev) => ({ ...prev, overId, overType }));
 
-    // Real-time cross-container item moves for smooth sortable animations
     if (activeType === "item" && activeId !== overId) {
       const activeCategory = menuData.categories.find((c) =>
         c.items.some((i) => i.id === activeId),
@@ -124,11 +111,7 @@ export default function EditorPanel() {
               c.items.some((i) => i.id === overId),
             );
 
-      if (
-        activeCategory &&
-        overCategory &&
-        activeCategory.id !== overCategory.id
-      ) {
+      if (activeCategory && overCategory && activeCategory.id !== overCategory.id) {
         moveOrReorderItem(activeId, overId);
       }
     }
@@ -148,18 +131,13 @@ export default function EditorPanel() {
     if (activeType === "category") {
       reorderCategories(activeId, overId);
     } else {
-      // Same-category reorder (cross-category was already handled in handleDragOver)
       const activeCategory = menuData.categories.find((c) =>
         c.items.some((i) => i.id === activeId),
       );
       const overCategory = menuData.categories.find((c) =>
         c.items.some((i) => i.id === overId),
       );
-      if (
-        activeCategory &&
-        overCategory &&
-        activeCategory.id === overCategory.id
-      ) {
+      if (activeCategory && overCategory && activeCategory.id === overCategory.id) {
         moveOrReorderItem(activeId, overId);
       }
     }
@@ -188,154 +166,113 @@ export default function EditorPanel() {
   return (
     <div className="w-full h-full overflow-y-auto">
       <div className="p-6">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {menuData.title}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Last edited {menuData.lastEditedTime} by {menuData.lastEditedBy}
-            </p>
-          </div>
+        {/* Page title */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            Menu Editor
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Curate your culinary offerings with precision and light.
+          </p>
         </div>
 
-        <HeaderSection />
-
-        <Card className="mb-6">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => setMenuItemsOpen((o) => !o)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setMenuItemsOpen((o) => !o); }}
-            className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted/80 transition-colors rounded-t-lg cursor-pointer select-none"
-          >
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Menu Items
-            </span>
-            <div className="flex items-center gap-2">
-              {!isAddingCategory && (
-                <Button
-                  size="icon-sm"
-                  variant="default"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsAddingCategory(true);
-                    if (!menuItemsOpen) setMenuItemsOpen(true);
-                  }}
-                  className="w-6 h-6 rounded-full bg-success hover:bg-success/90"
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
-              )}
-              <ChevronDown
-                className={cn(
-                  "w-4 h-4 text-muted-foreground transition-transform duration-200",
-                  menuItemsOpen && "rotate-180"
-                )}
-              />
+        {/* Category list */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
+            <div className="space-y-10">
+              {menuData.categories.map((category) => (
+                <CategorySection
+                  key={category.id}
+                  category={category}
+                  isDraggingActive={dragState.activeId !== null}
+                  isDraggingCategory={dragState.activeType === "category"}
+                />
+              ))}
             </div>
-          </div>
+          </SortableContext>
 
-          {menuItemsOpen && (
-            <CardContent className="px-4 py-4">
-              {isAddingCategory && (
-                <Card className="flex items-center gap-2 mb-4 p-3 bg-muted">
-                  <Input
-                    autoFocus
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Category name (e.g. Desserts)"
-                    className="flex-1"
-                  />
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={handleAddCategory}
-                    className="text-success hover:text-success"
-                  >
-                    <Check className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setNewCategoryName("");
-                      setIsAddingCategory(false);
-                    }}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </Card>
-              )}
+          <DragOverlay dropAnimation={null}>
+            {activeItem && (
+              <div className="rotate-1 scale-105">
+                <MenuItemCard
+                  item={activeItem}
+                  categoryId={activeItem.categoryId}
+                  isDraggingActive
+                  isOverlay
+                />
+              </div>
+            )}
+            {activeCategory && (
+              <div className="rotate-1 scale-105 flex items-center gap-2 px-3 py-2 bg-card rounded-lg shadow-lg border border-primary/30">
+                <GripVertical className="w-5 h-5 text-muted-foreground" />
+                <span className="font-bold text-sm uppercase tracking-wider text-card-foreground">
+                  {activeCategory.name}
+                </span>
+                <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
+                  {activeCategory.items.length} {activeCategory.items.length === 1 ? "item" : "items"}
+                </Badge>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={collisionDetection}
-                measuring={{
-                  droppable: {
-                    strategy: MeasuringStrategy.Always,
-                  },
-                }}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
+        {/* Add category */}
+        <div className="mt-10">
+          {isAddingCategory ? (
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/50">
+              <Input
+                autoFocus
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Category name (e.g. Desserts)"
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleAddCategory}
+                className="text-success hover:text-success"
               >
-                <SortableContext
-                  items={categoryIds}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-8">
-                    {menuData.categories.map((category) => (
-                      <CategorySection
-                        key={category.id}
-                        category={category}
-                        isDraggingActive={dragState.activeId !== null}
-                        isDraggingCategory={dragState.activeType === "category"}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-
-                <DragOverlay dropAnimation={null}>
-                  {activeItem && (
-                    <div className="rotate-1 scale-105">
-                      <MenuItemCard
-                        item={activeItem}
-                        categoryId={activeItem.categoryId}
-                        isDraggingActive
-                        isOverlay
-                      />
-                    </div>
-                  )}
-                  {activeCategory && (
-                    <div className="rotate-1 scale-105 flex items-center gap-2 px-3 py-2 bg-card rounded-xl shadow-lg border border-primary/30 ring-2 ring-primary/20">
-                      <GripVertical className="w-5 h-5 text-muted-foreground" />
-                      <span className="font-bold text-base text-card-foreground">
-                        {activeCategory.name}
-                      </span>
-                      <Badge className="bg-primary/10 text-primary text-[10px] font-bold rounded-full tracking-wider uppercase">
-                        {activeCategory.items.length}{" "}
-                        {activeCategory.items.length === 1 ? "item" : "items"}
-                      </Badge>
-                    </div>
-                  )}
-                </DragOverlay>
-              </DndContext>
-
-              {menuData.categories.length === 0 && (
-                <div className="text-center py-16 text-muted-foreground">
-                  <p className="text-lg font-medium">No categories yet</p>
-                  <p className="text-sm mt-1">
-                    Click the + button above to add your first category
-                  </p>
-                </div>
-              )}
-            </CardContent>
+                <Check className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  setNewCategoryName("");
+                  setIsAddingCategory(false);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAddingCategory(true)}
+              className="flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add category
+            </button>
           )}
-        </Card>
+        </div>
+
+        {menuData.categories.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-lg font-medium">No categories yet</p>
+            <p className="text-sm mt-1">Add your first category to get started</p>
+          </div>
+        )}
       </div>
     </div>
   );
