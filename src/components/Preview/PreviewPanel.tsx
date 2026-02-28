@@ -5,10 +5,11 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Sparkles, ArrowUp } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Volume2, ArrowRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn, Button, Input } from "ada-design-system";
 import MenuPreview from "./MenuPreview";
+import { useMenu } from "../../context/MenuContext";
 
 /* ── Preview sidebar icons (display only) ────────────────────────────────── */
 
@@ -29,6 +30,7 @@ const DEFAULT_ZOOM = 0.7;
 const PREVIEW_WIDTH = 794;
 
 export default function PreviewPanel() {
+  const { selectedItemId } = useMenu();
   const [selectedIcon, setSelectedIcon] = useState("paper");
 
   /* ── Canvas state ──────────────────────────────────────────────────────── */
@@ -37,17 +39,44 @@ export default function PreviewPanel() {
   const [isPanning, setIsPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
 
+  // Refs to always have latest zoom/pan in event handlers (avoids stale closures)
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  /* ── Measure container size ────────────────────────────────────────────── */
+  /* ── Pinch-to-zoom state ───────────────────────────────────────────────── */
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ dist: number; zoom: number; midX: number; midY: number } | null>(null);
+
+  /* ── Measure container + auto-center on mount ───────────────────────────── */
+  const hasCentered = useRef(false);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const measure = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
-    measure();
+    const measure = () => {
+      setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+      // Center on first measure
+      if (!hasCentered.current) {
+        hasCentered.current = true;
+        const content = contentRef.current;
+        const contentH = content?.scrollHeight ?? 1000;
+        const padding = 100;
+        const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min((el.clientWidth - padding) / PREVIEW_WIDTH, (el.clientHeight - padding) / contentH).toFixed(2)));
+        const panX = (el.clientWidth - PREVIEW_WIDTH * fitZoom) / 2;
+        const panY = (el.clientHeight - contentH * fitZoom) / 2;
+        setZoom(fitZoom);
+        setPan({ x: panX, y: Math.max(panY, padding / 2) });
+      }
+    };
+    // Small delay for content to render
+    requestAnimationFrame(measure);
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
@@ -75,9 +104,32 @@ export default function PreviewPanel() {
     };
   }, []);
 
-  /* ── Pointer panning (space + drag OR middle-click drag) ───────────────── */
+  /* ── Pointer panning (space + drag OR middle-click drag OR touch) ────── */
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      // Track touch pointers for pinch
+      if (e.pointerType === "touch") {
+        activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
+        // Two fingers down → start pinch
+        if (activePointers.current.size === 2) {
+          const pts = [...activePointers.current.values()];
+          const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
+          pinchStart.current = { dist, zoom, midX, midY };
+          setIsPanning(false); // stop single-finger pan during pinch
+          return;
+        }
+
+        // Single finger → pan
+        e.preventDefault();
+        setIsPanning(true);
+        panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        return;
+      }
+
       // Space held or middle mouse button
       if (spaceHeld || e.button === 1) {
         e.preventDefault();
@@ -86,21 +138,57 @@ export default function PreviewPanel() {
         (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       }
     },
-    [spaceHeld, pan],
+    [spaceHeld, pan, zoom],
   );
 
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      // Update tracked pointer
+      if (e.pointerType === "touch" && activePointers.current.has(e.pointerId)) {
+        activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // Pinch zoom with two fingers — Figma-style zoom to midpoint
+        if (activePointers.current.size === 2 && pinchStart.current) {
+          const pts = [...activePointers.current.values()];
+          const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+          const scale = dist / pinchStart.current.dist;
+          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(pinchStart.current.zoom * scale).toFixed(3)));
+
+          const el = containerRef.current;
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
+            const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
+            const prevZoom = zoomRef.current;
+            const prevPan = panRef.current;
+            const scaleFactor = newZoom / prevZoom;
+            setPan({
+              x: midX - scaleFactor * (midX - prevPan.x),
+              y: midY - scaleFactor * (midY - prevPan.y),
+            });
+          }
+
+          setZoom(newZoom);
+          return;
+        }
+      }
+
       if (!isPanning) return;
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
     },
-    [isPanning],
+    [isPanning, zoom],
   );
 
-  const handlePointerUp = useCallback(() => {
-    setIsPanning(false);
+  const handlePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) {
+      pinchStart.current = null;
+    }
+    if (activePointers.current.size === 0) {
+      setIsPanning(false);
+    }
   }, []);
 
   /* ── Wheel: Ctrl/⌘ = zoom, otherwise pan ───────────────────────────────── */
@@ -109,24 +197,32 @@ export default function PreviewPanel() {
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
+      // Prevent all default wheel behavior (including macOS back/forward swipe)
+      e.preventDefault();
+
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
         const rect = el.getBoundingClientRect();
         const pointerX = e.clientX - rect.left;
         const pointerY = e.clientY - rect.top;
 
-        setZoom((prevZoom) => {
-          const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom + delta).toFixed(2)));
-          const scaleFactor = newZoom / prevZoom;
+        // Read current values from refs (always fresh)
+        const prevZoom = zoomRef.current;
+        const prevPan = panRef.current;
 
-          setPan((prevPan) => ({
-            x: pointerX - scaleFactor * (pointerX - prevPan.x),
-            y: pointerY - scaleFactor * (pointerY - prevPan.y),
-          }));
+        // Smooth proportional zoom from trackpad deltaY
+        const rawDelta = -e.deltaY * 0.01;
+        const clampedDelta = Math.max(-0.15, Math.min(0.15, rawDelta));
+        const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom * (1 + clampedDelta)).toFixed(3)));
+        const scaleFactor = newZoom / prevZoom;
 
-          return newZoom;
-        });
+        // Keep the point under the cursor fixed
+        const newPan = {
+          x: pointerX - scaleFactor * (pointerX - prevPan.x),
+          y: pointerY - scaleFactor * (pointerY - prevPan.y),
+        };
+
+        setZoom(newZoom);
+        setPan(newPan);
       } else {
         // Normal scroll = pan
         setPan((prev) => ({
@@ -139,6 +235,45 @@ export default function PreviewPanel() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  /* ── Zoom-to-selected item ───────────────────────────────────────────── */
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    // Find the element in the preview by data-item-id
+    const itemEl = content.querySelector(`[data-item-id="${selectedItemId}"]`) as HTMLElement | null;
+    if (!itemEl) return;
+
+    // Get element position relative to the content root (unscaled coordinates)
+    const contentRect = content.getBoundingClientRect();
+    const itemRect = itemEl.getBoundingClientRect();
+    const currentZoom = zoomRef.current;
+
+    // Unscaled position of the item within the content
+    const itemX = (itemRect.left - contentRect.left) / currentZoom;
+    const itemY = (itemRect.top - contentRect.top) / currentZoom;
+    const itemW = itemRect.width / currentZoom;
+    const itemH = itemRect.height / currentZoom;
+
+    // Calculate zoom to make the item fill ~90% of container width
+    const cW = container.clientWidth;
+    const cH = container.clientHeight;
+    const padding = 60;
+    const targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (cW - padding) / itemW));
+
+    // Center the item in the container
+    const newPanX = (cW - itemW * targetZoom) / 2 - itemX * targetZoom;
+    const newPanY = (cH - itemH * targetZoom) / 2 - itemY * targetZoom;
+
+    setIsAnimating(true);
+    setZoom(targetZoom);
+    setPan({ x: newPanX, y: newPanY });
+    const timer = setTimeout(() => setIsAnimating(false), 500);
+    return () => clearTimeout(timer);
+  }, [selectedItemId]);
 
   /* ── Zoom helpers ──────────────────────────────────────────────────────── */
   const handleZoomIn = useCallback(() => {
@@ -157,16 +292,17 @@ export default function PreviewPanel() {
       setPan({ x: 0, y: 0 });
       return;
     }
-    // Fit menu height inside container
+    // Fit menu inside container with padding
     const padding = 100;
-    const containerH = el.clientHeight - padding;
-    const containerW = el.clientWidth - padding;
+    const cW = el.clientWidth - padding;
+    const cH = el.clientHeight - padding;
     const contentH = content?.scrollHeight ?? 1000;
-    const fitByHeight = containerH / contentH;
-    const fitByWidth = containerW / PREVIEW_WIDTH;
-    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min(fitByHeight, fitByWidth).toFixed(2)));
+    const fitZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +Math.min(cW / PREVIEW_WIDTH, cH / contentH).toFixed(2)));
+    // Center content in container
+    const panX = (el.clientWidth - PREVIEW_WIDTH * fitZoom) / 2;
+    const panY = (el.clientHeight - contentH * fitZoom) / 2;
     setZoom(fitZoom);
-    setPan({ x: 0, y: 0 });
+    setPan({ x: panX, y: Math.max(panY, padding / 2) });
   }, []);
 
   /* ── Cursor ────────────────────────────────────────────────────────────── */
@@ -181,7 +317,7 @@ export default function PreviewPanel() {
       {/* ── Infinite canvas ────────────────────────────────────────────── */}
       <div
         ref={containerRef}
-        className={cn("absolute inset-0 select-none", cursorClass)}
+        className={cn("absolute inset-0 select-none touch-none", cursorClass)}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -193,26 +329,16 @@ export default function PreviewPanel() {
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
             willChange: "transform",
+            transition: isAnimating ? "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
           }}
           className="absolute top-0 left-0"
         >
-          {/* Center the content in the canvas */}
           <div
-            style={{
-              width: `${containerSize.w / zoom}px`,
-              minHeight: `${containerSize.h / zoom}px`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            ref={contentRef}
+            className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
+            style={{ width: `${PREVIEW_WIDTH}px` }}
           >
-            <div
-              ref={contentRef}
-              className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
-              style={{ width: `${PREVIEW_WIDTH}px` }}
-            >
-              <MenuPreview />
-            </div>
+            <MenuPreview />
           </div>
         </div>
       </div>
@@ -241,24 +367,19 @@ export default function PreviewPanel() {
         <div className="w-[90%] max-w-2xl">
         <div className="flex items-center gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-2.5">
           <Button size="sm" className="flex items-center gap-2 text-xs font-semibold shrink-0">
-            <Sparkles className="w-3.5 h-3.5" />
-            MAGIC PROMPT
+            <Volume2 className="w-3.5 h-3.5" />
+            Speak
           </Button>
 
           <Input
             type="text"
-            placeholder="Ask AI to adjust prices, change the theme, or suggest descriptions..."
+            placeholder="Describe your menu changes — e.g. 'Make all pasta prices €14' or 'Add a vegan section with 3 dishes'"
             className="flex-1 bg-transparent border-none focus:ring-0 focus:border-none shadow-none"
           />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-muted-foreground hidden sm:inline">
-              Press{" "}
-              <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">↵</kbd>{" "}
-              to apply
-            </span>
+          <div className="flex items-center shrink-0">
             <Button size="icon" className="w-8 h-8 shrink-0">
-              <ArrowUp className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </div>

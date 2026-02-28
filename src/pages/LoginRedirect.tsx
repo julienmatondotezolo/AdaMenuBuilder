@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Spinner } from "ada-design-system";
+import { Spinner, AdaLogo } from "ada-design-system";
 import { buildAuthRedirectUrl } from "../config/auth";
 
 /**
@@ -14,10 +14,16 @@ export default function LoginRedirect() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted">
-      <div className="text-center">
-        <Spinner className="w-10 h-10 mx-auto mb-4" />
-        <p className="text-sm text-muted-foreground">Redirecting to login...</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full text-center">
+        <AdaLogo size="lg" variant="primary" className="mx-auto mb-6" />
+
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="flex justify-center mb-4">
+            <Spinner size="md" variant="primary" />
+          </div>
+          <p className="text-sm text-gray-600">Redirecting to login...</p>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Card, Button, Spinner } from "ada-design-system";
+import { Button, Spinner, AdaLogo } from "ada-design-system";
 import { useAuth } from "../context/AuthContext";
+
+const AUTH_URL =
+  import.meta.env.VITE_AUTH_URL || "https://auth.adasystems.app";
 
 type Status = "processing" | "success" | "error";
 
@@ -46,52 +49,79 @@ export default function AuthCallback() {
     processAuth();
   }, [searchParams, navigate, login]);
 
+  const getStatusColor = () => {
+    switch (status) {
+      case "success":
+        return "text-green-600";
+      case "error":
+        return "text-red-600";
+      default:
+        return "text-gray-600";
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (status) {
+      case "success":
+        return (
+          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-sm">✓</span>
+          </div>
+        );
+      case "error":
+        return (
+          <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-sm">✕</span>
+          </div>
+        );
+      default:
+        return <Spinner size="md" variant="primary" />;
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted">
-      <Card className="max-w-sm w-full text-center p-8">
-        {/* Status Icon */}
-        <div className="flex justify-center mb-4">
-          {status === "processing" && (
-            <Spinner className="w-10 h-10" />
-          )}
-          {status === "success" && (
-            <div className="w-10 h-10 bg-success rounded-full flex items-center justify-center">
-              <span className="text-success-foreground text-lg">✓</span>
-            </div>
-          )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full text-center">
+        <AdaLogo size="lg" variant="primary" className="mx-auto mb-6" />
+
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="flex justify-center mb-4">{getStatusIcon()}</div>
+
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">
+            AdaMenuBuilder Authentication
+          </h1>
+
+          <p className={`text-sm ${getStatusColor()}`}>{message}</p>
+
           {status === "error" && (
-            <div className="w-10 h-10 bg-destructive rounded-full flex items-center justify-center">
-              <span className="text-destructive-foreground text-lg">✕</span>
+            <div className="mt-4">
+              <Button
+                onClick={() => {
+                  const returnUrl = encodeURIComponent(
+                    window.location.origin +
+                      "/auth/callback?redirect=" +
+                      encodeURIComponent("/"),
+                  );
+                  window.location.href = `${AUTH_URL}/?redirect=${returnUrl}`;
+                }}
+              >
+                Try Again
+              </Button>
             </div>
           )}
+
+          <div className="mt-6 text-xs text-gray-500">
+            <a
+              href={AUTH_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-gray-700"
+            >
+              Powered by AdaAuth
+            </a>
+          </div>
         </div>
-
-        <h1 className="text-lg font-semibold text-card-foreground mb-1">
-          MenuBuilder Authentication
-        </h1>
-        <p
-          className={`text-sm ${
-            status === "success"
-              ? "text-success"
-              : status === "error"
-                ? "text-destructive"
-                : "text-muted-foreground"
-          }`}
-        >
-          {message}
-        </p>
-
-        {status === "error" && (
-          <Button
-            onClick={() => {
-              window.location.href = `${import.meta.env.VITE_AUTH_URL || "https://auth.adasystems.app"}/?redirect=${encodeURIComponent(window.location.origin + "/auth/callback?redirect=/")}`;
-            }}
-            className="mt-4"
-          >
-            Try Again
-          </Button>
-        )}
-      </Card>
+      </div>
     </div>
   );
 }

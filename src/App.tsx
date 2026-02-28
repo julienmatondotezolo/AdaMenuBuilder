@@ -1,4 +1,5 @@
 import { MenuProvider } from "./context/MenuContext";
+import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import EditorPanel from "./components/Editor/EditorPanel";
 import PreviewPanel from "./components/Preview/PreviewPanel";
@@ -6,18 +7,22 @@ import PreviewPanel from "./components/Preview/PreviewPanel";
 function App() {
   return (
     <MenuProvider>
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-        <Header />
+      <div className="h-screen flex bg-gray-50 overflow-hidden">
+        <Sidebar />
 
-        <main className="flex-1 flex overflow-hidden">
-          <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
-            <EditorPanel />
-          </div>
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header />
 
-          <div className="flex-1 min-w-0 relative">
-            <PreviewPanel />
-          </div>
-        </main>
+          <main className="flex-1 flex overflow-hidden">
+            <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
+              <EditorPanel />
+            </div>
+
+            <div className="flex-1 min-w-0 relative">
+              <PreviewPanel />
+            </div>
+          </main>
+        </div>
       </div>
     </MenuProvider>
   );

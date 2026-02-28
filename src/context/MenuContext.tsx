@@ -49,6 +49,11 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
   const [dragState, setDragState] = useState<DragState>(INITIAL_DRAG_STATE);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  const selectItem = useCallback((id: string | null) => {
+    setSelectedItemId((prev) => (prev === id ? null : id));
+  }, []);
 
   // ---- Category CRUD ----
   const addCategory = useCallback((name: string) => {
@@ -287,6 +292,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     moveOrReorderItem,
     dragState,
     setDragState,
+    selectedItemId,
+    selectItem,
   };
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

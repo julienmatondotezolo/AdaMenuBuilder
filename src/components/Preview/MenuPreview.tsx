@@ -1,7 +1,7 @@
 import { useMenu } from "../../context/MenuContext";
 
 export default function MenuPreview() {
-  const { menuData, hoveredId, setHover, clearHover, dragState, columnCount, layoutDirection } = useMenu();
+  const { menuData, hoveredId, setHover, clearHover, dragState, columnCount, layoutDirection, selectedItemId, selectItem } = useMenu();
 
   const isActiveDrag = dragState.activeId !== null;
 
@@ -26,6 +26,7 @@ export default function MenuPreview() {
     if (dragState.activeId === itemId) return "drag-active";
     if (dragState.overId === itemId && dragState.activeId !== itemId)
       return "drag-over";
+    if (selectedItemId === itemId) return "selected";
     if (!isActiveDrag && hoveredId === itemId) return "hovered";
     return "none";
   };
@@ -45,8 +46,10 @@ export default function MenuPreview() {
       return "bg-primary/10 ring-2 ring-primary/40 px-2 rounded-md";
     if (state === "drag-over")
       return "bg-primary/8 ring-1 ring-primary/30 px-2 rounded-md";
+    if (state === "selected")
+      return "preview-item-selected px-2 py-1 rounded-md";
     if (state === "hovered")
-      return "bg-primary/8 ring-1 ring-primary/20 px-2 rounded-md";
+      return "preview-item-hovered px-2 rounded-md";
     return "";
   };
 
@@ -186,7 +189,8 @@ export default function MenuPreview() {
               <div
                 key={item.id}
                 data-item-id={item.id}
-                className={`text-center transition-all duration-200 py-1 ${itemHighlightClass(itemState)}`}
+                className={`text-center transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)}`}
+                onClick={() => selectItem(item.id)}
                 onMouseEnter={() =>
                   !isActiveDrag && setHover(item.id, "item")
                 }

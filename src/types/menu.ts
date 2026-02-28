@@ -76,4 +76,6 @@ export interface MenuContextValue {
   ) => void;
   dragState: DragState;
   setDragState: React.Dispatch<React.SetStateAction<DragState>>;
+  selectedItemId: string | null;
+  selectItem: (id: string | null) => void;
 }
