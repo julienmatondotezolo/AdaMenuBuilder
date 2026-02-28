@@ -111,3 +111,109 @@ export async function duplicateTemplate(id: string): Promise<MenuTemplate | unde
   await db.templates.add(copy);
   return copy;
 }
+
+/* ── Template Export / Import ────────────────────────────────────────── */
+
+/** Export a template as a JSON blob (strips internal IDs, adds export metadata) */
+export async function exportTemplate(id: string): Promise<string | undefined> {
+  const tpl = await db.templates.get(id);
+  if (!tpl) return undefined;
+
+  const exportData = {
+    _format: "ada-menu-template",
+    _version: 1,
+    _exportedAt: new Date().toISOString(),
+    name: tpl.name,
+    description: tpl.description,
+    format: tpl.format,
+    orientation: tpl.orientation,
+    colors: tpl.colors,
+    fonts: tpl.fonts,
+    spacing: tpl.spacing,
+    pageVariants: tpl.pageVariants.map((v) => ({
+      name: v.name,
+      header: v.header,
+      body: v.body,
+      highlight: v.highlight,
+    })),
+  };
+
+  return JSON.stringify(exportData, null, 2);
+}
+
+/** Download a template as a .json file */
+export async function downloadTemplate(id: string): Promise<void> {
+  const json = await exportTemplate(id);
+  if (!json) return;
+
+  const tpl = await db.templates.get(id);
+  const filename = `${(tpl?.name ?? "template").toLowerCase().replace(/\s+/g, "-")}.adamenu-template.json`;
+
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Import a template from a JSON string; returns the new template ID */
+export async function importTemplate(jsonString: string): Promise<MenuTemplate> {
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(jsonString);
+  } catch {
+    throw new Error("Invalid JSON file");
+  }
+
+  // Validate format
+  if (data._format !== "ada-menu-template") {
+    throw new Error("Not a valid AdaMenu template file");
+  }
+
+  const now = new Date().toISOString();
+
+  const template: MenuTemplate = {
+    id: `tpl-${uid()}`,
+    name: (data.name as string) || "Imported Template",
+    description: (data.description as string) || "",
+    isBuiltIn: false,
+    format: data.format as MenuTemplate["format"],
+    orientation: (data.orientation as "portrait" | "landscape") || "portrait",
+    colors: data.colors as MenuTemplate["colors"],
+    fonts: data.fonts as MenuTemplate["fonts"],
+    spacing: data.spacing as MenuTemplate["spacing"],
+    pageVariants: ((data.pageVariants as Array<Record<string, unknown>>) || []).map((v) => ({
+      id: `var-${uid()}`,
+      name: (v.name as string) || "Page",
+      header: v.header as MenuTemplate["pageVariants"][0]["header"],
+      body: v.body as MenuTemplate["pageVariants"][0]["body"],
+      highlight: v.highlight as MenuTemplate["pageVariants"][0]["highlight"],
+    })),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // Ensure at least one variant
+  if (template.pageVariants.length === 0) {
+    template.pageVariants = [{
+      id: `var-${uid()}`,
+      name: "Content",
+      header: { show: true, style: "centered", showSubtitle: true, showEstablished: true, showDivider: true },
+      body: { columns: 1, categoryStyle: "lines", itemAlignment: "center", pricePosition: "below", separatorStyle: "line", showDescriptions: true, showFeaturedBadge: true },
+      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
+    }];
+  }
+
+  await db.templates.add(template);
+  return template;
+}
+
+/** Import a template from a File object */
+export async function importTemplateFromFile(file: File): Promise<MenuTemplate> {
+  const text = await file.text();
+  return importTemplate(text);
+}

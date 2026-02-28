@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { uid } from "../utils/uid";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,6 +10,8 @@ import {
   Pencil,
   Lock,
   LayoutTemplate,
+  Download,
+  Upload,
 } from "lucide-react";
 import {
   Button,
@@ -26,7 +28,7 @@ import {
   SkeletonCard,
   cn,
 } from "ada-design-system";
-import { useTemplates, deleteTemplate, duplicateTemplate, createTemplate } from "../db/hooks";
+import { useTemplates, deleteTemplate, duplicateTemplate, createTemplate, downloadTemplate, importTemplateFromFile } from "../db/hooks";
 import type { MenuTemplate, PageFormat } from "../types/template";
 import { PAGE_FORMATS } from "../types/template";
 
@@ -65,6 +67,7 @@ export default function TemplateGallery() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState<string>("A4");
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -107,6 +110,24 @@ export default function TemplateGallery() {
     }
   };
 
+  const handleExport = async (id: string) => {
+    setOpenDropdown(null);
+    await downloadTemplate(id);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const tpl = await importTemplateFromFile(file);
+      navigate(`/templates/${tpl.id}/edit`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Import failed");
+    }
+    // Reset input so same file can be imported again
+    if (importInputRef.current) importInputRef.current.value = "";
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-muted/30">
       {/* Top bar */}
@@ -118,10 +139,23 @@ export default function TemplateGallery() {
           <LayoutTemplate className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">Templates</h1>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,.adamenu-template.json"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>
+            <Upload className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Template
+          </Button>
+        </div>
       </header>
 
       {/* Create dialog */}
@@ -194,6 +228,7 @@ export default function TemplateGallery() {
                 onEdit={() => navigate(`/templates/${tpl.id}/edit`)}
                 onDuplicate={() => handleDuplicate(tpl.id)}
                 onDelete={() => handleDelete(tpl.id)}
+                onExport={() => handleExport(tpl.id)}
               />
             ))}
 
@@ -223,9 +258,10 @@ interface TemplateCardProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onExport: () => void;
 }
 
-function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete }: TemplateCardProps) {
+function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete, onExport }: TemplateCardProps) {
   return (
     <Card className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md" onClick={onEdit}>
       {/* Preview — mini page shapes */}
@@ -268,6 +304,9 @@ function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDu
                   </button>
                   <button onClick={onDuplicate} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Copy className="w-3 h-3" /> Duplicate
+                  </button>
+                  <button onClick={onExport} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
+                    <Download className="w-3 h-3" /> Export
                   </button>
                   {!template.isBuiltIn && (
                     <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">

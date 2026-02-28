@@ -19,6 +19,7 @@ import {
   Check,
   Space,
   Star,
+  Download,
 } from "lucide-react";
 import {
   Button,
@@ -33,7 +34,7 @@ import {
   SelectValue,
   cn,
 } from "ada-design-system";
-import { useTemplateById, updateTemplate } from "../db/hooks";
+import { useTemplateById, updateTemplate, downloadTemplate } from "../db/hooks";
 import type { MenuTemplate, PageVariant } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
@@ -226,10 +227,16 @@ export default function TemplateEditor() {
             </Badge>
           </div>
         </div>
-        <Button size="sm" onClick={() => navigate("/templates")}>
-          <Check className="w-4 h-4 mr-1.5" />
-          Save
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => id && downloadTemplate(id)}>
+            <Download className="w-4 h-4 mr-1.5" />
+            Export
+          </Button>
+          <Button size="sm" onClick={() => navigate("/templates")}>
+            <Check className="w-4 h-4 mr-1.5" />
+            Save
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
