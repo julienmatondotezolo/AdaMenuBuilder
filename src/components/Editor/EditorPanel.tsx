@@ -871,6 +871,8 @@ export default function EditorPanel() {
           icon={<Palette className="w-4 h-4" />}
           title="Template"
           defaultCollapsed
+          collapseSignal={collapseSignal}
+          expandSignal={expandSignal}
         >
           <TemplateSelector
             template={currentTemplate}
@@ -901,6 +903,8 @@ export default function EditorPanel() {
           icon={<Type className="w-4 h-4" />}
           title="Menu Header"
           defaultCollapsed
+          collapseSignal={collapseSignal}
+          expandSignal={expandSignal}
         >
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">

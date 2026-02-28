@@ -373,6 +373,8 @@ export default function PageCard({
               icon={<ImageIcon className="w-4 h-4" />}
               title="Highlight Image"
               defaultCollapsed
+              collapseSignal={collapseSignal}
+              expandSignal={expandSignal}
             >
               {menuData.highlightImage && (
                 <div

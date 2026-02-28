@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "ada-design-system";
 
@@ -6,6 +6,8 @@ interface EditorCardProps {
   icon: ReactNode;
   title: string;
   defaultCollapsed?: boolean;
+  collapseSignal?: number;
+  expandSignal?: number;
   children: ReactNode;
 }
 
@@ -13,9 +15,19 @@ export default function EditorCard({
   icon,
   title,
   defaultCollapsed = true,
+  collapseSignal = 0,
+  expandSignal = 0,
   children,
 }: EditorCardProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    if (collapseSignal > 0) setIsCollapsed(true);
+  }, [collapseSignal]);
+
+  useEffect(() => {
+    if (expandSignal > 0) setIsCollapsed(false);
+  }, [expandSignal]);
   const isExpanded = !isCollapsed;
 
   return (
