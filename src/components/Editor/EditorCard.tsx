@@ -33,7 +33,7 @@ export default function EditorCard({
   return (
     <div
       className={cn(
-        "rounded-xl overflow-hidden transition-all duration-200",
+        "rounded-xl transition-all duration-200",
         "border border-border bg-card",
       )}
     >
