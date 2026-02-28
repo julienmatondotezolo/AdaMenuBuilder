@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import {
   Plus,
   Check,
@@ -45,6 +45,7 @@ export default function CategorySection({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const wasExpandedBeforeDrag = useRef(false);
 
   // Respond to collapse/expand all signals
   useEffect(() => {
@@ -63,6 +64,17 @@ export default function CategorySection({
     transition,
     isDragging,
   } = useSortable({ id: category.id, disabled: isOverlay });
+
+  // Collapse while dragging, restore on drop
+  useEffect(() => {
+    if (isDragging) {
+      wasExpandedBeforeDrag.current = !isCollapsed;
+      setIsCollapsed(true);
+    } else if (wasExpandedBeforeDrag.current) {
+      wasExpandedBeforeDrag.current = false;
+      setIsCollapsed(false);
+    }
+  }, [isDragging]);
 
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
     id: `${category.id}-items`,

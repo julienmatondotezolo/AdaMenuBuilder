@@ -223,8 +223,8 @@ export default function EditorPanel() {
             placeholder="Search menu items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-10 pl-9 pr-9 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
-            style={{ border: '1px solid hsl(220 13% 91%)' }}
+            className="w-full h-10 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
+            style={{ border: '1px solid hsl(220 13% 91%)', paddingLeft: '2.25rem', paddingRight: '2.25rem' }}
             onFocus={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.5)'; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; }}
           />
@@ -337,8 +337,8 @@ export default function EditorPanel() {
         ) : (
           <Button
             onClick={() => setIsAddingCategory(true)}
-            className="w-full flex items-center justify-center gap-2 py-4 font-semibold"
-            size="lg"
+            className="w-full flex items-center justify-center gap-2 font-semibold"
+            size="sm"
           >
             <Plus className="w-4 h-4" />
             Create New Category
