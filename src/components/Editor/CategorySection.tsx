@@ -1,21 +1,13 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import {
-  GripVertical,
   Plus,
-  Trash2,
   Check,
   X,
   ChevronDown,
-  UtensilsCrossed,
-  Beef,
-  CakeSlice,
-  Wine,
-  Coffee,
-  Soup,
-  Salad,
-  Fish,
+  Pencil,
+  GripVertical,
 } from "lucide-react";
-import { Button, Input, cn } from "ada-design-system";
+import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -23,44 +15,31 @@ import { useMenu } from "../../context/MenuContext";
 import MenuItemCard from "./MenuItemCard";
 import type { Category } from "../../types/menu";
 
-/* Map category names to icons */
-const CATEGORY_ICONS: Record<string, typeof UtensilsCrossed> = {
-  starters: UtensilsCrossed,
-  appetizers: UtensilsCrossed,
-  "main courses": Beef,
-  mains: Beef,
-  entrees: Beef,
-  desserts: CakeSlice,
-  drinks: Wine,
-  beverages: Wine,
-  wines: Wine,
-  cocktails: Wine,
-  coffee: Coffee,
-  soups: Soup,
-  salads: Salad,
-  fish: Fish,
-  seafood: Fish,
-};
-
-function getCategoryIcon(name: string) {
-  const Icon = CATEGORY_ICONS[name.toLowerCase()] ?? UtensilsCrossed;
-  return <Icon className="w-4 h-4" />;
-}
-
 interface CategorySectionProps {
   category: Category;
   isDraggingActive: boolean;
-  isDraggingCategory: boolean;
+  isOverlay?: boolean;
+  searchQuery: string;
+  collapseSignal: number;
+  expandSignal: number;
+  dragCollapseSignal: number;
+  dragRestoreSignal: number;
+  forceCollapsed?: boolean;
 }
 
 export default function CategorySection({
   category,
   isDraggingActive,
-  isDraggingCategory,
+  isOverlay,
+  searchQuery,
+  collapseSignal,
+  expandSignal,
+  dragCollapseSignal,
+  dragRestoreSignal,
+  forceCollapsed,
 }: CategorySectionProps) {
   const {
     addItem,
-    removeCategory,
     updateCategory,
     setHover,
     clearHover,
@@ -69,7 +48,33 @@ export default function CategorySection({
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const stateBeforeDrag = useRef<boolean | null>(null);
+
+  // Respond to collapse/expand all signals
+  useEffect(() => {
+    if (collapseSignal > 0) setIsCollapsed(true);
+  }, [collapseSignal]);
+
+  useEffect(() => {
+    if (expandSignal > 0) setIsCollapsed(false);
+  }, [expandSignal]);
+
+  // All categories collapse when any category drag starts
+  useEffect(() => {
+    if (dragCollapseSignal > 0) {
+      stateBeforeDrag.current = isCollapsed;
+      setIsCollapsed(true);
+    }
+  }, [dragCollapseSignal]);
+
+  // All categories restore their state when drag ends
+  useEffect(() => {
+    if (dragRestoreSignal > 0 && stateBeforeDrag.current !== null) {
+      setIsCollapsed(stateBeforeDrag.current);
+      stateBeforeDrag.current = null;
+    }
+  }, [dragRestoreSignal]);
 
   const {
     attributes,
@@ -78,22 +83,28 @@ export default function CategorySection({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: category.id });
+  } = useSortable({ id: category.id, disabled: isOverlay });
 
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
     id: `${category.id}-items`,
     data: { type: "category", categoryId: category.id },
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const style = isOverlay
+    ? {}
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      };
 
   const isHighlighted = hoveredId === category.id;
-  const isDragActive = dragState.activeId === category.id;
   const isDragOver =
     dragState.overId === category.id && dragState.activeId !== category.id;
+
+  // Force collapsed when used as drag overlay
+  const effectiveCollapsed = forceCollapsed || isCollapsed;
+  const isExpanded = !effectiveCollapsed;
 
   const handleSaveName = () => {
     if (editName.trim()) {
@@ -104,6 +115,17 @@ export default function CategorySection({
     setIsEditingName(false);
   };
 
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditName(category.name);
+    setIsEditingName(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(category.name);
+    setIsEditingName(false);
+  };
+
   const handleAddItem = () => {
     addItem(category.id, {
       name: "New Item",
@@ -111,179 +133,226 @@ export default function CategorySection({
       description: "",
       featured: false,
     });
+    if (isCollapsed) setIsCollapsed(false);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSaveName();
-    if (e.key === "Escape") {
-      setEditName(category.name);
-      setIsEditingName(false);
+    if (e.key === "Escape") handleCancelEdit();
+  };
+
+  const handleHeaderClick = () => {
+    if (!isEditingName && !forceCollapsed) {
+      setIsCollapsed((c) => !c);
     }
   };
 
-  const itemIds = category.items.map((i) => i.id);
+  // Filter items by search
+  const filteredItems = searchQuery
+    ? category.items.filter(
+        (item) =>
+          item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      )
+    : category.items;
+
+  // Auto-expand categories that have matching search results
+  const hasSearchResults = searchQuery && filteredItems.length > 0;
+  const wasCollapsedBeforeSearch = useRef(false);
+  const prevSearchQuery = useRef("");
+
+  useEffect(() => {
+    if (searchQuery && !prevSearchQuery.current) {
+      // Search just started — remember current collapsed state
+      wasCollapsedBeforeSearch.current = isCollapsed;
+    }
+    if (hasSearchResults && isCollapsed) {
+      setIsCollapsed(false);
+    }
+    if (!searchQuery && prevSearchQuery.current && wasCollapsedBeforeSearch.current) {
+      // Search cleared — restore collapsed state
+      setIsCollapsed(true);
+      wasCollapsedBeforeSearch.current = false;
+    }
+    prevSearchQuery.current = searchQuery;
+  }, [searchQuery, hasSearchResults]);
+
+  const itemIds = filteredItems.map((i) => i.id);
 
   return (
     <div
       ref={setSortableRef}
-      style={style}
+      style={{
+        ...style,
+        ...(isDragOver ? { border: '2px dashed hsl(232 80% 62%)', background: 'hsl(232 80% 62% / 0.06)' } : {}),
+        ...(isDragging ? { border: '2px dashed hsl(232 80% 62% / 0.4)', opacity: 0.4 } : {}),
+      }}
       className={cn(
-        "transition-all duration-200",
-        isDragActive && "ring-2 ring-primary/60 rounded-xl bg-primary/5",
-        isDragOver && "ring-2 ring-primary/40 rounded-xl bg-primary/3",
-        isHighlighted && !isDraggingActive && "ring-2 ring-primary/30 rounded-xl"
+        "rounded-xl overflow-hidden transition-all duration-200",
+        "border border-border bg-card",
+        isHighlighted && !isDraggingActive && "ring-1 ring-primary/20",
+        isOverlay && "shadow-xl border-primary/50",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
-      {isDragging ? (
-        <div className="flex items-center gap-2 py-2 px-1 opacity-40 border-2 border-dashed border-muted-foreground/30 rounded-xl">
-          <GripVertical className="w-5 h-5 text-muted-foreground" />
-          <span className="font-bold text-sm uppercase tracking-wider text-foreground">
-            {category.name}
-          </span>
+      {/* Drop here indicator when dragging over */}
+      {isDragOver && dragState.activeType === "category" && (
+        <div className="flex items-center justify-center py-2" style={{ color: 'hsl(232 80% 62%)' }}>
+          <span className="text-xs font-semibold tracking-wide">Drop here</span>
         </div>
-      ) : isDraggingCategory ? (
-        <div className="flex items-center gap-2 py-2 px-1 border border-border rounded-xl bg-card">
-          <GripVertical className="w-5 h-5 text-muted-foreground" />
-          <span className="font-bold text-sm uppercase tracking-wider text-card-foreground">
-            {category.name}
-          </span>
-        </div>
-      ) : (
-        <>
-          {/* Category header */}
-          <div className="flex items-center gap-2 mb-1 group/cat">
-            {/* Drag handle */}
-            <div
+      )}
+      {/* ── Category Header ─────────────────────────────────────────── */}
+      <div
+        className={cn(
+          "category-header flex items-center gap-2 px-4 py-3 select-none transition-colors duration-200",
+          isExpanded && "category-expanded"
+        )}
+        onClick={handleHeaderClick}
+        style={{ cursor: 'pointer', touchAction: 'none' }}
+        {...attributes}
+        {...listeners}
+      >
+        {/* Drag handle icon */}
+        <span
+          className={cn("shrink-0", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
+        >
+          <GripVertical className="w-4 h-4" />
+        </span>
+
+        {/* Name or Edit input */}
+        {isEditingName ? (
+          <div className="flex items-center gap-1.5" style={{ width: '50%' }} onClick={(e) => e.stopPropagation()}>
+            <Input
+              autoFocus
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onKeyDown={handleKeyDown}
               className={cn(
-                "text-muted-foreground/30 hover:text-muted-foreground cursor-grab shrink-0",
-                "opacity-0 group-hover/cat:opacity-100 transition-opacity",
+                "font-bold text-sm h-7",
+                effectiveCollapsed ? "bg-white border-border text-foreground" : "bg-white/20 border-white/30 text-white"
               )}
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="w-4 h-4" />
-            </div>
-
-            {/* Icon */}
-            <span className="text-primary shrink-0">
-              {getCategoryIcon(category.name)}
-            </span>
-
-            {/* Name */}
-            {isEditingName ? (
-              <div className="flex items-center gap-1.5">
-                <Input
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="font-bold text-sm uppercase tracking-wider"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={handleSaveName}
-                  className="text-success hover:text-success"
-                >
-                  <Check className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    setEditName(category.name);
-                    setIsEditingName(false);
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ) : (
-              <h3
-                className="font-bold text-sm uppercase tracking-wider text-foreground cursor-pointer"
-                onDoubleClick={() => setIsEditingName(true)}
-              >
-                {category.name}
-              </h3>
-            )}
-
-            {/* Collapse toggle */}
-            <button
-              onClick={() => setIsCollapsed((c) => !c)}
-              className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            >
-              <ChevronDown
-                className={cn(
-                  "w-3.5 h-3.5 transition-transform duration-200",
-                  isCollapsed && "-rotate-90"
-                )}
-              />
-            </button>
-
-            <div className="flex-1" />
-
-            {/* Delete — hover only */}
+            />
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={() => removeCategory(category.id)}
-              className="opacity-0 group-hover/cat:opacity-100 text-muted-foreground hover:text-destructive transition-all w-7 h-7"
+              onClick={handleSaveName}
+              className={effectiveCollapsed ? "text-foreground hover:text-foreground/80" : "text-white hover:text-white/80"}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Check className="w-4 h-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                handleCancelEdit();
+              }}
+              className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        ) : (
+          <h3
+            className={cn(
+              "font-bold text-sm",
+              isExpanded ? "text-white" : "text-foreground"
+            )}
+          >
+            {category.name}
+          </h3>
+        )}
 
-            {/* + ADD ITEM */}
+        {/* Edit button (pencil) — always white when expanded */}
+        {!isEditingName && (
+          <button
+            onClick={handleStartEdit}
+            className={cn(
+              "shrink-0 p-0.5 rounded transition-colors",
+              isExpanded
+                ? "text-white hover:text-white/80"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Item count badge — right side, next to chevron */}
+        <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+          style={effectiveCollapsed
+            ? { backgroundColor: 'hsl(220 14% 90%)', color: 'hsl(220 9% 46%)' }
+            : { backgroundColor: 'rgba(255,255,255,0.25)', color: 'white' }
+          }
+        >
+          {category.items.length} {category.items.length === 1 ? "ITEM" : "ITEMS"}
+        </Badge>
+
+        {/* Collapse chevron */}
+        <span
+          className={cn(
+            "shrink-0 transition-colors",
+            isExpanded ? "text-white" : "text-muted-foreground"
+          )}
+        >
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 transition-transform duration-200",
+              effectiveCollapsed && "-rotate-90"
+            )}
+          />
+        </span>
+      </div>
+
+      {/* ── Category Body (items) ───────────────────────────────────── */}
+      {isExpanded && (
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+          <div
+            ref={setDroppableRef}
+            className={cn(
+              "px-3 py-3 space-y-2",
+              isItemsOver &&
+                dragState.activeType === "item" &&
+                "bg-primary/5"
+            )}
+          >
+            {filteredItems.map((item) => (
+              <MenuItemCard
+                key={item.id}
+                item={item}
+                categoryId={category.id}
+                isDraggingActive={isDraggingActive}
+              />
+            ))}
+
+            {filteredItems.length === 0 && searchQuery && (
+              <p className="text-center py-4 text-muted-foreground/50 text-xs">
+                No matching items
+              </p>
+            )}
+
+            {filteredItems.length === 0 && !searchQuery && (
+              <p className="text-center py-4 text-muted-foreground/50 text-xs">
+                No items yet
+              </p>
+            )}
+
+            {/* + Add Item */}
             <button
               onClick={handleAddItem}
-              className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors shrink-0"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium text-muted-foreground border border-dashed border-border bg-muted/30 transition-colors"
+              style={{ borderColor: 'hsl(220 13% 91%)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.4)'; e.currentTarget.style.color = 'hsl(232 100% 66%)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; e.currentTarget.style.color = ''; }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Add item
+              Add Item
             </button>
           </div>
-
-          {/* Accent line */}
-          <div className="h-px bg-primary/30 mb-4" />
-
-          {/* Items */}
-          {!isCollapsed && (
-            <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-              <div
-                ref={setDroppableRef}
-                className={cn(
-                  "space-y-3 rounded-lg transition-all duration-150",
-                  isItemsOver &&
-                    dragState.activeType === "item" &&
-                    "ring-1 ring-primary/30 bg-primary/3 p-2 -m-2"
-                )}
-              >
-                {category.items.map((item) => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    categoryId={category.id}
-                    isDraggingActive={isDraggingActive}
-                  />
-                ))}
-
-                {category.items.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground/60 text-sm">
-                    No items yet — click + Add item above
-                  </div>
-                )}
-              </div>
-            </SortableContext>
-          )}
-
-          {isCollapsed && (
-            <p className="text-xs text-muted-foreground/50 mb-2">
-              {category.items.length} {category.items.length === 1 ? "item" : "items"} · double-click name to rename
-            </p>
-          )}
-        </>
+        </SortableContext>
       )}
     </div>
   );
