@@ -131,7 +131,7 @@ export default function Sidebar() {
         className="fixed top-0 left-0 h-full overflow-visible transition-[width] duration-200 ease-in-out"
         style={{
           width: collapsed ? COLLAPSED_W : EXPANDED_W,
-          zIndex: collapsed ? 10 : 70,
+          zIndex: collapsed ? 30 : 70,
           boxShadow: collapsed ? "1px 0 0 0 #d1d5db" : "4px 0 12px rgba(0,0,0,0.08), 1px 0 0 0 #d1d5db",
         }}
       >
