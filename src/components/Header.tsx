@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import {
   Eye,
   Download,
   Rocket,
   Loader2,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
