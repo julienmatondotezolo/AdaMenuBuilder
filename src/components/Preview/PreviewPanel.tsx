@@ -179,8 +179,10 @@ export default function PreviewPanel() {
         const pointerY = e.clientY - rect.top;
 
         setZoom((prevZoom) => {
-          const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom + delta).toFixed(2)));
+          // Use actual deltaY for smooth trackpad pinch (clamped to avoid jumps)
+          const rawDelta = -e.deltaY * 0.01;
+          const clampedDelta = Math.max(-0.15, Math.min(0.15, rawDelta));
+          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom * (1 + clampedDelta)).toFixed(3)));
           const scaleFactor = newZoom / prevZoom;
 
           setPan((prevPan) => ({
