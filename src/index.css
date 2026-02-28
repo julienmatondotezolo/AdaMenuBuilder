@@ -48,6 +48,13 @@ body {
   background-color: hsl(232 100% 66% / 0.05);
 }
 
+/* Preview item selected */
+.preview-item-selected {
+  outline: 2px solid hsl(232 100% 66%);
+  outline-offset: 2px;
+  background-color: hsl(232 100% 66% / 0.08);
+}
+
 /* Action button hovers */
 .edit-action-btn:hover {
   background-color: hsl(232 100% 66% / 0.1);
