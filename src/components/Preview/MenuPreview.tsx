@@ -49,7 +49,7 @@ export default function MenuPreview() {
     if (state === "selected")
       return "preview-item-selected px-2 py-1 rounded-md";
     if (state === "hovered")
-      return "bg-primary/8 ring-1 ring-primary/20 px-2 rounded-md";
+      return "preview-item-hovered px-2 rounded-md";
     return "";
   };
 

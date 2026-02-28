@@ -55,6 +55,25 @@ body {
   background-color: hsl(232 100% 66% / 0.08);
 }
 
+/* Preview item hovered — animated dashed border */
+.preview-item-hovered {
+  position: relative;
+  border-radius: 6px;
+}
+.preview-item-hovered::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 8px;
+  border: 1.5px dashed hsl(232 100% 66% / 0.5);
+  pointer-events: none;
+  animation: dash-pulse 1.2s ease-in-out infinite;
+}
+@keyframes dash-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 /* Action button hovers */
 .edit-action-btn:hover {
   background-color: hsl(232 100% 66% / 0.1);
