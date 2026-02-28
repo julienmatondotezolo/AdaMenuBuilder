@@ -1,7 +1,11 @@
+import { useState, useRef, useEffect } from "react";
 import {
   AlertTriangle,
   FileText,
   ImageIcon,
+  Pencil,
+  Trash2,
+  Check,
 } from "lucide-react";
 import { cn } from "ada-design-system";
 import { useDroppable } from "@dnd-kit/core";
@@ -59,6 +63,21 @@ export default function PageCard({
 
   // Check if this page's variant has highlight image enabled
   const hasHighlight = variant?.highlight?.show === true;
+
+  // Variant picker state
+  const [showVariantPicker, setShowVariantPicker] = useState(false);
+  const variantPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showVariantPicker) return;
+    const onClick = (e: MouseEvent) => {
+      if (variantPickerRef.current && !variantPickerRef.current.contains(e.target as Node)) {
+        setShowVariantPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [showVariantPicker]);
 
   // This page is a drop target for categories
   const { setNodeRef, isOver } = useDroppable({
@@ -135,9 +154,115 @@ export default function PageCard({
         <div className="flex-1" />
 
         {/* Category count */}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground mr-1">
           {categories.length} cat{categories.length !== 1 ? "s" : ""}
         </span>
+
+        {/* ── Edit variant button ── */}
+        <div className="relative" ref={variantPickerRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowVariantPicker((s) => !s);
+            }}
+            className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors"
+            style={{
+              backgroundColor: showVariantPicker
+                ? `${primaryColor}15`
+                : "transparent",
+              color: showVariantPicker ? primaryColor : "hsl(220 9% 56%)",
+            }}
+            onMouseEnter={(e) => {
+              if (!showVariantPicker) {
+                e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)";
+                e.currentTarget.style.color = "hsl(220 9% 30%)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!showVariantPicker) {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "hsl(220 9% 56%)";
+              }
+            }}
+            title="Change page variant"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Variant dropdown */}
+          {showVariantPicker && template && (
+            <div
+              className="absolute right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
+              style={{ width: "200px" }}
+            >
+              <div className="px-3 py-2 border-b border-border">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Page Variant
+                </span>
+              </div>
+              {template.pageVariants.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChangeVariant(v.id);
+                    setShowVariantPicker(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
+                  style={{
+                    backgroundColor:
+                      v.id === page.variantId
+                        ? `${primaryColor}10`
+                        : "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      v.id === page.variantId
+                        ? `${primaryColor}18`
+                        : "hsl(220 14% 96%)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      v.id === page.variantId
+                        ? `${primaryColor}10`
+                        : "transparent";
+                  }}
+                >
+                  <span className="flex-1 font-medium truncate">{v.name}</span>
+                  {v.id === page.variantId && (
+                    <Check className="w-3.5 h-3.5 shrink-0" style={{ color: primaryColor }} />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Delete page button ── */}
+        {totalPages > 1 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors"
+            style={{
+              color: "hsl(0 60% 60%)",
+              backgroundColor: "transparent",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.1)";
+              e.currentTarget.style.color = "hsl(0 84% 60%)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "hsl(0 60% 60%)";
+            }}
+            title="Delete page"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* ── Page Body — always visible (no collapse) ─────────────────── */}
