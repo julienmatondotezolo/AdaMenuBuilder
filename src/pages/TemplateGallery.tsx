@@ -10,7 +10,21 @@ import {
   Lock,
   LayoutTemplate,
 } from "lucide-react";
-import { Button, Badge } from "ada-design-system";
+import {
+  Button,
+  Badge,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  SkeletonCard,
+  cn,
+} from "ada-design-system";
 import { useTemplates, deleteTemplate, duplicateTemplate, createTemplate } from "../db/hooks";
 import type { MenuTemplate, PageFormat } from "../types/template";
 import { PAGE_FORMATS } from "../types/template";
@@ -24,12 +38,7 @@ const DEFAULT_COLORS = {
 };
 
 const DEFAULT_SPACING = {
-  marginTop: 48,
-  marginBottom: 24,
-  marginLeft: 32,
-  marginRight: 32,
-  categoryGap: 40,
-  itemGap: 24,
+  marginTop: 48, marginBottom: 24, marginLeft: 32, marginRight: 32, categoryGap: 40, itemGap: 24,
 };
 
 const DEFAULT_PAGE_VARIANT = {
@@ -38,6 +47,14 @@ const DEFAULT_PAGE_VARIANT = {
   header: { show: true, style: "centered" as const, showSubtitle: true, showEstablished: true, showDivider: true },
   body: { columns: 1, categoryStyle: "lines" as const, itemAlignment: "center" as const, pricePosition: "below" as const, separatorStyle: "line" as const, showDescriptions: true, showFeaturedBadge: true },
   highlight: { show: false, position: "none" as const },
+};
+
+const FORMAT_PREVIEWS: Record<string, { w: number; h: number }> = {
+  A4: { w: 28, h: 40 },
+  A5: { w: 24, h: 36 },
+  DL: { w: 18, h: 38 },
+  LONG: { w: 20, h: 54 },
+  CUSTOM: { w: 26, h: 38 },
 };
 
 export default function TemplateGallery() {
@@ -100,79 +117,71 @@ export default function TemplateGallery() {
           <LayoutTemplate className="w-5 h-5 text-primary" />
           <h1 className="text-lg font-bold text-foreground">Templates</h1>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <Plus className="w-4 h-4 mr-2" />
           New Template
         </Button>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* Create dialog */}
-        {showCreate && (
-          <div className="mb-8 p-6 rounded-xl border border-border bg-card">
-            <h2 className="text-sm font-bold text-foreground mb-4">Create New Template</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Template Name</label>
-                <input
-                  type="text"
-                  autoFocus
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Elegant Bistro"
-                  className="w-full h-10 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-                  style={{ border: "1px solid hsl(220 13% 91%)" }}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-2 block">Page Format</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {(["A4", "A5", "DL", "LONG", "CUSTOM"] as const).map((fmt) => {
-                    const isSelected = newFormat === fmt;
-                    const dims = fmt !== "CUSTOM" ? PAGE_FORMATS[fmt] : null;
-                    return (
-                      <button
-                        key={fmt}
-                        onClick={() => setNewFormat(fmt)}
-                        className="flex flex-col items-center gap-1 p-3 rounded-lg border transition-colors text-center"
-                        style={{
-                          borderColor: isSelected ? "hsl(232 80% 62%)" : "hsl(220 13% 91%)",
-                          backgroundColor: isSelected ? "hsl(232 80% 62% / 0.05)" : "",
-                        }}
-                      >
-                        {/* Mini page preview */}
-                        <div
-                          className="border rounded-sm"
-                          style={{
-                            width: fmt === "DL" ? 18 : fmt === "LONG" ? 20 : fmt === "A5" ? 24 : 28,
-                            height: fmt === "DL" ? 38 : fmt === "LONG" ? 54 : fmt === "A5" ? 36 : 40,
-                            borderColor: isSelected ? "hsl(232 80% 62%)" : "hsl(220 13% 91%)",
-                            backgroundColor: isSelected ? "hsl(232 80% 62% / 0.1)" : "white",
-                          }}
-                        />
-                        <span className="text-xs font-semibold" style={{ color: isSelected ? "hsl(232 80% 62%)" : "" }}>{fmt}</span>
-                        {dims && (
-                          <span className="text-[9px] text-muted-foreground">
-                            {dims.width}×{dims.height}mm
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleCreate}>Create</Button>
-                <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
+      {/* Create dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Template</DialogTitle>
+            <DialogDescription>Choose a name and page format for your template.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="tpl-name">Template Name</Label>
+              <Input
+                id="tpl-name"
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. Elegant Bistro"
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Page Format</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {(["A4", "A5", "DL", "LONG", "CUSTOM"] as const).map((fmt) => {
+                  const isSelected = newFormat === fmt;
+                  const dims = fmt !== "CUSTOM" ? PAGE_FORMATS[fmt] : null;
+                  const preview = FORMAT_PREVIEWS[fmt];
+                  return (
+                    <button
+                      key={fmt}
+                      onClick={() => setNewFormat(fmt)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-colors text-center",
+                        isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30",
+                      )}
+                    >
+                      <div
+                        className={cn("border-2 rounded-sm transition-colors", isSelected ? "border-primary bg-primary/10" : "border-border bg-white")}
+                        style={{ width: preview.w, height: preview.h }}
+                      />
+                      <span className={cn("text-xs font-semibold", isSelected && "text-primary")}>{fmt}</span>
+                      {dims && <span className="text-[9px] text-muted-foreground">{dims.width}×{dims.height}mm</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleCreate}>Create Template</Button>
+              <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            </div>
           </div>
-        )}
+        </DialogContent>
+      </Dialog>
 
-        {/* Template grid */}
+      <main className="max-w-6xl mx-auto px-6 py-8">
         {!templates ? (
-          <div className="text-center py-20 text-muted-foreground">Loading...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {templates.map((tpl) => (
@@ -188,16 +197,15 @@ export default function TemplateGallery() {
             ))}
 
             {/* Create card */}
-            <button
+            <Card
+              className="cursor-pointer border-2 border-dashed transition-colors hover:border-primary/40"
               onClick={() => setShowCreate(true)}
-              className="flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed border-border bg-card/50 transition-colors"
-              style={{ minHeight: "220px" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "hsl(232 80% 62%)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = ""; }}
             >
-              <Plus className="w-8 h-8 text-muted-foreground/40" />
-              <span className="text-sm font-medium text-muted-foreground">New Template</span>
-            </button>
+              <CardContent className="flex flex-col items-center justify-center gap-3 py-20">
+                <Plus className="w-8 h-8 text-muted-foreground/40" />
+                <span className="text-sm font-medium text-muted-foreground">New Template</span>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
@@ -218,31 +226,24 @@ interface TemplateCardProps {
 
 function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete }: TemplateCardProps) {
   return (
-    <div
-      className="relative rounded-xl border border-border bg-card overflow-hidden transition-shadow cursor-pointer"
-      style={{ minHeight: "220px" }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ""; }}
-      onClick={onEdit}
-    >
-      {/* Template preview — mini page shapes */}
+    <Card className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md" onClick={onEdit}>
+      {/* Preview — mini page shapes */}
       <div className="h-36 bg-gradient-to-br from-muted/40 to-muted/60 flex items-center justify-center gap-2 px-6">
-        {template.pageVariants.slice(0, 4).map((v) => (
-          <div
-            key={v.id}
-            className="bg-white rounded-sm shadow-sm border border-border flex flex-col items-center justify-center p-1"
-            style={{
-              width: template.format.type === "DL" ? 28 : template.format.type === "LONG" ? 30 : 36,
-              height: template.format.type === "DL" ? 60 : template.format.type === "LONG" ? 80 : template.format.type === "A5" ? 52 : 56,
-            }}
-          >
-            <span className="text-[6px] text-muted-foreground/60 font-medium truncate w-full text-center">{v.name}</span>
-          </div>
-        ))}
+        {template.pageVariants.slice(0, 4).map((v) => {
+          const preview = FORMAT_PREVIEWS[template.format.type] || FORMAT_PREVIEWS.A4;
+          return (
+            <div
+              key={v.id}
+              className="bg-white rounded-sm shadow-sm border border-border flex flex-col items-center justify-center p-1"
+              style={{ width: preview.w + 8, height: preview.h + 16 }}
+            >
+              <span className="text-[6px] text-muted-foreground/60 font-medium truncate w-full text-center">{v.name}</span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Info */}
-      <div className="p-4">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -254,59 +255,30 @@ function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDu
             </p>
           </div>
           <div className="flex items-center gap-1.5 ml-2 shrink-0">
-            <Badge
-              className="text-[10px] px-1.5 py-0 rounded-full"
-              style={{ backgroundColor: "hsl(220 14% 96%)", color: "hsl(220 9% 46%)" }}
-            >
-              {template.format.type}
-            </Badge>
+            <Badge variant="secondary">{template.format.type}</Badge>
             <div className="relative">
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleDropdown(); }}
-                className="p-1 rounded-md transition-colors text-muted-foreground"
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 96%)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-              >
+              <Button variant="ghost" size="icon-sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleDropdown(); }}>
                 <MoreVertical className="w-4 h-4" />
-              </button>
+              </Button>
               {isDropdownOpen && (
-                <div
-                  className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border bg-card shadow-lg py-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={onEdit}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground transition-colors"
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 96%)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-                  >
+                <Card className="absolute right-0 top-8 z-50 w-36 py-1 shadow-lg" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                  <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Pencil className="w-3 h-3" /> Edit
                   </button>
-                  <button
-                    onClick={onDuplicate}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground transition-colors"
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 96%)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-                  >
+                  <button onClick={onDuplicate} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Copy className="w-3 h-3" /> Duplicate
                   </button>
                   {!template.isBuiltIn && (
-                    <button
-                      onClick={onDelete}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
-                      style={{ color: "hsl(0 84% 60%)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.05)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-                    >
+                    <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
                       <Trash2 className="w-3 h-3" /> Delete
                     </button>
                   )}
-                </div>
+                </Card>
               )}
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

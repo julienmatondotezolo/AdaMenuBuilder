@@ -4,19 +4,31 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  Check,
-  X,
-  ChevronDown,
   Copy,
+  ChevronDown,
   Palette,
   Type,
   Columns3,
   Ruler,
   ImageIcon,
 } from "lucide-react";
-import { Button, Input, Badge, cn } from "ada-design-system";
+import {
+  Button,
+  Badge,
+  Card,
+  CardContent,
+  Input,
+  Label,
+  Switch,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  cn,
+} from "ada-design-system";
 import { useTemplateById, updateTemplate } from "../db/hooks";
-import type { MenuTemplate, PageVariant, PageFormat } from "../types/template";
+import type { MenuTemplate, PageVariant } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
 
@@ -34,7 +46,9 @@ export default function TemplateEditor() {
     }
   }, [template]);
 
-  if (!template) return <div className="flex items-center justify-center h-screen text-muted-foreground">Loading...</div>;
+  if (!template) {
+    return <div className="flex items-center justify-center h-screen text-muted-foreground text-sm">Loading...</div>;
+  }
 
   const activeVariant = template.pageVariants.find((v) => v.id === activeVariantId);
 
@@ -94,131 +108,89 @@ export default function TemplateEditor() {
             <p className="text-[10px] text-muted-foreground">{template.format.type} · {template.pageVariants.length} variants</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className="text-[10px] px-2 py-0.5" style={{ backgroundColor: "hsl(220 14% 96%)", color: "hsl(220 9% 46%)" }}>
-            {template.format.width} × {template.format.height} mm
-          </Badge>
-        </div>
+        <Badge variant="secondary">{template.format.width} × {template.format.height} mm</Badge>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Settings panel */}
+        {/* Left: Settings */}
         <div className="w-80 shrink-0 border-r border-border bg-background overflow-y-auto">
-          {/* Page variants tabs */}
+          {/* Page variant tabs */}
           <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-foreground">Page Variants</span>
-              <button onClick={addVariant} className="text-primary p-0.5 rounded transition-colors"
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(232 80% 62% / 0.1)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-              >
+              <Label className="text-xs font-bold">Page Variants</Label>
+              <Button variant="ghost" size="icon-sm" onClick={addVariant}>
                 <Plus className="w-3.5 h-3.5" />
-              </button>
+              </Button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {template.pageVariants.map((v) => (
-                <button
+                <Button
                   key={v.id}
+                  variant={activeVariantId === v.id ? "default" : "outline"}
+                  size="sm"
+                  className="text-xs h-7 px-2.5"
                   onClick={() => setActiveVariantId(v.id)}
-                  className={cn(
-                    "text-xs px-2.5 py-1.5 rounded-md font-medium transition-colors border",
-                  )}
-                  style={{
-                    borderColor: activeVariantId === v.id ? "hsl(232 80% 62%)" : "hsl(220 13% 91%)",
-                    backgroundColor: activeVariantId === v.id ? "hsl(232 80% 62% / 0.08)" : "",
-                    color: activeVariantId === v.id ? "hsl(232 80% 62%)" : "",
-                  }}
                 >
                   {v.name}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
           {activeVariant && (
-            <div className="p-3 space-y-1">
+            <div className="p-3 space-y-2">
               {/* Variant name + actions */}
               <div className="flex items-center gap-2 mb-3">
-                <input
-                  type="text"
+                <Input
                   value={activeVariant.name}
                   onChange={(e) => updateVariant(activeVariant.id, { name: e.target.value })}
-                  className="flex-1 h-8 rounded-md text-sm font-medium bg-background text-foreground outline-none px-2"
-                  style={{ border: "1px solid hsl(220 13% 91%)" }}
+                  className="flex-1 h-8 text-sm font-medium"
                 />
-                <button onClick={() => duplicateVariant(activeVariant.id)} className="p-1 rounded text-muted-foreground transition-colors"
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(232 80% 62%)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = ""; }}
-                >
+                <Button variant="ghost" size="icon-sm" onClick={() => duplicateVariant(activeVariant.id)} title="Duplicate variant">
                   <Copy className="w-3.5 h-3.5" />
-                </button>
+                </Button>
                 {template.pageVariants.length > 1 && (
-                  <button onClick={() => deleteVariant(activeVariant.id)} className="p-1 rounded text-muted-foreground transition-colors"
-                    onMouseEnter={(e) => { e.currentTarget.style.color = "hsl(0 84% 60%)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = ""; }}
-                  >
+                  <Button variant="ghost" size="icon-sm" onClick={() => deleteVariant(activeVariant.id)} title="Delete variant" className="text-destructive hover:text-destructive">
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 )}
               </div>
 
-              {/* Collapsible panels */}
-              <SettingsPanel
-                title="Page Format"
-                icon={<Ruler className="w-3.5 h-3.5" />}
-                isOpen={expandedPanel === "format"}
-                onToggle={() => setExpandedPanel(expandedPanel === "format" ? null : "format")}
-              >
+              {/* Settings panels */}
+              <SettingsPanel title="Page Format" icon={<Ruler className="w-3.5 h-3.5" />} isOpen={expandedPanel === "format"} onToggle={() => setExpandedPanel(expandedPanel === "format" ? null : "format")}>
                 <div className="grid grid-cols-5 gap-1.5">
-                  {(["A4", "A5", "DL", "LONG", "CUSTOM"] as const).map((fmt) => {
-                    const isSel = template.format.type === fmt;
-                    return (
-                      <button
-                        key={fmt}
-                        onClick={() => {
-                          const f = fmt === "CUSTOM" ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height } : PAGE_FORMATS[fmt];
-                          save({ format: f });
-                        }}
-                        className="text-[10px] font-semibold py-1.5 rounded-md border transition-colors"
-                        style={{
-                          borderColor: isSel ? "hsl(232 80% 62%)" : "hsl(220 13% 91%)",
-                          backgroundColor: isSel ? "hsl(232 80% 62% / 0.08)" : "",
-                          color: isSel ? "hsl(232 80% 62%)" : "",
-                        }}
-                      >
-                        {fmt}
-                      </button>
-                    );
-                  })}
+                  {(["A4", "A5", "DL", "LONG", "CUSTOM"] as const).map((fmt) => (
+                    <Button
+                      key={fmt}
+                      variant={template.format.type === fmt ? "default" : "outline"}
+                      size="sm"
+                      className="text-[10px] h-7 px-1"
+                      onClick={() => {
+                        const f = fmt === "CUSTOM" ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height } : PAGE_FORMATS[fmt];
+                        save({ format: f });
+                      }}
+                    >
+                      {fmt}
+                    </Button>
+                  ))}
                 </div>
                 {template.format.type === "CUSTOM" && (
                   <div className="flex gap-2 mt-2">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground mb-0.5 block">Width (mm)</label>
-                      <input type="number" value={template.format.width}
-                        onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })}
-                        className="w-full h-8 rounded-md text-xs bg-background text-foreground outline-none px-2"
-                        style={{ border: "1px solid hsl(220 13% 91%)" }}
-                      />
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-[10px]">Width (mm)</Label>
+                      <Input type="number" value={template.format.width} className="h-8 text-xs"
+                        onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })} />
                     </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] text-muted-foreground mb-0.5 block">Height (mm)</label>
-                      <input type="number" value={template.format.height}
-                        onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })}
-                        className="w-full h-8 rounded-md text-xs bg-background text-foreground outline-none px-2"
-                        style={{ border: "1px solid hsl(220 13% 91%)" }}
-                      />
+                    <div className="flex-1 space-y-1">
+                      <Label className="text-[10px]">Height (mm)</Label>
+                      <Input type="number" value={template.format.height} className="h-8 text-xs"
+                        onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })} />
                     </div>
                   </div>
                 )}
               </SettingsPanel>
 
-              <SettingsPanel
-                title="Header"
-                icon={<Type className="w-3.5 h-3.5" />}
-                isOpen={expandedPanel === "header"}
-                onToggle={() => setExpandedPanel(expandedPanel === "header" ? null : "header")}
-              >
+              <SettingsPanel title="Header" icon={<Type className="w-3.5 h-3.5" />} isOpen={expandedPanel === "header"} onToggle={() => setExpandedPanel(expandedPanel === "header" ? null : "header")}>
                 <ToggleRow label="Show Header" checked={activeVariant.header.show}
                   onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, show: v } })} />
                 {activeVariant.header.show && (
@@ -236,12 +208,7 @@ export default function TemplateEditor() {
                 )}
               </SettingsPanel>
 
-              <SettingsPanel
-                title="Body Layout"
-                icon={<Columns3 className="w-3.5 h-3.5" />}
-                isOpen={expandedPanel === "body"}
-                onToggle={() => setExpandedPanel(expandedPanel === "body" ? null : "body")}
-              >
+              <SettingsPanel title="Body Layout" icon={<Columns3 className="w-3.5 h-3.5" />} isOpen={expandedPanel === "body"} onToggle={() => setExpandedPanel(expandedPanel === "body" ? null : "body")}>
                 <SelectRow label="Columns" value={String(activeVariant.body.columns)}
                   options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
                   onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
@@ -260,12 +227,7 @@ export default function TemplateEditor() {
                   onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showFeaturedBadge: v } })} />
               </SettingsPanel>
 
-              <SettingsPanel
-                title="Highlight Image"
-                icon={<ImageIcon className="w-3.5 h-3.5" />}
-                isOpen={expandedPanel === "highlight"}
-                onToggle={() => setExpandedPanel(expandedPanel === "highlight" ? null : "highlight")}
-              >
+              <SettingsPanel title="Highlight Image" icon={<ImageIcon className="w-3.5 h-3.5" />} isOpen={expandedPanel === "highlight"} onToggle={() => setExpandedPanel(expandedPanel === "highlight" ? null : "highlight")}>
                 <ToggleRow label="Show Highlight" checked={activeVariant.highlight.show}
                   onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, show: v } })} />
                 {activeVariant.highlight.show && (
@@ -275,12 +237,7 @@ export default function TemplateEditor() {
                 )}
               </SettingsPanel>
 
-              <SettingsPanel
-                title="Colors"
-                icon={<Palette className="w-3.5 h-3.5" />}
-                isOpen={expandedPanel === "colors"}
-                onToggle={() => setExpandedPanel(expandedPanel === "colors" ? null : "colors")}
-              >
+              <SettingsPanel title="Colors" icon={<Palette className="w-3.5 h-3.5" />} isOpen={expandedPanel === "colors"} onToggle={() => setExpandedPanel(expandedPanel === "colors" ? null : "colors")}>
                 <ColorRow label="Primary" value={template.colors.primary}
                   onChange={(v) => save({ colors: { ...template.colors, primary: v, accent: v } })} />
                 <ColorRow label="Background" value={template.colors.background}
@@ -296,17 +253,9 @@ export default function TemplateEditor() {
 
         {/* Right: Live preview */}
         <div className="flex-1 flex items-center justify-center bg-muted/50 overflow-auto p-8">
-          <div
-            className="bg-white shadow-lg rounded-sm border border-border overflow-hidden"
-            style={{
-              width: previewW * scale,
-              height: previewH * scale,
-              transform: `scale(${scale})`,
-              transformOrigin: "center center",
-            }}
-          >
+          <Card className="overflow-hidden" style={{ width: previewW * scale, height: previewH * scale }}>
             <VariantPreview template={template} variant={activeVariant} />
-          </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -316,26 +265,17 @@ export default function TemplateEditor() {
 /* ── Collapsible settings panel ──────────────────────────────────────── */
 
 function SettingsPanel({ title, icon, isOpen, onToggle, children }: {
-  title: string;
-  icon: React.ReactNode;
-  isOpen: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
+  title: string; icon: React.ReactNode; isOpen: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-foreground transition-colors"
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "hsl(220 14% 97%)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ""; }}
-      >
+    <Card>
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors">
         <span className="text-muted-foreground">{icon}</span>
         {title}
         <ChevronDown className={cn("w-3 h-3 ml-auto text-muted-foreground transition-transform", !isOpen && "-rotate-90")} />
       </button>
-      {isOpen && <div className="px-3 pb-3 space-y-2.5">{children}</div>}
-    </div>
+      {isOpen && <CardContent className="px-3 pb-3 pt-0 space-y-2.5">{children}</CardContent>}
+    </Card>
   );
 }
 
@@ -343,40 +283,27 @@ function SettingsPanel({ title, icon, isOpen, onToggle, children }: {
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex items-center justify-between cursor-pointer">
-      <span className="text-[11px] text-foreground">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className="w-8 h-4.5 rounded-full transition-colors relative"
-        style={{ backgroundColor: checked ? "hsl(232 80% 62%)" : "hsl(220 14% 90%)" }}
-      >
-        <span
-          className="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform"
-          style={{ left: checked ? "calc(100% - 18px)" : "2px" }}
-        />
-      </button>
-    </label>
+    <div className="flex items-center justify-between">
+      <Label className="text-[11px] font-normal">{label}</Label>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
   );
 }
 
 function SelectRow({ label, value, options, onChange }: {
-  label: string;
-  value: string;
-  options: { v: string; l: string }[];
-  onChange: (v: string) => void;
+  label: string; value: string; options: { v: string; l: string }[]; onChange: (v: string) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] text-foreground shrink-0">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 rounded-md text-[11px] bg-background text-foreground outline-none px-1.5 min-w-0"
-        style={{ border: "1px solid hsl(220 13% 91%)" }}
-      >
-        {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-      </select>
+      <Label className="text-[11px] font-normal shrink-0">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-7 text-[11px] min-w-0 w-auto">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -384,28 +311,19 @@ function SelectRow({ label, value, options, onChange }: {
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] text-foreground">{label}</span>
+      <Label className="text-[11px] font-normal">{label}</Label>
       <div className="flex items-center gap-1.5">
-        <input
-          type="color"
-          value={value.startsWith("#") ? value : "#4d6aff"}
+        <input type="color" value={value.startsWith("#") ? value : "#4d6aff"}
           onChange={(e) => onChange(e.target.value)}
-          className="w-6 h-6 rounded-md border border-border cursor-pointer"
-          style={{ padding: 0 }}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-24 h-7 rounded-md text-[10px] bg-background text-foreground outline-none px-1.5 font-mono"
-          style={{ border: "1px solid hsl(220 13% 91%)" }}
-        />
+          className="w-6 h-6 rounded-md border border-border cursor-pointer p-0" />
+        <Input value={value} onChange={(e) => onChange(e.target.value)}
+          className="w-24 h-7 text-[10px] font-mono" />
       </div>
     </div>
   );
 }
 
-/* ── Mini preview (renders active variant with sample data) ──────────── */
+/* ── Mini preview ────────────────────────────────────────────────────── */
 
 function VariantPreview({ template, variant }: { template: MenuTemplate; variant?: PageVariant }) {
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a page variant</div>;
@@ -414,16 +332,10 @@ function VariantPreview({ template, variant }: { template: MenuTemplate; variant
   const { colors, fonts, spacing } = template;
 
   return (
-    <div
-      className="h-full overflow-hidden"
-      style={{
-        fontFamily: fonts.body,
-        color: colors.text,
-        backgroundColor: colors.background,
-        padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
-      }}
-    >
-      {/* Header */}
+    <div className="h-full overflow-hidden" style={{
+      fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
+      padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
+    }}>
       {variant.header.show && (
         <div className={variant.header.style === "left" ? "text-left pb-4" : "text-center pb-4"}>
           {variant.header.showSubtitle && (
@@ -447,7 +359,6 @@ function VariantPreview({ template, variant }: { template: MenuTemplate; variant
         </div>
       )}
 
-      {/* Body — categories + items */}
       <div style={{
         display: variant.body.columns > 1 ? "grid" : "block",
         gridTemplateColumns: variant.body.columns > 1 ? `repeat(${variant.body.columns}, 1fr)` : undefined,
@@ -455,7 +366,6 @@ function VariantPreview({ template, variant }: { template: MenuTemplate; variant
       }}>
         {data.categories.map((cat) => (
           <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px` }}>
-            {/* Category name */}
             <div className={variant.body.itemAlignment === "left" ? "text-left mb-3" : "flex items-center justify-center gap-2 mb-3"}>
               {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
                 <span style={{ flex: "1", maxWidth: "30px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
@@ -467,19 +377,11 @@ function VariantPreview({ template, variant }: { template: MenuTemplate; variant
                 <span style={{ flex: "1", maxWidth: "30px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
               )}
             </div>
-
-            {/* Items */}
             <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap * 0.3}px` }}>
               {cat.items.slice(0, 3).map((item) => (
                 <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
-                  <div style={{
-                    display: variant.body.pricePosition === "right" ? "flex" : "block",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                  }}>
-                    <p style={{ fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {item.name}
-                    </p>
+                  <div style={{ display: variant.body.pricePosition === "right" ? "flex" : "block", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <p style={{ fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{item.name}</p>
                     {variant.body.pricePosition === "right" && (
                       <span style={{ fontSize: "7px", color: colors.primary, fontWeight: 600 }}>${item.price}</span>
                     )}
@@ -499,7 +401,6 @@ function VariantPreview({ template, variant }: { template: MenuTemplate; variant
         ))}
       </div>
 
-      {/* Highlight */}
       {variant.highlight.show && data.highlightImage && (
         <div style={{ marginTop: "auto", borderRadius: "4px", overflow: "hidden", position: "relative" }}>
           <img src={data.highlightImage} alt="" style={{ width: "100%", height: "60px", objectFit: "cover" }} />
