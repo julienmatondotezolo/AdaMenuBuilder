@@ -61,7 +61,31 @@ export async function createTemplate(template: MenuTemplate) {
 }
 
 export async function updateTemplate(id: string, updates: Partial<MenuTemplate>) {
-  await db.templates.update(id, { ...updates, updatedAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  await db.templates.update(id, { ...updates, updatedAt: now });
+
+  // Propagate to all menus using this template
+  const menusUsingTemplate = await db.menus.where("templateId").equals(id).toArray();
+  if (menusUsingTemplate.length === 0) return;
+
+  // If page variants changed, clean up orphaned variant references in menus
+  const newVariantIds = updates.pageVariants?.map((v) => v.id);
+
+  for (const menu of menusUsingTemplate) {
+    const menuUpdates: Partial<Menu> = { updatedAt: now };
+
+    if (newVariantIds) {
+      // Remove pages whose variantId no longer exists, or remap to first available
+      const validPages = menu.pages.filter((p) => newVariantIds.includes(p.variantId));
+      if (validPages.length !== menu.pages.length) {
+        menuUpdates.pages = validPages.length > 0
+          ? validPages
+          : [{ id: `page-${uid()}`, variantId: newVariantIds[0], categoryIds: [] }];
+      }
+    }
+
+    await db.menus.update(menu.id, menuUpdates);
+  }
 }
 
 export async function deleteTemplate(id: string) {
