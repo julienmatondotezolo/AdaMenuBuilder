@@ -170,8 +170,10 @@ export default function PreviewPanel() {
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
+      // Prevent all default wheel behavior (including macOS back/forward swipe)
+      e.preventDefault();
+
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
         const rect = el.getBoundingClientRect();
         const pointerX = e.clientX - rect.left;
         const pointerY = e.clientY - rect.top;
