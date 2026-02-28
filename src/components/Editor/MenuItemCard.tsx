@@ -20,7 +20,7 @@ export default function MenuItemCard({
   isDraggingActive,
   isOverlay,
 }: MenuItemCardProps) {
-  const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState, selectedItemId, selectItem } =
+  const { removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
   const isSelected = selectedItemId === item.id;
