@@ -37,6 +37,12 @@ export default function PreviewPanel() {
   const [isPanning, setIsPanning] = useState(false);
   const [spaceHeld, setSpaceHeld] = useState(false);
 
+  // Refs to always have latest zoom/pan in event handlers (avoids stale closures)
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
@@ -178,20 +184,24 @@ export default function PreviewPanel() {
         const pointerX = e.clientX - rect.left;
         const pointerY = e.clientY - rect.top;
 
-        setZoom((prevZoom) => {
-          // Use actual deltaY for smooth trackpad pinch (clamped to avoid jumps)
-          const rawDelta = -e.deltaY * 0.01;
-          const clampedDelta = Math.max(-0.15, Math.min(0.15, rawDelta));
-          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom * (1 + clampedDelta)).toFixed(3)));
-          const scaleFactor = newZoom / prevZoom;
+        // Read current values from refs (always fresh)
+        const prevZoom = zoomRef.current;
+        const prevPan = panRef.current;
 
-          setPan((prevPan) => ({
-            x: pointerX - scaleFactor * (pointerX - prevPan.x),
-            y: pointerY - scaleFactor * (pointerY - prevPan.y),
-          }));
+        // Smooth proportional zoom from trackpad deltaY
+        const rawDelta = -e.deltaY * 0.01;
+        const clampedDelta = Math.max(-0.15, Math.min(0.15, rawDelta));
+        const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(prevZoom * (1 + clampedDelta)).toFixed(3)));
+        const scaleFactor = newZoom / prevZoom;
 
-          return newZoom;
-        });
+        // Keep the point under the cursor fixed
+        const newPan = {
+          x: pointerX - scaleFactor * (pointerX - prevPan.x),
+          y: pointerY - scaleFactor * (pointerY - prevPan.y),
+        };
+
+        setZoom(newZoom);
+        setPan(newPan);
       } else {
         // Normal scroll = pan
         setPan((prev) => ({
