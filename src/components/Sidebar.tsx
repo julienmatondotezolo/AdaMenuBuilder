@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
-  PanelLeftClose,
+  ChevronLeft,
   BarChart3,
   Settings,
   LogOut,
@@ -140,7 +140,7 @@ export default function Sidebar() {
           style={{ width: collapsed ? COLLAPSED_W : EXPANDED_W }}
         >
         {/* ═══ Header: Logo ══════════════════════════════════════════════ */}
-        <div className="flex items-center h-14 shrink-0 border-b border-gray-100 px-3">
+        <div className={cn("flex items-center h-14 shrink-0 px-3", !collapsed && "border-b border-gray-100")}>
           <div className="flex items-center gap-2 min-w-0">
             <AdaLogo size="sm" variant="primary" className="shrink-0 w-7 h-7" />
             <span className={cn(
@@ -290,7 +290,7 @@ export default function Sidebar() {
           }}
           title={collapsed ? "Expand (⌘B)" : "Collapse (⌘B)"}
         >
-          <PanelLeftClose
+          <ChevronLeft
             className={cn(
               "w-4 h-4 text-gray-500 transition-transform duration-200",
               collapsed && "rotate-180",
