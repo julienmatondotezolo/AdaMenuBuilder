@@ -7,7 +7,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Type,
-  ImageIcon,
   Palette,
 } from "lucide-react";
 import { Button, Input } from "ada-design-system";
@@ -1029,7 +1028,7 @@ export default function EditorPanel() {
           {/* Add Page button */}
           <button
             onClick={addPage}
-            className="w-full flex items-center justify-center gap-2 py-3 mt-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 mt-6 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
             style={{ border: "2px dashed hsl(220 13% 88%)" }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.4)";
@@ -1085,107 +1084,6 @@ export default function EditorPanel() {
           </div>
         )}
 
-        <div className="h-4" />
-
-        {/* Highlight Image Editor */}
-        <EditorCard
-          icon={<ImageIcon className="w-4 h-4" />}
-          title="Highlight Image"
-          defaultCollapsed
-        >
-          {menuData.highlightImage && (
-            <div
-              className="relative rounded-lg overflow-hidden"
-              style={{ maxHeight: "200px" }}
-            >
-              <img
-                src={menuData.highlightImage}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ filter: "blur(20px)", transform: "scale(1.1)" }}
-              />
-              <img
-                src={menuData.highlightImage}
-                alt="Highlight preview"
-                className="relative w-full object-contain mx-auto"
-                style={{ maxHeight: "200px" }}
-              />
-            </div>
-          )}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Image URL
-            </label>
-            <input
-              type="text"
-              value={menuData.highlightImage}
-              onChange={(e) =>
-                setMenuData((prev) => ({
-                  ...prev,
-                  highlightImage: e.target.value,
-                }))
-              }
-              placeholder="https://..."
-              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-              style={{ border: "1px solid hsl(220 13% 91%)" }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-              }}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Label
-            </label>
-            <input
-              type="text"
-              value={menuData.highlightLabel}
-              onChange={(e) =>
-                setMenuData((prev) => ({
-                  ...prev,
-                  highlightLabel: e.target.value,
-                }))
-              }
-              placeholder="e.g. TODAY'S HIGHLIGHT"
-              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-              style={{ border: "1px solid hsl(220 13% 91%)" }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-              }}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Title
-            </label>
-            <input
-              type="text"
-              value={menuData.highlightTitle}
-              onChange={(e) =>
-                setMenuData((prev) => ({
-                  ...prev,
-                  highlightTitle: e.target.value,
-                }))
-              }
-              placeholder="e.g. The Nordic Atlantic Salmon"
-              className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-              style={{ border: "1px solid hsl(220 13% 91%)" }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-              }}
-            />
-          </div>
-        </EditorCard>
       </div>
 
       {/* Fixed bottom — Create New Category */}

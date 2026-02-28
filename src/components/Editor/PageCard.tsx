@@ -1,12 +1,14 @@
-import { useRef } from "react";
 import {
   AlertTriangle,
   FileText,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "ada-design-system";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import CategorySection from "./CategorySection";
+import EditorCard from "./EditorCard";
+import { useMenu } from "../../context/MenuContext";
 import type { Category, MenuPage } from "../../types/menu";
 import type { MenuTemplate } from "../../types/template";
 
@@ -49,10 +51,14 @@ export default function PageCard({
   dragCollapseSignal,
   dragRestoreSignal,
 }: PageCardProps) {
+  const { menuData, setMenuData } = useMenu();
   const variant = template?.pageVariants.find((v) => v.id === page.variantId);
   const hasOverflow = overflowPx > 0;
   const primaryColor = template?.colors.primary || "#4d5cc5";
   const categoryIds = page.categoryIds;
+
+  // Check if this page's variant has highlight image enabled
+  const hasHighlight = variant?.highlight?.show === true;
 
   // This page is a drop target for categories
   const { setNodeRef, isOver } = useDroppable({
@@ -199,6 +205,110 @@ export default function PageCard({
             }}
           >
             Drop here
+          </div>
+        )}
+
+        {/* ── Highlight Image — only for variants with highlight.show ── */}
+        {hasHighlight && (
+          <div className="mt-3">
+            <EditorCard
+              icon={<ImageIcon className="w-4 h-4" />}
+              title="Highlight Image"
+              defaultCollapsed
+            >
+              {menuData.highlightImage && (
+                <div
+                  className="relative rounded-lg overflow-hidden"
+                  style={{ maxHeight: "200px" }}
+                >
+                  <img
+                    src={menuData.highlightImage}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ filter: "blur(20px)", transform: "scale(1.1)" }}
+                  />
+                  <img
+                    src={menuData.highlightImage}
+                    alt="Highlight preview"
+                    className="relative w-full object-contain mx-auto"
+                    style={{ maxHeight: "200px" }}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Image URL
+                </label>
+                <input
+                  type="text"
+                  value={menuData.highlightImage}
+                  onChange={(e) =>
+                    setMenuData((prev) => ({
+                      ...prev,
+                      highlightImage: e.target.value,
+                    }))
+                  }
+                  placeholder="https://..."
+                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                  style={{ border: "1px solid hsl(220 13% 91%)" }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Label
+                </label>
+                <input
+                  type="text"
+                  value={menuData.highlightLabel}
+                  onChange={(e) =>
+                    setMenuData((prev) => ({
+                      ...prev,
+                      highlightLabel: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. TODAY'S HIGHLIGHT"
+                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                  style={{ border: "1px solid hsl(220 13% 91%)" }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={menuData.highlightTitle}
+                  onChange={(e) =>
+                    setMenuData((prev) => ({
+                      ...prev,
+                      highlightTitle: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. The Nordic Atlantic Salmon"
+                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                  style={{ border: "1px solid hsl(220 13% 91%)" }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                  }}
+                />
+              </div>
+            </EditorCard>
           </div>
         )}
       </div>

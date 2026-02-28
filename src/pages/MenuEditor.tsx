@@ -67,7 +67,10 @@ export default function MenuEditor() {
 
       <main className="flex-1 flex overflow-hidden">
         {/* Editor Panel */}
-        <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
+        <div
+          className="w-[440px] shrink-0 bg-white"
+          style={{ boxShadow: "2px 0 8px rgba(0,0,0,0.06)" }}
+        >
           <EditorPanel />
         </div>
 
