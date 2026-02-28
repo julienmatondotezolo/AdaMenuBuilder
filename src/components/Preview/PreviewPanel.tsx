@@ -9,6 +9,7 @@ import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Volume2, 
 import type { LucideIcon } from "lucide-react";
 import { cn, Button, Input } from "ada-design-system";
 import MenuPreview from "./MenuPreview";
+import { useMenu } from "../../context/MenuContext";
 
 /* ── Preview sidebar icons (display only) ────────────────────────────────── */
 
@@ -29,6 +30,7 @@ const DEFAULT_ZOOM = 0.7;
 const PREVIEW_WIDTH = 794;
 
 export default function PreviewPanel() {
+  const { selectedItemId } = useMenu();
   const [selectedIcon, setSelectedIcon] = useState("paper");
 
   /* ── Canvas state ──────────────────────────────────────────────────────── */
@@ -232,6 +234,42 @@ export default function PreviewPanel() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  /* ── Zoom-to-selected item ───────────────────────────────────────────── */
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    // Find the element in the preview by data-item-id
+    const itemEl = content.querySelector(`[data-item-id="${selectedItemId}"]`) as HTMLElement | null;
+    if (!itemEl) return;
+
+    // Get element position relative to the content root (unscaled coordinates)
+    const contentRect = content.getBoundingClientRect();
+    const itemRect = itemEl.getBoundingClientRect();
+    const currentZoom = zoomRef.current;
+
+    // Unscaled position of the item within the content
+    const itemX = (itemRect.left - contentRect.left) / currentZoom;
+    const itemY = (itemRect.top - contentRect.top) / currentZoom;
+    const itemW = itemRect.width / currentZoom;
+    const itemH = itemRect.height / currentZoom;
+
+    // Calculate zoom to make the item fill ~90% of container width
+    const cW = container.clientWidth;
+    const cH = container.clientHeight;
+    const padding = 60;
+    const targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (cW - padding) / itemW));
+
+    // Center the item in the container
+    const newPanX = (cW - itemW * targetZoom) / 2 - itemX * targetZoom;
+    const newPanY = (cH - itemH * targetZoom) / 2 - itemY * targetZoom;
+
+    setZoom(targetZoom);
+    setPan({ x: newPanX, y: newPanY });
+  }, [selectedItemId]);
 
   /* ── Zoom helpers ──────────────────────────────────────────────────────── */
   const handleZoomIn = useCallback(() => {
