@@ -85,9 +85,9 @@ export default function MenuItemCard({
         "group relative rounded-lg transition-all duration-150 cursor-pointer",
         "border border-border/60 bg-card",
         /* Hover — light blue bg */
-        !isSelected && !isEditing && "hover:bg-primary/5",
-        /* Selected — blue border */
-        isSelected && !isEditing && "border-primary bg-primary/5",
+        "hover:bg-[hsl(232,100%,66%,0.05)]",
+        /* Selected — blue border + blue bg */
+        isSelected && !isEditing && "border-primary bg-[hsl(232,100%,66%,0.05)]",
         /* Editing — blue border, stronger */
         isEditing && "border-primary ring-1 ring-primary/30",
         /* Featured — yellow left accent */
