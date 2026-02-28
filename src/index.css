@@ -46,8 +46,9 @@ body {
   color: hsl(232 100% 66%);
 }
 .delete-action-btn:hover {
-  background-color: hsl(346 87% 43% / 0.2);
+  background-color: hsl(346 87% 43% / 0.1);
   border-color: hsl(346 87% 43%);
+  color: hsl(346 87% 43%);
 }
 
 /* Scrollbar styling */

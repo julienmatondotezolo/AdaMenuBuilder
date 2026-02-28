@@ -215,8 +215,7 @@ export default function MenuItemCard({
                       e.stopPropagation();
                       removeItem(categoryId, item.id);
                     }}
-                    className="delete-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded transition-colors"
-                    style={{ border: '1px solid hsl(346 87% 43% / 0.5)', backgroundColor: 'hsl(346 87% 43% / 0.1)', color: 'hsl(346 87% 43%)' }}
+                    className="delete-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
                   >
                     <Trash2 className="w-2.5 h-2.5" />
                     Delete
