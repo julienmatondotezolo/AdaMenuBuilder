@@ -205,7 +205,7 @@ export default function MenuItemCard({
                       e.stopPropagation();
                       setIsEditing(true);
                     }}
-                    className="flex items-center gap-1 h-auto text-[9px] font-medium px-2 py-1 rounded border border-border bg-white/50"
+                    className="flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50"
                   >
                     <Pencil className="w-2.5 h-2.5" />
                     Edit
@@ -215,7 +215,7 @@ export default function MenuItemCard({
                       e.stopPropagation();
                       removeItem(categoryId, item.id);
                     }}
-                    className="flex items-center gap-1 h-auto text-[9px] font-medium px-2 py-1 rounded border border-destructive/50 bg-destructive/10 text-destructive"
+                    className="flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-destructive/50 bg-destructive/10 text-destructive"
                   >
                     <Trash2 className="w-2.5 h-2.5" />
                     Delete
