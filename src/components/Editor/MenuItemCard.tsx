@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Trash2, Star, GripVertical, Pencil, Image } from "lucide-react";
+import { Trash2, Star, GripVertical, Pencil } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Input, Badge, cn } from "ada-design-system";
@@ -23,6 +23,7 @@ export default function MenuItemCard({
   const { removeItem, updateItem, setHover, clearHover, hoveredId, dragState } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editPrice, setEditPrice] = useState<number | string>(item.price);
   const [editDesc, setEditDesc] = useState(item.description);
@@ -44,9 +45,10 @@ export default function MenuItemCard({
         opacity: isDragging ? 0.3 : 1,
       };
 
-  const isHighlighted = hoveredId === item.id;
+  const isHovered = hoveredId === item.id;
   const isDragOver =
     dragState.overId === item.id && dragState.activeId !== item.id;
+  const showActions = isHovered || isSelected;
 
   const handleSave = () => {
     updateItem(categoryId, item.id, {
@@ -64,6 +66,13 @@ export default function MenuItemCard({
       setEditPrice(item.price);
       setEditDesc(item.description);
       setIsEditing(false);
+      setIsSelected(false);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (!isDragging && !isEditing) {
+      setIsSelected((s) => !s);
     }
   };
 
@@ -71,28 +80,37 @@ export default function MenuItemCard({
     <div
       ref={setNodeRef}
       style={style}
+      onClick={handleCardClick}
       className={cn(
-        "group relative rounded-lg transition-all duration-200",
+        "group relative rounded-lg transition-all duration-150 cursor-pointer",
         "border border-border/60 bg-card",
-        "hover:border-muted-foreground/40",
-        item.featured && "border-l-[3px] border-l-warning",
+        /* Hover — light blue bg */
+        !isSelected && !isEditing && "hover:bg-primary/5",
+        /* Selected — blue border */
+        isSelected && !isEditing && "border-primary bg-primary/5",
+        /* Editing — blue border, stronger */
+        isEditing && "border-primary ring-1 ring-primary/30",
+        /* Featured — yellow left accent */
+        item.featured && !isSelected && !isEditing && "border-l-[3px] border-l-warning",
+        item.featured && (isSelected || isEditing) && "border-l-[3px] border-l-primary",
+        /* Overlay / drag states */
         isOverlay && "shadow-lg border-primary/60 z-50",
         isDragOver && "border-primary/50 bg-primary/5",
-        isHighlighted && !isDraggingActive && "border-primary/40",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
       onMouseLeave={() => clearHover(item.id)}
     >
-      <div className="flex gap-3 p-4">
+      <div className="flex gap-3 p-3.5">
         {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
           className={cn(
-            "flex items-start pt-1 shrink-0 text-muted-foreground/40 transition-colors",
+            "flex items-start pt-0.5 shrink-0 text-muted-foreground/30 transition-colors",
             "hover:text-muted-foreground cursor-grab",
             isDragging && "cursor-grabbing"
           )}
+          onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-4 h-4" />
         </div>
@@ -145,6 +163,7 @@ export default function MenuItemCard({
                     setEditPrice(item.price);
                     setEditDesc(item.description);
                     setIsEditing(false);
+                    setIsSelected(false);
                   }}
                   className="text-xs"
                 >
@@ -161,9 +180,7 @@ export default function MenuItemCard({
                     {item.name}
                   </h4>
                   {item.featured && (
-                    <Badge
-                      className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0 bg-warning/15 text-warning border border-warning/30"
-                    >
+                    <Badge className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0 bg-warning/15 text-warning border border-warning/30">
                       Popular
                     </Badge>
                   )}
@@ -175,45 +192,40 @@ export default function MenuItemCard({
 
               {/* Description */}
               {item.description && (
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                   {item.description}
                 </p>
               )}
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 mt-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                  className="h-7 text-[10px] font-bold uppercase tracking-wider px-3 bg-transparent"
-                >
-                  <Pencil className="w-3 h-3 mr-1.5" />
-                  Edit details
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[10px] font-bold uppercase tracking-wider px-3 bg-transparent"
-                >
-                  <Image className="w-3 h-3 mr-1.5" />
-                  Manage photo
-                </Button>
-
-                {/* Delete — far right, only on hover */}
-                <div className="flex-1" />
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeItem(categoryId, item.id);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all w-7 h-7"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
+              {/* Action buttons — only on hover or selected */}
+              {showActions && (
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                    }}
+                    className="h-6 text-[11px] font-medium px-2.5"
+                  >
+                    <Pencil className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeItem(categoryId, item.id);
+                    }}
+                    className="h-6 text-[11px] font-medium px-2.5 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </div>
