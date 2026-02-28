@@ -266,11 +266,10 @@ export default function PreviewPanel({ template }: PreviewPanelProps) {
     const itemW = itemRect.width / currentZoom;
     const itemH = itemRect.height / currentZoom;
 
-    // Calculate zoom to make the item fill ~90% of container width
+    // Calculate zoom to make the item fill ~90% of container width (not full — keep context visible)
     const cW = container.clientWidth;
     const cH = container.clientHeight;
-    const padding = 60;
-    const targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (cW - padding) / itemW));
+    const targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (cW * 0.9) / itemW));
 
     // Center the item in the container
     const newPanX = (cW - itemW * targetZoom) / 2 - itemX * targetZoom;
@@ -284,10 +283,22 @@ export default function PreviewPanel({ template }: PreviewPanelProps) {
   }, [selectedItemId]);
 
   /* ── Zoom-to-page when activePageIndex changes (from clicking page in preview) */
+  const lastItemZoomRef = useRef(0);
+
+  // Track when item zoom happens so we can suppress page zoom
+  useEffect(() => {
+    if (selectedItemId) {
+      lastItemZoomRef.current = Date.now();
+    }
+  }, [selectedItemId]);
+
   useEffect(() => {
     // Only trigger when page index actually changed (not on mount)
     if (prevActivePageRef.current === activePageIndex) return;
     prevActivePageRef.current = activePageIndex;
+
+    // If an item was just clicked (which also changes the page), skip page zoom — item zoom takes priority
+    if (Date.now() - lastItemZoomRef.current < 600) return;
 
     const container = containerRef.current;
     const content = contentRef.current;

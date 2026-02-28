@@ -108,7 +108,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
           <div
             data-menu-preview
             data-page-index={pageIndex}
-            className="bg-card rounded-sm shadow-lg border border-border overflow-hidden shrink-0 relative"
+            className="bg-card rounded-sm shadow-lg border border-border shrink-0 relative"
             style={{
               width: `${pageWidthPx}px`,
               minHeight: `${pageHeightPx}px`,
@@ -130,7 +130,15 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
               />
             )}
 
-            <PageContent
+            {/* In-bounds content — full opacity */}
+            <div
+              style={{
+                height: `${pageHeightPx}px`,
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              <PageContent
               variant={ep.variant}
               categories={ep.categories}
               pageIndex={pageIndex}
@@ -149,6 +157,40 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
               selectedItemId={selectedItemId}
               selectItem={selectItem}
             />
+            </div>
+
+            {/* Overflow content — rendered again with 20% opacity below the page boundary */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                clipPath: `inset(${pageHeightPx}px 0 0 0)`,
+                opacity: 0.2,
+                pointerEvents: "none",
+              }}
+            >
+              <PageContent
+                variant={ep.variant}
+                categories={ep.categories}
+                pageIndex={pageIndex}
+                template={template}
+                colors={colors}
+                fonts={fonts}
+                spacing={spacing}
+                menuData={menuData}
+                isActiveDrag={isActiveDrag}
+                hoveredId={hoveredId}
+                setHover={setHover}
+                clearHover={clearHover}
+                dragState={dragState}
+                columnCount={columnCount}
+                layoutDirection={layoutDirection}
+                selectedItemId={selectedItemId}
+                selectItem={selectItem}
+              />
+            </div>
 
             {/* Page height guide line — shows where the page ends */}
             <div

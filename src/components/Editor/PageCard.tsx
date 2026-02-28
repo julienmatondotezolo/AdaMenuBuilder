@@ -73,8 +73,9 @@ export default function PageCard({
           : hasOverflow
             ? "#fbbf24"
             : isActive
-              ? `${primaryColor}44`
+              ? primaryColor
               : "hsl(220 13% 91%)",
+        borderWidth: isActive && !hasOverflow && !(isOver && isDraggingCategory) ? "2px" : "1px",
         backgroundColor: isOver && isDraggingCategory
           ? `${primaryColor}08`
           : undefined,
@@ -135,6 +136,20 @@ export default function PageCard({
 
       {/* ── Page Body — always visible (no collapse) ─────────────────── */}
       <div className="px-3 pb-3 pt-1">
+        {/* Drop indicator at top of page when dragging */}
+        {isDraggingCategory && categories.length > 0 && isOver && (
+          <div
+            className="mb-2 py-2 text-center rounded-lg text-xs font-semibold"
+            style={{
+              border: `2px dashed ${primaryColor}66`,
+              backgroundColor: `${primaryColor}08`,
+              color: primaryColor,
+            }}
+          >
+            Drop here
+          </div>
+        )}
+
         <SortableContext
           items={categoryIds}
           strategy={verticalListSortingStrategy}

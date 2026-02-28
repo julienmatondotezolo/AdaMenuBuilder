@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Plus, X, ShieldAlert } from "lucide-react";
 
 interface OverflowDialogProps {
   open: boolean;
@@ -103,18 +103,25 @@ export default function OverflowDialog({
             Create new page & move there
           </button>
 
-          {/* Keep anyway */}
+          {/* Keep anyway — red warning style */}
           <button
             onClick={onKeep}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
-            style={{ border: "1px solid hsl(220 13% 91%)" }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: "hsl(0 84% 60% / 0.08)",
+              border: "1px solid hsl(0 84% 60% / 0.3)",
+              color: "hsl(0 84% 60%)",
+            }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "hsl(220 14% 96%)";
+              e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.15)";
+              e.currentTarget.style.borderColor = "hsl(0 84% 60% / 0.5)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "";
+              e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.08)";
+              e.currentTarget.style.borderColor = "hsl(0 84% 60% / 0.3)";
             }}
           >
+            <ShieldAlert className="w-4 h-4 shrink-0" />
             Keep on this page anyway
           </button>
         </div>

@@ -184,7 +184,6 @@ export default function CategorySection({
       ref={setSortableRef}
       style={{
         ...style,
-        ...(isDragOver ? { border: '2px dashed hsl(232 80% 62%)', background: 'hsl(232 80% 62% / 0.06)' } : {}),
         ...(isDragging ? { border: '2px dashed hsl(232 80% 62% / 0.4)', opacity: 0.4 } : {}),
       }}
       className={cn(
@@ -196,12 +195,6 @@ export default function CategorySection({
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
     >
-      {/* Drop here indicator when dragging over */}
-      {isDragOver && dragState.activeType === "category" && (
-        <div className="flex items-center justify-center py-2" style={{ color: 'hsl(232 80% 62%)' }}>
-          <span className="text-xs font-semibold tracking-wide">Drop here</span>
-        </div>
-      )}
       {/* ── Category Header ─────────────────────────────────────────── */}
       <div
         className={cn(
@@ -343,12 +336,12 @@ export default function CategorySection({
             {/* + Add Item */}
             <button
               onClick={handleAddItem}
-              className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium text-muted-foreground border border-dashed border-border bg-muted/30 transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-sm font-semibold text-muted-foreground border border-dashed border-border bg-muted/30 transition-colors"
               style={{ borderColor: 'hsl(220 13% 91%)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.4)'; e.currentTarget.style.color = 'hsl(232 100% 66%)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; e.currentTarget.style.color = ''; }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.4)'; e.currentTarget.style.color = 'hsl(232 100% 66%)'; e.currentTarget.style.backgroundColor = 'hsl(232 100% 66% / 0.04)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; e.currentTarget.style.color = ''; e.currentTarget.style.backgroundColor = ''; }}
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               Add Item
             </button>
           </div>
