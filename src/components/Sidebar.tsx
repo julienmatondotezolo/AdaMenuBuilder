@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
-  ChevronLeft,
+  ChevronRight,
   BarChart3,
   Settings,
   LogOut,
@@ -296,11 +296,9 @@ export default function Sidebar() {
           }}
           title={collapsed ? "Expand (⌘B)" : "Collapse (⌘B)"}
         >
-          <ChevronLeft
-            className={cn(
-              "w-4 h-4 text-gray-500 transition-transform duration-200",
-              !collapsed && "rotate-180",
-            )}
+          <ChevronRight
+            className="w-4 h-4 text-gray-500 transition-transform duration-200"
+            style={{ transform: collapsed ? "rotate(180deg)" : "none" }}
           />
         </button>
       </div>
