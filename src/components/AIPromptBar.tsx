@@ -12,7 +12,7 @@ export default function AIPromptBar() {
       <div className="flex-1 relative">
         <Input
           type="text"
-          placeholder="Describe your menu changes — e.g. 'Make all pasta prices €14' or 'Add a vegan section with 3 dishes'"
+          placeholder="Change menu text — e.g. 'Make all pasta prices €14' or 'Translate descriptions to French'"
           className="w-full bg-transparent border-none focus:ring-0 focus:border-none shadow-none"
         />
       </div>

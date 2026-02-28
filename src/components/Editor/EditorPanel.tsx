@@ -24,7 +24,6 @@ import { useMenu } from "../../context/MenuContext";
 import CategorySection from "./CategorySection";
 import MenuItemCard from "./MenuItemCard";
 import HeaderSection from "./HeaderSection";
-import LayoutSection from "./LayoutSection";
 import type { MenuItem } from "../../types/menu";
 
 export default function EditorPanel() {
@@ -201,7 +200,6 @@ export default function EditorPanel() {
         </div>
 
         <HeaderSection />
-        <LayoutSection />
 
         <Card className="mb-6">
           <div
