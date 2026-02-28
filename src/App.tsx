@@ -1,30 +1,44 @@
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "./context/MenuContext";
-import Sidebar from "./components/Sidebar";
-import Header from "./components/Header";
-import EditorPanel from "./components/Editor/EditorPanel";
-import PreviewPanel from "./components/Preview/PreviewPanel";
+import { seedDefaults } from "./db/dexie";
+import Dashboard from "./pages/Dashboard";
+import TemplateGallery from "./pages/TemplateGallery";
+import TemplateEditor from "./pages/TemplateEditor";
+import MenuEditor from "./pages/MenuEditor";
 
 function App() {
-  return (
-    <MenuProvider>
-      <div className="h-screen flex bg-gray-50 overflow-hidden">
-        <Sidebar />
+  const [ready, setReady] = useState(false);
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Header />
+  useEffect(() => {
+    seedDefaults().then(() => setReady(true));
+  }, []);
 
-          <main className="flex-1 flex overflow-hidden">
-            <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
-              <EditorPanel />
-            </div>
-
-            <div className="flex-1 min-w-0 relative">
-              <PreviewPanel />
-            </div>
-          </main>
-        </div>
+  if (!ready) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-muted/30">
+        <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
-    </MenuProvider>
+    );
+  }
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/templates" element={<TemplateGallery />} />
+        <Route path="/templates/:id/edit" element={<TemplateEditor />} />
+        <Route
+          path="/menus/:id/edit"
+          element={
+            <MenuProvider>
+              <MenuEditor />
+            </MenuProvider>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

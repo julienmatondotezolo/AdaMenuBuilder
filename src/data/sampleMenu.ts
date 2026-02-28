@@ -1,6 +1,6 @@
-import type { MenuData } from "../types/menu";
+import type { MenuData, Menu } from "../types/menu";
 
-export const sampleMenu: MenuData = {
+export const sampleMenuData: MenuData = {
   title: "Summer Dinner Menu",
   restaurantName: "Lumière Dining",
   subtitle: "SUMMER COLLECTION",
@@ -89,3 +89,23 @@ export const sampleMenu: MenuData = {
     },
   ],
 };
+
+/** Keep backwards compat — old imports use `sampleMenu` */
+export const sampleMenu = sampleMenuData;
+
+/** Create a full Menu document from the sample data */
+export function createSampleMenu(templateId: string): Menu {
+  return {
+    id: "menu-sample-1",
+    title: sampleMenuData.title,
+    templateId,
+    status: "draft",
+    data: sampleMenuData,
+    pages: [
+      { id: "page-1", variantId: "cover", categoryIds: ["cat-1"] },
+      { id: "page-2", variantId: "content-image", categoryIds: ["cat-2"] },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}

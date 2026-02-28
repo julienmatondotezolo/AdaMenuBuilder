@@ -29,6 +29,27 @@ export interface MenuData {
   categories: Category[];
 }
 
+/* ── Multi-page Menu ────────────────────────────────────────────────── */
+
+export interface MenuPage {
+  id: string;
+  variantId: string;       // references a PageVariant.id from the template
+  categoryIds: string[];   // which categories appear on this page
+}
+
+export type MenuStatus = "draft" | "published";
+
+export interface Menu {
+  id: string;
+  title: string;
+  templateId: string;
+  status: MenuStatus;
+  data: MenuData;
+  pages: MenuPage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type HoveredType = "item" | "category" | null;
 
 export type Viewport = "mobile" | "tablet" | "desktop" | "paper";

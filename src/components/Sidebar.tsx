@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronRight,
   BarChart3,
   Settings,
   LogOut,
   ChevronDown,
+  LayoutDashboard,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn, AdaLogo, Avatar, AvatarFallback } from "ada-design-system";
 import { useAuth } from "../context/AuthContext";
@@ -64,8 +67,10 @@ function Tooltip({
 /* ── Nav items config ────────────────────────────────────────────────────── */
 
 const NAV_ITEMS = [
-  { id: "analytics", label: "Analytics", icon: BarChart3 },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/templates" },
+  { id: "analytics", label: "Analytics", icon: BarChart3, path: "#" },
+  { id: "settings", label: "Settings", icon: Settings, path: "#" },
 ];
 
 /* ── Sidebar width constants ─────────────────────────────────────────────── */
@@ -76,9 +81,10 @@ const COLLAPSED_W = 60;
 /* ── Component ───────────────────────────────────────────────────────────── */
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [activeItem, setActiveItem] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -231,11 +237,11 @@ export default function Sidebar() {
         <nav className="flex-1 py-2 px-2">
           <div className="space-y-0.5">
             {NAV_ITEMS.map((item) => {
-              const active = activeItem === item.id;
+              const active = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
               return (
                 <Tooltip key={item.id} label={item.label} show={collapsed}>
                   <button
-                    onClick={() => setActiveItem(active ? null : item.id)}
+                    onClick={() => { if (item.path !== "#") navigate(item.path); }}
                     className={cn(
                       "flex items-center w-full gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-150",
                       active
