@@ -1,7 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { Menu } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
-import { LUMIERE_TEMPLATE } from "../data/builtInTemplates";
+import { BUILT_IN_TEMPLATES, LUMIERE_TEMPLATE } from "../data/builtInTemplates";
 import { createSampleMenu } from "../data/sampleMenu";
 
 class AdaMenuDB extends Dexie {
@@ -22,9 +22,15 @@ export const db = new AdaMenuDB();
 
 /** Seed built-in templates on first load */
 export async function seedDefaults() {
-  const templateCount = await db.templates.count();
-  if (templateCount === 0) {
-    await db.templates.add(LUMIERE_TEMPLATE);
+  // Upsert all built-in templates (always keep them fresh)
+  for (const tpl of BUILT_IN_TEMPLATES) {
+    const existing = await db.templates.get(tpl.id);
+    if (!existing) {
+      await db.templates.add(tpl);
+    } else if (existing.isBuiltIn) {
+      // Update built-in templates to latest version
+      await db.templates.put({ ...tpl, updatedAt: new Date().toISOString() });
+    }
   }
 
   const menuCount = await db.menus.count();

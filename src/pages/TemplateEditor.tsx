@@ -9,7 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Palette,
-  Type,
+  Type as TypeIcon,
   Columns3,
   ImageIcon,
   GripVertical,
@@ -17,12 +17,12 @@ import {
   EyeOff,
   Ruler,
   Check,
+  Space,
+  Star,
 } from "lucide-react";
 import {
   Button,
   Badge,
-  Card,
-  CardContent,
   Input,
   Label,
   Switch,
@@ -37,16 +37,21 @@ import { useTemplateById, updateTemplate } from "../db/hooks";
 import type { MenuTemplate, PageVariant } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
+import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, type FontPairing } from "../data/fonts";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
 type SectionType = "header" | "body" | "highlight";
 
-const SECTION_META: Record<SectionType, { label: string; icon: typeof Type }> = {
-  header: { label: "Header", icon: Type },
+const SECTION_META: Record<SectionType, { label: string; icon: typeof TypeIcon }> = {
+  header: { label: "Header", icon: TypeIcon },
   body: { label: "Menu Content", icon: Columns3 },
   highlight: { label: "Highlight Image", icon: ImageIcon },
 };
+
+/* ── Panel types ─────────────────────────────────────────────────────── */
+
+type PanelId = SectionType | "format" | "colors" | "fonts" | "spacing";
 
 /* ── Format chips ────────────────────────────────────────────────────── */
 
@@ -66,13 +71,18 @@ export default function TemplateEditor() {
   const template = useTemplateById(id);
 
   const [activeVariantId, setActiveVariantId] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<SectionType | "format" | "colors" | null>("format");
+  const [openPanel, setOpenPanel] = useState<PanelId | null>("format");
   const [sectionOrder, setSectionOrder] = useState<SectionType[]>(["header", "body", "highlight"]);
 
   // Drag state
   const [draggedSection, setDraggedSection] = useState<SectionType | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragStartIndex = useRef<number | null>(null);
+
+  // Load Google Fonts for this template
+  useEffect(() => {
+    if (template) loadTemplateFonts(template.fonts.heading, template.fonts.body);
+  }, [template?.fonts.heading, template?.fonts.body]);
 
   useEffect(() => {
     if (template && !activeVariantId) {
@@ -154,10 +164,12 @@ export default function TemplateEditor() {
     if (s === "highlight") updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, show: !activeVariant.highlight.show, position: !activeVariant.highlight.show ? "bottom" : "none" } });
   };
 
-  /* ── Drag handlers (pointer-based for tablet) ── */
+  const togglePanel = (panelId: PanelId) => setOpenPanel(openPanel === panelId ? null : panelId);
+
+  /* ── Drag handlers ── */
 
   const handleDragStart = (idx: number, section: SectionType) => {
-    if (section === "body") return; // body not draggable
+    if (section === "body") return;
     dragStartIndex.current = idx;
     setDraggedSection(section);
   };
@@ -177,12 +189,11 @@ export default function TemplateEditor() {
     newOrder.splice(dropIdx, 0, moved);
     setSectionOrder(newOrder);
 
-    // Update highlight position based on new order
     if (activeVariant && moved === "highlight") {
       const bodyIdx = newOrder.indexOf("body");
       const highlightIdx = newOrder.indexOf("highlight");
       const pos = highlightIdx < bodyIdx ? "top" : "bottom";
-      updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: pos as any } });
+      updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: pos as "top" | "bottom" } });
     }
 
     setDraggedSection(null);
@@ -223,8 +234,8 @@ export default function TemplateEditor() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* ═══ LEFT PANEL ═══ */}
-        <div className="w-[340px] shrink-0 border-r border-border bg-background flex flex-col overflow-hidden">
-          {/* Variant tabs — horizontal scroll */}
+        <div className="w-[360px] shrink-0 border-r border-border bg-background flex flex-col overflow-hidden">
+          {/* Variant tabs */}
           <div className="px-3 pt-3 pb-2 border-b border-border shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Page Variants</span>
@@ -272,65 +283,186 @@ export default function TemplateEditor() {
           {/* Scrollable settings area */}
           <div className="flex-1 overflow-y-auto">
             {activeVariant && (
-              <div className="p-3 space-y-1">
-                {/* ── Page Format (big card) ── */}
-                <div className={cn(
-                  "rounded-lg border transition-all",
-                  selectedSection === "format" ? "ring-1 ring-primary/30 border-border" : "border-border",
-                )}>
-                  <button
-                    onClick={() => setSelectedSection(selectedSection === "format" ? null : "format")}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
-                      selectedSection === "format" ? "bg-primary/5" : "hover:bg-muted/30",
-                    )}
-                  >
-                    <Ruler className={cn("w-4 h-4 shrink-0", selectedSection === "format" ? "text-primary" : "text-muted-foreground")} />
-                    <span className="text-xs font-semibold text-foreground flex-1 text-left">Page Format</span>
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 mr-1">{template.format.type}</Badge>
-                    {selectedSection === "format" ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                  </button>
-                  {selectedSection === "format" && (
-                    <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/50">
-                      <div className="flex flex-wrap gap-1.5">
-                        {FORMATS.map((f) => (
-                          <button
-                            key={f.key}
-                            onClick={() => {
-                              const fmt = f.key === "CUSTOM"
-                                ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height }
-                                : PAGE_FORMATS[f.key as keyof typeof PAGE_FORMATS];
-                              save({ format: fmt });
-                            }}
-                            className={cn(
-                              "flex flex-col items-center px-3 py-2.5 rounded-lg border-2 transition-all",
-                              template.format.type === f.key
-                                ? "border-primary bg-primary/5 text-primary"
-                                : "border-border hover:border-primary/30 text-muted-foreground"
-                            )}
-                          >
-                            <span className="text-xs font-semibold">{f.label}</span>
-                            {f.sub && <span className="text-[9px] opacity-60">{f.sub}</span>}
-                          </button>
-                        ))}
+              <div className="p-3 space-y-1.5">
+                {/* ── Page Format ── */}
+                <SettingsPanel
+                  icon={<Ruler className={cn("w-4 h-4", openPanel === "format" ? "text-primary" : "text-muted-foreground")} />}
+                  label="Page Format"
+                  badge={<Badge variant="secondary" className="text-[9px] px-1.5 py-0">{template.format.type}</Badge>}
+                  isOpen={openPanel === "format"}
+                  onToggle={() => togglePanel("format")}
+                >
+                  <div className="flex flex-wrap gap-1.5">
+                    {FORMATS.map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => {
+                          const fmt = f.key === "CUSTOM"
+                            ? { type: "CUSTOM" as const, width: template.format.width, height: template.format.height }
+                            : PAGE_FORMATS[f.key as keyof typeof PAGE_FORMATS];
+                          save({ format: fmt });
+                        }}
+                        className={cn(
+                          "flex flex-col items-center px-3 py-2.5 rounded-lg border-2 transition-all",
+                          template.format.type === f.key
+                            ? "border-primary bg-primary/5 text-primary"
+                            : "border-border hover:border-primary/30 text-muted-foreground"
+                        )}
+                      >
+                        <span className="text-xs font-semibold">{f.label}</span>
+                        {f.sub && <span className="text-[9px] opacity-60">{f.sub}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {template.format.type === "CUSTOM" && (
+                    <div className="flex gap-2 mt-3">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[10px]">Width (mm)</Label>
+                        <Input type="number" value={template.format.width} className="h-8 text-xs"
+                          onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })} />
                       </div>
-                      {template.format.type === "CUSTOM" && (
-                        <div className="flex gap-2">
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-[10px]">Width (mm)</Label>
-                            <Input type="number" value={template.format.width} className="h-8 text-xs"
-                              onChange={(e) => save({ format: { ...template.format, width: Number(e.target.value) } })} />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <Label className="text-[10px]">Height (mm)</Label>
-                            <Input type="number" value={template.format.height} className="h-8 text-xs"
-                              onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })} />
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[10px]">Height (mm)</Label>
+                        <Input type="number" value={template.format.height} className="h-8 text-xs"
+                          onChange={(e) => save({ format: { ...template.format, height: Number(e.target.value) } })} />
+                      </div>
                     </div>
                   )}
-                </div>
+                </SettingsPanel>
+
+                {/* ── Fonts ── */}
+                <SettingsPanel
+                  icon={<TypeIcon className={cn("w-4 h-4", openPanel === "fonts" ? "text-primary" : "text-muted-foreground")} />}
+                  label="Typography"
+                  badge={
+                    <span className="text-[9px] text-muted-foreground/70 truncate max-w-[100px]">
+                      {fontDisplayName(template.fonts.heading).split(",")[0].replace(/'/g, "")}
+                    </span>
+                  }
+                  isOpen={openPanel === "fonts"}
+                  onToggle={() => togglePanel("fonts")}
+                >
+                  {/* Font pairings (quick select) */}
+                  <div className="space-y-2 mb-4">
+                    <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Quick Pairings</Label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {FONT_PAIRINGS.map((pair) => (
+                        <FontPairingChip
+                          key={pair.name}
+                          pair={pair}
+                          isActive={template.fonts.heading === pair.heading && template.fonts.body === pair.body}
+                          onSelect={() => {
+                            save({ fonts: { heading: pair.heading, body: pair.body } });
+                            loadTemplateFonts(pair.heading, pair.body);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Individual font selects */}
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Heading Font</Label>
+                      <Select
+                        value={template.fonts.heading}
+                        onValueChange={(v) => {
+                          save({ fonts: { ...template.fonts, heading: v } });
+                          loadTemplateFonts(v, template.fonts.body);
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <span style={{ fontFamily: template.fonts.heading }}>{fontDisplayName(template.fonts.heading)}</span>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[250px]">
+                          {FONT_CATALOG.map((f) => (
+                            <SelectItem key={f.family} value={f.family}>
+                              <span style={{ fontFamily: f.family }}>{f.name}</span>
+                              <span className="text-[9px] text-muted-foreground ml-1.5">({f.category})</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Body Font</Label>
+                      <Select
+                        value={template.fonts.body}
+                        onValueChange={(v) => {
+                          save({ fonts: { ...template.fonts, body: v } });
+                          loadTemplateFonts(template.fonts.heading, v);
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-xs">
+                          <span style={{ fontFamily: template.fonts.body }}>{fontDisplayName(template.fonts.body)}</span>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[250px]">
+                          {FONT_CATALOG.map((f) => (
+                            <SelectItem key={f.family} value={f.family}>
+                              <span style={{ fontFamily: f.family }}>{f.name}</span>
+                              <span className="text-[9px] text-muted-foreground ml-1.5">({f.category})</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </SettingsPanel>
+
+                {/* ── Colors ── */}
+                <SettingsPanel
+                  icon={<Palette className={cn("w-4 h-4", openPanel === "colors" ? "text-primary" : "text-muted-foreground")} />}
+                  label="Colors"
+                  badge={
+                    <div className="flex gap-1">
+                      {[template.colors.primary, template.colors.background, template.colors.text].map((c, i) => (
+                        <div key={i} className="w-4 h-4 rounded-full border border-border/60" style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
+                  }
+                  isOpen={openPanel === "colors"}
+                  onToggle={() => togglePanel("colors")}
+                >
+                  <ColorRow label="Primary" value={template.colors.primary}
+                    onChange={(v) => save({ colors: { ...template.colors, primary: v, accent: v } })} />
+                  <ColorRow label="Background" value={template.colors.background}
+                    onChange={(v) => save({ colors: { ...template.colors, background: v } })} />
+                  <ColorRow label="Text" value={template.colors.text}
+                    onChange={(v) => save({ colors: { ...template.colors, text: v } })} />
+                  <ColorRow label="Accent" value={template.colors.accent}
+                    onChange={(v) => save({ colors: { ...template.colors, accent: v } })} />
+                  <ColorRow label="Muted" value={template.colors.muted}
+                    onChange={(v) => save({ colors: { ...template.colors, muted: v } })} />
+                </SettingsPanel>
+
+                {/* ── Spacing ── */}
+                <SettingsPanel
+                  icon={<Space className={cn("w-4 h-4", openPanel === "spacing" ? "text-primary" : "text-muted-foreground")} />}
+                  label="Spacing & Margins"
+                  isOpen={openPanel === "spacing"}
+                  onToggle={() => togglePanel("spacing")}
+                >
+                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Page Margins</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1.5">
+                    <NumberRow label="Top" value={template.spacing.marginTop} unit="px" compact
+                      onChange={(v) => save({ spacing: { ...template.spacing, marginTop: v } })} />
+                    <NumberRow label="Bottom" value={template.spacing.marginBottom} unit="px" compact
+                      onChange={(v) => save({ spacing: { ...template.spacing, marginBottom: v } })} />
+                    <NumberRow label="Left" value={template.spacing.marginLeft} unit="px" compact
+                      onChange={(v) => save({ spacing: { ...template.spacing, marginLeft: v } })} />
+                    <NumberRow label="Right" value={template.spacing.marginRight} unit="px" compact
+                      onChange={(v) => save({ spacing: { ...template.spacing, marginRight: v } })} />
+                  </div>
+                  <div className="mt-4">
+                    <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Content Spacing</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1.5">
+                      <NumberRow label="Category Gap" value={template.spacing.categoryGap} unit="px" compact
+                        onChange={(v) => save({ spacing: { ...template.spacing, categoryGap: v } })} />
+                      <NumberRow label="Item Gap" value={template.spacing.itemGap} unit="px" compact
+                        onChange={(v) => save({ spacing: { ...template.spacing, itemGap: v } })} />
+                    </div>
+                  </div>
+                </SettingsPanel>
 
                 {/* ── Section separator ── */}
                 <div className="pt-2 pb-1">
@@ -360,7 +492,7 @@ export default function TemplateEditor() {
                         isDragging && "opacity-40 scale-95",
                         isDropTarget && "border-primary border-dashed bg-primary/5",
                         !isDragging && !isDropTarget && "border-border",
-                        selectedSection === section && "ring-1 ring-primary/30",
+                        openPanel === section && "ring-1 ring-primary/30",
                       )}
                     >
                       {/* Section header row */}
@@ -368,61 +500,47 @@ export default function TemplateEditor() {
                         className={cn(
                           "flex items-center gap-2 px-3 py-2.5 rounded-t-lg transition-colors",
                           enabled ? "bg-background" : "bg-muted/30",
-                          selectedSection === section && "bg-primary/5",
+                          openPanel === section && "bg-primary/5",
                         )}
                       >
-                        {/* Drag handle */}
                         {isDraggable ? (
                           <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
                         ) : (
                           <div className="w-3.5 shrink-0" />
                         )}
-
-                        {/* Icon + label — clickable to select */}
                         <button
                           className="flex items-center gap-2 flex-1 min-w-0"
-                          onClick={() => setSelectedSection(selectedSection === section ? null : section)}
+                          onClick={() => togglePanel(section)}
                         >
                           <Icon className={cn("w-4 h-4 shrink-0", enabled ? "text-primary" : "text-muted-foreground/40")} />
                           <span className={cn("text-xs font-semibold", enabled ? "text-foreground" : "text-muted-foreground/50")}>{meta.label}</span>
                         </button>
-
-                        {/* Visibility toggle (not for body) */}
                         {section !== "body" && (
                           <button
                             onClick={() => toggleSection(section)}
                             className="p-1 rounded hover:bg-muted/50 transition-colors"
                             title={enabled ? "Hide section" : "Show section"}
                           >
-                            {enabled ? (
-                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                            ) : (
-                              <EyeOff className="w-3.5 h-3.5 text-muted-foreground/40" />
-                            )}
+                            {enabled
+                              ? <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                              : <EyeOff className="w-3.5 h-3.5 text-muted-foreground/40" />}
                           </button>
                         )}
-
-                        {/* Expand chevron */}
-                        <button
-                          onClick={() => setSelectedSection(selectedSection === section ? null : section)}
-                          className="p-0.5"
-                        >
-                          {selectedSection === section ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                          )}
+                        <button onClick={() => togglePanel(section)} className="p-0.5">
+                          {openPanel === section
+                            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
                         </button>
                       </div>
 
                       {/* Expanded settings */}
-                      {selectedSection === section && enabled && (
+                      {openPanel === section && enabled && (
                         <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/50">
                           {section === "header" && (
                             <>
                               <SelectRow label="Style" value={activeVariant.header.style}
                                 options={[{ v: "centered", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "minimal", l: "Minimal" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: v as any } })} />
+                                onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: v as "centered" | "left" | "minimal" } })} />
                               <ToggleRow label="Show Subtitle" checked={activeVariant.header.showSubtitle}
                                 onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, showSubtitle: v } })} />
                               <ToggleRow label="Show Year" checked={activeVariant.header.showEstablished}
@@ -438,13 +556,16 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
                               <SelectRow label="Category Style" value={activeVariant.body.categoryStyle}
                                 options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "dots", l: "Dotted" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: v as any } })} />
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: v as "lines" | "bold" | "minimal" | "dots" } })} />
                               <SelectRow label="Alignment" value={activeVariant.body.itemAlignment}
                                 options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as any } })} />
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as "center" | "left" } })} />
                               <SelectRow label="Price" value={activeVariant.body.pricePosition}
                                 options={[{ v: "below", l: "Below Name" }, { v: "right", l: "Right Side" }, { v: "inline", l: "Inline" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, pricePosition: v as any } })} />
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, pricePosition: v as "right" | "below" | "inline" } })} />
+                              <SelectRow label="Separator" value={activeVariant.body.separatorStyle}
+                                options={[{ v: "line", l: "Solid Line" }, { v: "dotted", l: "Dotted" }, { v: "none", l: "None" }]}
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, separatorStyle: v as "line" | "dotted" | "none" } })} />
                               <ToggleRow label="Descriptions" checked={activeVariant.body.showDescriptions}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showDescriptions: v } })} />
                               <ToggleRow label="Featured Badge" checked={activeVariant.body.showFeaturedBadge}
@@ -475,43 +596,6 @@ export default function TemplateEditor() {
                     </div>
                   );
                 })}
-
-                {/* ── Colors (big card) ── */}
-                <div className="pt-1" />
-                <div className={cn(
-                  "rounded-lg border transition-all",
-                  selectedSection === "colors" ? "ring-1 ring-primary/30 border-border" : "border-border",
-                )}>
-                  <button
-                    onClick={() => setSelectedSection(selectedSection === "colors" ? null : "colors")}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
-                      selectedSection === "colors" ? "bg-primary/5" : "hover:bg-muted/30",
-                    )}
-                  >
-                    <Palette className={cn("w-4 h-4 shrink-0", selectedSection === "colors" ? "text-primary" : "text-muted-foreground")} />
-                    <span className="text-xs font-semibold text-foreground flex-1 text-left">Colors</span>
-                    {/* Color swatches preview */}
-                    <div className="flex gap-1 mr-1">
-                      {[template.colors.primary, template.colors.background, template.colors.text].map((c, i) => (
-                        <div key={i} className="w-4 h-4 rounded-full border border-border/60" style={{ backgroundColor: c.startsWith("#") ? c : "#4d6aff" }} />
-                      ))}
-                    </div>
-                    {selectedSection === "colors" ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                  </button>
-                  {selectedSection === "colors" && (
-                    <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/50">
-                      <ColorRow label="Primary" value={template.colors.primary}
-                        onChange={(v) => save({ colors: { ...template.colors, primary: v, accent: v } })} />
-                      <ColorRow label="Background" value={template.colors.background}
-                        onChange={(v) => save({ colors: { ...template.colors, background: v } })} />
-                      <ColorRow label="Text" value={template.colors.text}
-                        onChange={(v) => save({ colors: { ...template.colors, text: v } })} />
-                      <ColorRow label="Muted" value={template.colors.muted}
-                        onChange={(v) => save({ colors: { ...template.colors, muted: v } })} />
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -527,7 +611,7 @@ export default function TemplateEditor() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
-            <VariantPreview template={template} variant={activeVariant} sectionOrder={sectionOrder} />
+            <VariantPreview template={template} variant={activeVariant} sectionOrder={sectionOrder} scale={scale} />
           </div>
         </div>
       </div>
@@ -535,24 +619,47 @@ export default function TemplateEditor() {
   );
 }
 
-/* ── Settings button (non-draggable) ─────────────────────────────────── */
+/* ── Settings Panel (collapsible) ────────────────────────────────────── */
 
-function SettingButton({ label, icon, isSelected, onClick }: {
-  label: string; icon: React.ReactNode; isSelected: boolean; onClick: () => void;
+function SettingsPanel({ icon, label, badge, isOpen, onToggle, children }: {
+  icon: React.ReactNode; label: string; badge?: React.ReactNode; isOpen: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-lg border transition-all", isOpen ? "ring-1 ring-primary/30 border-border" : "border-border")}>
+      <button
+        onClick={onToggle}
+        className={cn(
+          "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
+          isOpen ? "bg-primary/5" : "hover:bg-muted/30",
+        )}
+      >
+        {icon}
+        <span className="text-xs font-semibold text-foreground flex-1 text-left">{label}</span>
+        {badge && <div className="mr-1">{badge}</div>}
+        {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+      </button>
+      {isOpen && <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/50">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Font Pairing Chip ───────────────────────────────────────────────── */
+
+function FontPairingChip({ pair, isActive, onSelect }: {
+  pair: FontPairing; isActive: boolean; onSelect: () => void;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={onSelect}
       className={cn(
-        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all text-left",
-        isSelected
-          ? "border-primary/30 bg-primary/5 ring-1 ring-primary/20"
-          : "border-border hover:border-primary/20 hover:bg-muted/30"
+        "flex flex-col items-start px-2.5 py-2 rounded-lg border-2 transition-all text-left",
+        isActive
+          ? "border-primary bg-primary/5"
+          : "border-border hover:border-primary/30"
       )}
     >
-      {icon}
-      <span className="text-xs font-semibold text-foreground flex-1">{label}</span>
-      {isSelected ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+      <span className="text-[10px] font-semibold text-foreground truncate w-full">{pair.name}</span>
+      <span className="text-[8px] text-muted-foreground/70 truncate w-full">{pair.vibe}</span>
     </button>
   );
 }
@@ -587,13 +694,15 @@ function SelectRow({ label, value, options, onChange }: {
 }
 
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  // Ensure we have a valid hex for the color picker
+  const hexValue = value.startsWith("#") ? value : "#4d6aff";
   return (
     <div className="flex items-center justify-between gap-2 py-0.5">
       <Label className="text-[11px] font-normal text-foreground/80">{label}</Label>
       <div className="flex items-center gap-1.5">
         <input
           type="color"
-          value={value.startsWith("#") ? value : "#4d6aff"}
+          value={hexValue}
           onChange={(e) => onChange(e.target.value)}
           className="w-7 h-7 rounded-md border border-border cursor-pointer p-0.5"
           style={{ WebkitAppearance: "none" }}
@@ -626,30 +735,49 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder }: {
-  template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[];
+function VariantPreview({ template, variant, sectionOrder, scale }: {
+  template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
 }) {
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
   const data = sampleMenuData;
   const { colors, fonts, spacing } = template;
 
+  // Scale font sizes relative to preview scale
+  const fs = (size: number) => `${size}px`;
+
+  const renderSeparator = (style: string) => {
+    if (style === "none") return null;
+    return (
+      <div style={{
+        width: "100%",
+        height: style === "dotted" ? "0" : "1px",
+        backgroundColor: style === "dotted" ? "transparent" : `${colors.muted}33`,
+        borderBottom: style === "dotted" ? `1px dotted ${colors.muted}66` : "none",
+        margin: "6px 0",
+      }} />
+    );
+  };
+
   const renderSection = (section: SectionType) => {
     switch (section) {
       case "header":
         if (!variant.header.show) return null;
         return (
-          <div key="header" className={variant.header.style === "left" ? "text-left pb-4" : "text-center pb-4"}>
+          <div key="header" style={{
+            textAlign: variant.header.style === "left" ? "left" : "center",
+            paddingBottom: "16px",
+          }}>
             {variant.header.showSubtitle && (
-              <p style={{ fontSize: "7px", letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px" }}>
+              <p style={{ fontSize: fs(7), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body }}>
                 {data.subtitle}
               </p>
             )}
-            <h1 style={{ fontFamily: fonts.heading, fontSize: "22px", fontWeight: 300, fontStyle: "italic", letterSpacing: "0.05em" }}>
+            <h1 style={{ fontFamily: fonts.heading, fontSize: fs(22), fontWeight: 400, fontStyle: "italic", letterSpacing: "0.05em", color: colors.text }}>
               {data.restaurantName}
             </h1>
             {variant.header.showEstablished && data.established && (
-              <p style={{ fontSize: "7px", letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px" }}>
+              <p style={{ fontSize: fs(7), letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px", fontFamily: fonts.body }}>
                 EST. {data.established}
               </p>
             )}
@@ -666,42 +794,90 @@ function VariantPreview({ template, variant, sectionOrder }: {
           <div key="body" style={{
             display: variant.body.columns > 1 ? "grid" : "block",
             gridTemplateColumns: variant.body.columns > 1 ? `repeat(${variant.body.columns}, 1fr)` : undefined,
-            gap: variant.body.columns > 1 ? "0 16px" : undefined,
+            gap: variant.body.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
             flex: 1,
           }}>
-            {data.categories.map((cat) => (
+            {data.categories.map((cat, catIdx) => (
               <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px` }}>
-                <div className={variant.body.itemAlignment === "left" ? "text-left mb-3" : "flex items-center justify-center gap-2 mb-3"}>
+                {/* Category header */}
+                <div style={{
+                  textAlign: variant.body.itemAlignment,
+                  marginBottom: `${spacing.itemGap * 0.4}px`,
+                  display: variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" ? "flex" : "block",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}>
                   {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
-                  <h2 style={{ fontSize: "8px", letterSpacing: "0.25em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, whiteSpace: "nowrap" }}>
+                  <h2 style={{
+                    fontSize: fs(variant.body.categoryStyle === "bold" ? 9 : 8),
+                    letterSpacing: "0.25em",
+                    color: colors.primary,
+                    textTransform: "uppercase",
+                    fontWeight: variant.body.categoryStyle === "bold" ? 800 : 600,
+                    whiteSpace: "nowrap",
+                    fontFamily: variant.body.categoryStyle === "bold" ? fonts.heading : fonts.body,
+                    borderBottom: variant.body.categoryStyle === "bold" ? `2px solid ${colors.primary}` : "none",
+                    paddingBottom: variant.body.categoryStyle === "bold" ? "4px" : "0",
+                  }}>
                     {cat.name}
                   </h2>
                   {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                 </div>
+
+                {/* Items */}
                 <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap * 0.3}px` }}>
-                  {cat.items.slice(0, 3).map((item) => (
+                  {cat.items.slice(0, variant.body.columns > 1 ? 2 : 3).map((item) => (
                     <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
-                      <div style={{ display: variant.body.pricePosition === "right" ? "flex" : "block", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <p style={{ fontSize: "8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{item.name}</p>
+                      <div style={{
+                        display: variant.body.pricePosition === "right" ? "flex" : "block",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+                          <p style={{ fontSize: fs(8), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
+                            {item.name}
+                          </p>
+                          {variant.body.pricePosition === "inline" && (
+                            <span style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600 }}>€{item.price}</span>
+                          )}
+                          {item.featured && variant.body.showFeaturedBadge && (
+                            <span style={{ fontSize: fs(5), color: colors.accent, marginLeft: "2px" }}>★</span>
+                          )}
+                        </div>
                         {variant.body.pricePosition === "right" && (
-                          <span style={{ fontSize: "7px", color: colors.primary, fontWeight: 600 }}>${item.price}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1, marginLeft: "4px" }}>
+                            {variant.body.separatorStyle === "dotted" && (
+                              <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
+                            )}
+                            <span style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                          </div>
                         )}
                       </div>
                       {variant.body.showDescriptions && item.description && (
-                        <p style={{ fontSize: "6px", color: colors.muted, fontStyle: "italic", marginTop: "2px", maxWidth: "200px", marginLeft: variant.body.itemAlignment === "center" ? "auto" : undefined, marginRight: variant.body.itemAlignment === "center" ? "auto" : undefined }}>
+                        <p style={{
+                          fontSize: fs(6), color: colors.muted, fontStyle: "italic", marginTop: "2px",
+                          maxWidth: variant.body.columns > 1 ? "140px" : "200px",
+                          marginLeft: variant.body.itemAlignment === "center" ? "auto" : undefined,
+                          marginRight: variant.body.itemAlignment === "center" ? "auto" : undefined,
+                          fontFamily: fonts.body,
+                        }}>
                           {item.description.slice(0, 60)}…
                         </p>
                       )}
                       {variant.body.pricePosition === "below" && (
-                        <p style={{ fontSize: "7px", color: colors.primary, fontWeight: 600, marginTop: "3px" }}>${item.price}</p>
+                        <p style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
                       )}
                     </div>
                   ))}
                 </div>
+
+                {/* Separator between categories */}
+                {catIdx < data.categories.length - 1 && variant.body.separatorStyle !== "dotted" && renderSeparator(variant.body.separatorStyle)}
               </div>
             ))}
           </div>
@@ -720,8 +896,8 @@ function VariantPreview({ template, variant, sectionOrder }: {
             <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative" }}>
               <img src={data.highlightImage} alt="" style={{ width: "100%", height: `${hl.height ?? 80}px`, objectFit: "cover" }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
-                <p style={{ fontSize: "5px", color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{data.highlightLabel}</p>
-                <p style={{ fontSize: "8px", color: "white", fontStyle: "italic" }}>{data.highlightTitle}</p>
+                <p style={{ fontSize: fs(5), color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: fonts.body }}>{data.highlightLabel}</p>
+                <p style={{ fontSize: fs(8), color: "white", fontStyle: "italic", fontFamily: fonts.heading }}>{data.highlightTitle}</p>
               </div>
             </div>
           </div>
