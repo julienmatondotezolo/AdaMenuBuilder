@@ -48,7 +48,6 @@ export default function PreviewPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-  const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
   const [isAnimating, setIsAnimating] = useState(false);
 
   /* ── Pinch-to-zoom state ───────────────────────────────────────────────── */
@@ -61,7 +60,7 @@ export default function PreviewPanel() {
     const el = containerRef.current;
     if (!el) return;
     const measure = () => {
-      setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+      // container measured for centering
       // Center on first measure
       if (!hasCentered.current) {
         hasCentered.current = true;

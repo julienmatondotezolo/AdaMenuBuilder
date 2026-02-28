@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
 import { Plus, X, Check, GripVertical } from "lucide-react";
-import { Button, Input, Card, Badge, cn } from "ada-design-system";
+import { Button, Input, Badge } from "ada-design-system";
 import {
   DndContext,
   DragOverlay,

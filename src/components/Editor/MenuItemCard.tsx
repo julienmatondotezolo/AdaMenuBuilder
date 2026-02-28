@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Trash2, Star, GripVertical, Pencil } from "lucide-react";
+import { Trash2, GripVertical, Pencil } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Input, Badge, cn } from "ada-design-system";
@@ -45,7 +45,6 @@ export default function MenuItemCard({
         opacity: isDragging ? 0.3 : 1,
       };
 
-  const isHovered = hoveredId === item.id;
   const isDragOver =
     dragState.overId === item.id && dragState.activeId !== item.id;
   const showActions = isSelected;

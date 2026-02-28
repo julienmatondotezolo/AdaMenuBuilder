@@ -121,10 +121,6 @@ export default function CategorySection({
     }
   };
 
-  const singularName = category.name.endsWith("s")
-    ? category.name.slice(0, -1)
-    : category.name;
-
   const itemIds = category.items.map((i) => i.id);
 
   return (
