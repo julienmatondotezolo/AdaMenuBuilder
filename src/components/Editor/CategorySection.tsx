@@ -241,7 +241,7 @@ export default function CategorySection({
                 e.stopPropagation();
                 handleCancelEdit();
               }}
-              className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/60 hover:text-white"}
+              className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white hover:text-white/80"}
             >
               <X className="w-4 h-4" />
             </Button>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import {
   AlertTriangle,
   FileText,
@@ -6,8 +6,10 @@ import {
   Pencil,
   Trash2,
   Check,
+  X,
+  ChevronDown,
 } from "lucide-react";
-import { cn } from "ada-design-system";
+import { cn, Input, Button } from "ada-design-system";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import CategorySection from "./CategorySection";
@@ -64,20 +66,32 @@ export default function PageCard({
   // Check if this page's variant has highlight image enabled
   const hasHighlight = variant?.highlight?.show === true;
 
-  // Variant picker state
-  const [showVariantPicker, setShowVariantPicker] = useState(false);
-  const variantPickerRef = useRef<HTMLDivElement>(null);
+  // Edit mode — inline variant picker (like category edit mode)
+  const [isEditing, setIsEditing] = useState(false);
+  const [showVariantDropdown, setShowVariantDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!showVariantPicker) return;
+    if (!showVariantDropdown) return;
     const onClick = (e: MouseEvent) => {
-      if (variantPickerRef.current && !variantPickerRef.current.contains(e.target as Node)) {
-        setShowVariantPicker(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowVariantDropdown(false);
       }
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [showVariantPicker]);
+  }, [showVariantDropdown]);
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+  };
+
+  const handleDoneEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(false);
+    setShowVariantDropdown(false);
+  };
 
   // This page is a drop target for categories
   const { setNodeRef, isOver } = useDroppable({
@@ -107,7 +121,7 @@ export default function PageCard({
       }}
       onClick={() => { if (!isActive) onActivate(); }}
     >
-      {/* ── Page Header — clean, no blue, no collapse ────────────────── */}
+      {/* ── Page Header ──────────────────────────────────────────────── */}
       <div
         className="flex items-center gap-2 px-4 py-3 select-none"
         onClick={(e) => {
@@ -132,136 +146,134 @@ export default function PageCard({
           {pageIndex + 1}
         </span>
 
-        {/* Page name */}
-        <h3 className="font-semibold text-sm text-foreground">
-          {variant?.name || `Page ${pageIndex + 1}`}
-        </h3>
+        {/* ── Edit mode: variant dropdown + delete ── */}
+        {isEditing ? (
+          <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+            {/* Variant selector dropdown */}
+            <div className="relative flex-1 min-w-0" ref={dropdownRef}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowVariantDropdown((s) => !s);
+                }}
+                className="w-full h-7 rounded-md text-xs font-semibold flex items-center justify-between px-2 transition-colors truncate"
+                style={{
+                  border: `1px solid ${primaryColor}40`,
+                  backgroundColor: `${primaryColor}08`,
+                  color: primaryColor,
+                }}
+              >
+                <span className="truncate">{variant?.name || `Page ${pageIndex + 1}`}</span>
+                <ChevronDown className="w-3 h-3 shrink-0 ml-1" />
+              </button>
 
-        {/* Overflow badge */}
-        {hasOverflow && (
-          <span
-            className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-            style={{
-              backgroundColor: "rgba(251,191,36,0.15)",
-              color: "#b45309",
-            }}
-          >
-            <AlertTriangle className="w-3 h-3" />
-            {overflowPx}px
-          </span>
-        )}
-
-        <div className="flex-1" />
-
-        {/* Category count */}
-        <span className="text-xs text-muted-foreground mr-1">
-          {categories.length} cat{categories.length !== 1 ? "s" : ""}
-        </span>
-
-        {/* ── Edit variant button ── */}
-        <div className="relative" ref={variantPickerRef}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowVariantPicker((s) => !s);
-            }}
-            className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors"
-            style={{
-              backgroundColor: showVariantPicker
-                ? `${primaryColor}15`
-                : "transparent",
-              color: showVariantPicker ? primaryColor : "hsl(220 9% 56%)",
-            }}
-            onMouseEnter={(e) => {
-              if (!showVariantPicker) {
-                e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)";
-                e.currentTarget.style.color = "hsl(220 9% 30%)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!showVariantPicker) {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = "hsl(220 9% 56%)";
-              }
-            }}
-            title="Change page variant"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Variant dropdown */}
-          {showVariantPicker && template && (
-            <div
-              className="absolute right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
-              style={{ width: "200px" }}
-            >
-              <div className="px-3 py-2 border-b border-border">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Page Variant
-                </span>
-              </div>
-              {template.pageVariants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChangeVariant(v.id);
-                    setShowVariantPicker(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors"
-                  style={{
-                    backgroundColor:
-                      v.id === page.variantId
-                        ? `${primaryColor}10`
-                        : "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      v.id === page.variantId
-                        ? `${primaryColor}18`
-                        : "hsl(220 14% 96%)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      v.id === page.variantId
-                        ? `${primaryColor}10`
-                        : "transparent";
-                  }}
+              {showVariantDropdown && template && (
+                <div
+                  className="absolute left-0 right-0 mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
+                  style={{ minWidth: "160px" }}
                 >
-                  <span className="flex-1 font-medium truncate">{v.name}</span>
-                  {v.id === page.variantId && (
-                    <Check className="w-3.5 h-3.5 shrink-0" style={{ color: primaryColor }} />
-                  )}
-                </button>
-              ))}
+                  {template.pageVariants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChangeVariant(v.id);
+                        setShowVariantDropdown(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor:
+                          v.id === page.variantId ? `${primaryColor}10` : "transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          v.id === page.variantId ? `${primaryColor}18` : "hsl(220 14% 96%)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          v.id === page.variantId ? `${primaryColor}10` : "transparent";
+                      }}
+                    >
+                      <span className="flex-1 truncate">{v.name}</span>
+                      {v.id === page.variantId && (
+                        <Check className="w-3 h-3 shrink-0" style={{ color: primaryColor }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* ── Delete page button ── */}
-        {totalPages > 1 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors"
-            style={{
-              color: "hsl(0 60% 60%)",
-              backgroundColor: "transparent",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.1)";
-              e.currentTarget.style.color = "hsl(0 84% 60%)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "hsl(0 60% 60%)";
-            }}
-            title="Delete page"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+            {/* Done editing (check) */}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleDoneEdit}
+              className="text-foreground hover:text-foreground/80 shrink-0"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+
+            {/* Delete page */}
+            {totalPages > 1 && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                className="shrink-0"
+                style={{ color: "hsl(0 72% 55%)" }}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* Edit button (pen) — only visible when active/selected */}
+            {isActive && (
+              <button
+                onClick={handleStartEdit}
+                className="shrink-0 p-0.5 rounded transition-colors text-muted-foreground"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = primaryColor;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "";
+                }}
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+
+            {/* Page name */}
+            <h3 className="font-semibold text-sm text-foreground">
+              {variant?.name || `Page ${pageIndex + 1}`}
+            </h3>
+
+            {/* Overflow badge */}
+            {hasOverflow && (
+              <span
+                className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: "rgba(251,191,36,0.15)",
+                  color: "#b45309",
+                }}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                {overflowPx}px
+              </span>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Category count */}
+            <span className="text-xs text-muted-foreground">
+              {categories.length} cat{categories.length !== 1 ? "s" : ""}
+            </span>
+          </>
         )}
       </div>
 

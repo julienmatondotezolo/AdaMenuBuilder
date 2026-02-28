@@ -1028,8 +1028,8 @@ export default function EditorPanel() {
           {/* Add Page button */}
           <button
             onClick={addPage}
-            className="w-full flex items-center justify-center gap-2 py-3 mt-6 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
-            style={{ border: "2px dashed hsl(220 13% 88%)" }}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
+            style={{ border: "2px dashed hsl(220 13% 88%)", marginTop: "24px" }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.4)";
               e.currentTarget.style.color = "hsl(232 100% 66%)";
