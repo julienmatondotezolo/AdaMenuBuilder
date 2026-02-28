@@ -144,23 +144,25 @@ export default function PreviewPanel() {
       if (e.pointerType === "touch" && activePointers.current.has(e.pointerId)) {
         activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-        // Pinch zoom with two fingers
+        // Pinch zoom with two fingers — Figma-style zoom to midpoint
         if (activePointers.current.size === 2 && pinchStart.current) {
           const pts = [...activePointers.current.values()];
           const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
           const scale = dist / pinchStart.current.dist;
-          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(pinchStart.current.zoom * scale).toFixed(2)));
+          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(pinchStart.current.zoom * scale).toFixed(3)));
 
           const el = containerRef.current;
           if (el) {
             const rect = el.getBoundingClientRect();
             const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
             const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
-            const scaleFactor = newZoom / zoom;
-            setPan((prev) => ({
-              x: midX - scaleFactor * (midX - prev.x),
-              y: midY - scaleFactor * (midY - prev.y),
-            }));
+            const prevZoom = zoomRef.current;
+            const prevPan = panRef.current;
+            const scaleFactor = newZoom / prevZoom;
+            setPan({
+              x: midX - scaleFactor * (midX - prevPan.x),
+              y: midY - scaleFactor * (midY - prevPan.y),
+            });
           }
 
           setZoom(newZoom);
