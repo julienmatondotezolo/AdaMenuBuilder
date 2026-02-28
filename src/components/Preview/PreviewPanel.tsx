@@ -75,11 +75,11 @@ export default function PreviewPanel() {
     };
   }, []);
 
-  /* ── Pointer panning (space + drag OR middle-click drag) ───────────────── */
+  /* ── Pointer panning (space + drag OR middle-click drag OR touch) ────── */
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      // Space held or middle mouse button
-      if (spaceHeld || e.button === 1) {
+      // Space held, middle mouse button, or touch input
+      if (spaceHeld || e.button === 1 || e.pointerType === "touch") {
         e.preventDefault();
         setIsPanning(true);
         panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
@@ -181,7 +181,7 @@ export default function PreviewPanel() {
       {/* ── Infinite canvas ────────────────────────────────────────────── */}
       <div
         ref={containerRef}
-        className={cn("absolute inset-0 select-none", cursorClass)}
+        className={cn("absolute inset-0 select-none touch-none", cursorClass)}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
