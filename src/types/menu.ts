@@ -68,6 +68,8 @@ export interface DragState {
 export interface MenuContextValue {
   menuData: MenuData;
   setMenuData: React.Dispatch<React.SetStateAction<MenuData>>;
+  templateId: string;
+  setTemplateId: (id: string) => void;
   hoveredId: string | null;
   hoveredType: HoveredType;
   setHover: (id: string, type: "item" | "category") => void;

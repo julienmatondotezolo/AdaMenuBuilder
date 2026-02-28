@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "ada-design-system";
-import { useMenuById, updateMenu } from "../db/hooks";
+import { useMenuById, updateMenu, useTemplateById } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
 import Header from "../components/Header";
 import EditorPanel from "../components/Editor/EditorPanel";
@@ -12,12 +12,16 @@ export default function MenuEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const menu = useMenuById(id);
-  const { menuData, setMenuData } = useMenu();
+  const { menuData, setMenuData, templateId, setTemplateId } = useMenu();
+
+  // Live-query the template — auto-updates when template changes
+  const template = useTemplateById(templateId || undefined);
 
   // Load menu data from IndexedDB into context
   useEffect(() => {
     if (menu) {
       setMenuData(menu.data);
+      setTemplateId(menu.templateId);
     }
   }, [menu?.id]);
 
@@ -29,6 +33,12 @@ export default function MenuEditor() {
     }, 500);
     return () => clearTimeout(timeout);
   }, [menuData, id]);
+
+  // Persist templateId changes to IndexedDB
+  useEffect(() => {
+    if (!id || !menu || !templateId || templateId === menu.templateId) return;
+    updateMenu(id, { templateId });
+  }, [templateId, id]);
 
   if (!menu) {
     return (
@@ -46,17 +56,17 @@ export default function MenuEditor() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <Header />
+      <Header template={template} />
 
       <main className="flex-1 flex overflow-hidden">
-        {/* Editor Panel — same width as original develop branch */}
+        {/* Editor Panel */}
         <div className="w-[440px] shrink-0 border-r border-gray-200 bg-white">
           <EditorPanel />
         </div>
 
         {/* Preview */}
         <div className="flex-1 min-w-0 relative">
-          <PreviewPanel />
+          <PreviewPanel template={template} />
         </div>
       </main>
     </div>

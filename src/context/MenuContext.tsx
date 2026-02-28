@@ -29,8 +29,9 @@ const INITIAL_DRAG_STATE: DragState = {
   overType: null,
 };
 
-export function MenuProvider({ children }: { children: ReactNode }) {
+export function MenuProvider({ children, initialTemplateId }: { children: ReactNode; initialTemplateId?: string }) {
   const [menuData, setMenuData] = useState<MenuData>(sampleMenu);
+  const [templateId, setTemplateId] = useState<string>(initialTemplateId || "");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredType, setHoveredType] = useState<HoveredType>(null);
   const [viewport, setViewport] = useState<Viewport>("paper");
@@ -271,6 +272,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const value: MenuContextValue = {
     menuData,
     setMenuData,
+    templateId,
+    setTemplateId,
     hoveredId,
     hoveredType,
     setHover,

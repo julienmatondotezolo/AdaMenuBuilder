@@ -10,6 +10,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn, Button, Input } from "ada-design-system";
 import MenuPreview from "./MenuPreview";
 import { useMenu } from "../../context/MenuContext";
+import type { MenuTemplate } from "../../types/template";
 
 /* ── Preview sidebar icons (display only) ────────────────────────────────── */
 
@@ -29,7 +30,11 @@ const DEFAULT_ZOOM = 0.7;
 
 const PREVIEW_WIDTH = 794;
 
-export default function PreviewPanel() {
+interface PreviewPanelProps {
+  template?: MenuTemplate;
+}
+
+export default function PreviewPanel({ template }: PreviewPanelProps) {
   const { selectedItemId } = useMenu();
   const [selectedIcon, setSelectedIcon] = useState("paper");
 
@@ -337,7 +342,7 @@ export default function PreviewPanel() {
             className="bg-card rounded-xl shadow-lg border border-border overflow-hidden shrink-0"
             style={{ width: `${PREVIEW_WIDTH}px` }}
           >
-            <MenuPreview />
+            <MenuPreview template={template} />
           </div>
         </div>
       </div>
