@@ -171,14 +171,13 @@ export default function CategorySection({
           isExpanded && "category-expanded"
         )}
         onClick={handleHeaderClick}
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: 'pointer', touchAction: 'none' }}
+        {...attributes}
+        {...listeners}
       >
-        {/* Drag handle */}
+        {/* Drag handle icon */}
         <span
-          className={cn("shrink-0 cursor-grab", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
+          className={cn("shrink-0", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
         >
           <GripVertical className="w-4 h-4" />
         </span>
