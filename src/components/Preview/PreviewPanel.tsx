@@ -42,6 +42,10 @@ export default function PreviewPanel() {
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const [containerSize, setContainerSize] = useState({ w: 800, h: 600 });
 
+  /* ── Pinch-to-zoom state ───────────────────────────────────────────────── */
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ dist: number; zoom: number; midX: number; midY: number } | null>(null);
+
   /* ── Measure container size ────────────────────────────────────────────── */
   useEffect(() => {
     const el = containerRef.current;
@@ -78,29 +82,86 @@ export default function PreviewPanel() {
   /* ── Pointer panning (space + drag OR middle-click drag OR touch) ────── */
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      // Space held, middle mouse button, or touch input
-      if (spaceHeld || e.button === 1 || e.pointerType === "touch") {
+      // Track touch pointers for pinch
+      if (e.pointerType === "touch") {
+        activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
+        // Two fingers down → start pinch
+        if (activePointers.current.size === 2) {
+          const pts = [...activePointers.current.values()];
+          const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+          const midX = (pts[0].x + pts[1].x) / 2;
+          const midY = (pts[0].y + pts[1].y) / 2;
+          pinchStart.current = { dist, zoom, midX, midY };
+          setIsPanning(false); // stop single-finger pan during pinch
+          return;
+        }
+
+        // Single finger → pan
+        e.preventDefault();
+        setIsPanning(true);
+        panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        return;
+      }
+
+      // Space held or middle mouse button
+      if (spaceHeld || e.button === 1) {
         e.preventDefault();
         setIsPanning(true);
         panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
         (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       }
     },
-    [spaceHeld, pan],
+    [spaceHeld, pan, zoom],
   );
 
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
+      // Update tracked pointer
+      if (e.pointerType === "touch" && activePointers.current.has(e.pointerId)) {
+        activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        // Pinch zoom with two fingers
+        if (activePointers.current.size === 2 && pinchStart.current) {
+          const pts = [...activePointers.current.values()];
+          const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+          const scale = dist / pinchStart.current.dist;
+          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(pinchStart.current.zoom * scale).toFixed(2)));
+
+          const el = containerRef.current;
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
+            const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
+            const scaleFactor = newZoom / zoom;
+            setPan((prev) => ({
+              x: midX - scaleFactor * (midX - prev.x),
+              y: midY - scaleFactor * (midY - prev.y),
+            }));
+          }
+
+          setZoom(newZoom);
+          return;
+        }
+      }
+
       if (!isPanning) return;
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
       setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
     },
-    [isPanning],
+    [isPanning, zoom],
   );
 
-  const handlePointerUp = useCallback(() => {
-    setIsPanning(false);
+  const handlePointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) {
+      pinchStart.current = null;
+    }
+    if (activePointers.current.size === 0) {
+      setIsPanning(false);
+    }
   }, []);
 
   /* ── Wheel: Ctrl/⌘ = zoom, otherwise pan ───────────────────────────────── */
