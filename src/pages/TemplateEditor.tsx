@@ -1158,7 +1158,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [resizeState, setResizeState] = useState<{ section: SectionType; handle: string; w: number; h: number } | null>(null);
-  const [activeGuides, setActiveGuides] = useState<{ type: "x" | "y"; value: number }[]>([]);
+  const [activeGuides, setActiveGuides] = useState<{ type: "x" | "y"; value: number; source: SnapSource }[]>([]);
 
   // Refs for smooth drag/resize (avoids stale closures + React batching)
   const dragRef = useRef<{ section: SectionType; startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -1170,8 +1170,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const SNAP_DISTANCE = 8;
   const HANDLE_SIZE = 8;
-  const GUIDE_COLOR = "#ff69b4";
-  const SELECT_COLOR = "#0d99ff"; // Figma's blue
+  const GUIDE_COLOR = "#ff69b4";      // pink for center/edge guides
+  const MARGIN_GUIDE_COLOR = "#e84393"; // darker pink for margin guides
+  const SELECT_COLOR = "#0d99ff";     // Figma's blue
 
   // Sync selectedSection when panel highlights change
   useEffect(() => {
@@ -1180,25 +1181,27 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   /* ─── Snap engine ────────────────────────────────────────────────── */
 
-  const getSnapPoints = () => {
+  type SnapSource = "edge" | "center" | "margin";
+  type SnapPoint = { type: "x" | "y"; value: number; source: SnapSource };
+
+  const getSnapPoints = (): SnapPoint[] => {
     const c = containerRef.current;
     if (!c) return [];
     const cw = c.clientWidth, ch = c.clientHeight;
     const { marginLeft: ml, marginRight: mr, marginTop: mt, marginBottom: mb } = template.spacing;
-    // Scaled margin values
     const sml = ml * scale, smr = mr * scale, smt = mt * scale, smb = mb * scale;
     return [
       // Full container edges
-      { type: "x" as const, value: 0 }, { type: "x" as const, value: cw },
-      { type: "y" as const, value: 0 }, { type: "y" as const, value: ch },
+      { type: "x", value: 0, source: "edge" }, { type: "x", value: cw, source: "edge" },
+      { type: "y", value: 0, source: "edge" }, { type: "y", value: ch, source: "edge" },
       // Container center
-      { type: "x" as const, value: cw / 2 }, { type: "y" as const, value: ch / 2 },
-      // Margin boundaries (in rendered/scaled px)
-      { type: "x" as const, value: sml }, { type: "x" as const, value: cw - smr },
-      { type: "y" as const, value: smt }, { type: "y" as const, value: ch - smb },
+      { type: "x", value: cw / 2, source: "center" }, { type: "y", value: ch / 2, source: "center" },
+      // Margin inner boundaries
+      { type: "x", value: sml, source: "margin" }, { type: "x", value: cw - smr, source: "margin" },
+      { type: "y", value: smt, source: "margin" }, { type: "y", value: ch - smb, source: "margin" },
       // Content area center
-      { type: "x" as const, value: sml + (cw - sml - smr) / 2 },
-      { type: "y" as const, value: smt + (ch - smt - smb) / 2 },
+      { type: "x", value: sml + (cw - sml - smr) / 2, source: "center" },
+      { type: "y", value: smt + (ch - smt - smb) / 2, source: "center" },
     ];
   };
 
@@ -1207,7 +1210,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     const snapPoints = getSnapPoints();
     const t = SNAP_DISTANCE;
     let snapDx = 0, snapDy = 0;
-    const guides: { type: "x" | "y"; value: number }[] = [];
+    const guides: { type: "x" | "y"; value: number; source: SnapSource }[] = [];
 
     const edgesX = [elLeft, elLeft + elW / 2, elLeft + elW];
     const edgesY = [elTop, elTop + elH / 2, elTop + elH];
@@ -1221,7 +1224,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           bestXDist = d;
           snapDx = sp.value - ex;
           const idx = guides.findIndex(g => g.type === "x");
-          if (idx >= 0) guides[idx] = sp; else guides.push({ ...sp });
+          if (idx >= 0) guides[idx] = { type: "x", value: sp.value, source: sp.source };
+          else guides.push({ type: "x", value: sp.value, source: sp.source });
         }
       }
     }
@@ -1234,7 +1238,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           bestYDist = d;
           snapDy = sp.value - ey;
           const idx = guides.findIndex(g => g.type === "y");
-          if (idx >= 0) guides[idx] = sp; else guides.push({ ...sp });
+          if (idx >= 0) guides[idx] = { type: "y", value: sp.value, source: sp.source };
+          else guides.push({ type: "y", value: sp.value, source: sp.source });
         }
       }
     }
@@ -1687,9 +1692,14 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
-  /* ─── Margin overlays ────────────────────────────────────────────── */
+  /* ─── Margin overlays (each side gets a distinct pink tint) ─────── */
 
-  const mrgColor = "rgba(255, 82, 120, 0.15)";
+  const mrgColors = {
+    top:    "rgba(255, 105, 180, 0.14)",   // hot pink
+    bottom: "rgba(219, 112, 147, 0.16)",   // pale violet red
+    left:   "rgba(255, 82, 120, 0.13)",    // warm rose
+    right:  "rgba(240, 128, 170, 0.15)",   // light pink
+  };
   const mrgLabelStyle: React.CSSProperties = {
     position: "absolute", display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: "7px", fontWeight: 600, fontFamily: "'Inter', monospace", color: "#e84393",
@@ -1715,32 +1725,35 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
       }}
     >
-      {/* Margin overlays */}
+      {/* Margin overlays — each side a distinct pink tint */}
       {(showMargins || !!activeDragSection || !!resizeState) && (
         <>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: spacing.marginTop, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: spacing.marginTop, backgroundColor: mrgColors.top, zIndex: 4, pointerEvents: "none" }}>
             {spacing.marginTop > 8 && <div style={{ ...mrgLabelStyle, inset: 0 }}>{spacing.marginTop}</div>}
           </div>
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: spacing.marginBottom, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: spacing.marginBottom, backgroundColor: mrgColors.bottom, zIndex: 4, pointerEvents: "none" }}>
             {spacing.marginBottom > 8 && <div style={{ ...mrgLabelStyle, inset: 0 }}>{spacing.marginBottom}</div>}
           </div>
-          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, left: 0, width: spacing.marginLeft, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, left: 0, width: spacing.marginLeft, backgroundColor: mrgColors.left, zIndex: 4, pointerEvents: "none" }}>
             {spacing.marginLeft > 8 && <div style={{ ...mrgLabelStyle, inset: 0, writingMode: "vertical-lr", transform: "rotate(180deg)" }}>{spacing.marginLeft}</div>}
           </div>
-          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, right: 0, width: spacing.marginRight, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, right: 0, width: spacing.marginRight, backgroundColor: mrgColors.right, zIndex: 4, pointerEvents: "none" }}>
             {spacing.marginRight > 8 && <div style={{ ...mrgLabelStyle, inset: 0, writingMode: "vertical-lr" }}>{spacing.marginRight}</div>}
           </div>
         </>
       )}
 
-      {/* Snap guidelines (pink dashed lines spanning the full container) */}
-      {activeGuides.map((g, i) =>
-        g.type === "x" ? (
-          <div key={`g${i}`} style={{ position: "absolute", top: 0, bottom: 0, left: g.value, width: 0, borderLeft: `1px dashed ${GUIDE_COLOR}`, pointerEvents: "none", zIndex: 25 }} />
+      {/* Snap guidelines — margin guides in darker pink, others in regular pink */}
+      {activeGuides.map((g, i) => {
+        const color = g.source === "margin" ? MARGIN_GUIDE_COLOR : GUIDE_COLOR;
+        const dash = g.source === "margin" ? "4px 3px" : "5px 5px";
+        const weight = g.source === "margin" ? "1.5px" : "1px";
+        return g.type === "x" ? (
+          <div key={`g${i}`} style={{ position: "absolute", top: 0, bottom: 0, left: g.value, width: 0, borderLeft: `${weight} dashed ${color}`, pointerEvents: "none", zIndex: 25 }} />
         ) : (
-          <div key={`g${i}`} style={{ position: "absolute", left: 0, right: 0, top: g.value, height: 0, borderTop: `1px dashed ${GUIDE_COLOR}`, pointerEvents: "none", zIndex: 25 }} />
-        )
-      )}
+          <div key={`g${i}`} style={{ position: "absolute", left: 0, right: 0, top: g.value, height: 0, borderTop: `${weight} dashed ${color}`, pointerEvents: "none", zIndex: 25 }} />
+        );
+      })}
 
       {/* Render sections in order */}
       {sectionOrder.map((section) => {
