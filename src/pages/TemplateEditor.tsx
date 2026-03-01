@@ -1535,7 +1535,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       }}
     >
       {/* Margin overlays */}
-      {showMargins && (
+      {(showMargins || !!activeDragSection) && (
         <>
           {/* Top margin */}
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${spacing.marginTop}px`, backgroundColor: marginColors.top, zIndex: 4, pointerEvents: "none" }}>
