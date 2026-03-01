@@ -19,6 +19,7 @@ import {
   Check,
   Space,
   Download,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Button,
@@ -31,9 +32,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
   cn,
 } from "ada-design-system";
-import { useTemplateById, updateTemplate, downloadTemplate } from "../db/hooks";
+import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
 import type { MenuTemplate, PageVariant } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
@@ -73,6 +79,7 @@ export default function TemplateEditor() {
   const [activeVariantId, setActiveVariantId] = useState<string>("");
   const [openPanel, setOpenPanel] = useState<PanelId | null>("format");
   const [sectionOrder, setSectionOrder] = useState<SectionType[]>(["header", "body", "highlight"]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Drag state
   const [draggedSection, setDraggedSection] = useState<SectionType | null>(null);
@@ -166,6 +173,17 @@ export default function TemplateEditor() {
 
   const togglePanel = (panelId: PanelId) => setOpenPanel(openPanel === panelId ? null : panelId);
 
+  const handleDeleteTemplate = async () => {
+    if (!id) return;
+    try {
+      await deleteTemplate(id);
+      navigate("/templates");
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Cannot delete this template");
+    }
+    setShowDeleteDialog(false);
+  };
+
   /* ── Drag handlers ── */
 
   const handleDragStart = (idx: number, section: SectionType) => {
@@ -227,6 +245,12 @@ export default function TemplateEditor() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!template.isBuiltIn && (
+            <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="text-destructive hover:text-destructive hover:bg-destructive/5">
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              Delete
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => id && downloadTemplate(id)}>
             <Download className="w-4 h-4 mr-1.5" />
             Export
@@ -237,6 +261,28 @@ export default function TemplateEditor() {
           </Button>
         </div>
       </header>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Delete Template
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{template.name}</strong>? This action cannot be undone. Any menus using this template will lose their template reference.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2 justify-end">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteTemplate}>
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              Delete Template
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 flex overflow-hidden">
         {/* ═══ LEFT PANEL ═══ */}
