@@ -716,9 +716,39 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
                               <SelectRow label="Category Style" value={activeVariant.body.categoryStyle}
                                 options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "dots", l: "Dotted" }, { v: "custom", l: "Custom" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: v as "lines" | "bold" | "minimal" | "dots" | "custom" } })} />
+                                onChange={(v) => {
+                                  const newStyle = v as "lines" | "bold" | "minimal" | "dots" | "custom";
+                                  if (newStyle === "custom" && activeVariant.body.categoryStyle !== "custom") {
+                                    const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
+                                    const contentH = mmToPx(template.format.height) - template.spacing.marginTop - template.spacing.marginBottom;
+                                    updateVariant(activeVariant.id, {
+                                      body: {
+                                        ...activeVariant.body,
+                                        categoryStyle: newStyle,
+                                        offsetX: activeVariant.body.offsetX ?? 0,
+                                        offsetY: activeVariant.body.offsetY ?? 0,
+                                        customWidth: activeVariant.body.customWidth || contentW,
+                                        customHeight: activeVariant.body.customHeight || Math.round(contentH * 0.6),
+                                      },
+                                    });
+                                  } else {
+                                    updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: newStyle } });
+                                  }
+                                }} />
                               {activeVariant.body.categoryStyle === "custom" && (
                                 <>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="X" value={activeVariant.body.offsetX ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, offsetX: v } })} />
+                                    <NumberRow label="Y" value={activeVariant.body.offsetY ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, offsetY: v } })} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="W" value={activeVariant.body.customWidth ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, customWidth: v || undefined } })} />
+                                    <NumberRow label="H" value={activeVariant.body.customHeight ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, customHeight: v || undefined } })} />
+                                  </div>
                                   <SelectRow label="Cat. Alignment" value={activeVariant.body.categoryAlignment || "center"}
                                     options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
                                     onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryAlignment: v as "left" | "center" | "right" } })} />
@@ -1444,6 +1474,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const isSectionCustom = (section: SectionType): boolean => {
     if (section === "header") return variant.header.style === "custom";
+    if (section === "body") return variant.body.categoryStyle === "custom";
     if (section === "highlight") return variant.highlight.style === "custom";
     return false;
   };
