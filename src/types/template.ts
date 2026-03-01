@@ -94,6 +94,16 @@ export interface VariantBodyConfig {
   image?: SectionImageConfig;
 }
 
+export type HighlightTextAlign = "left" | "center" | "right";
+
+export interface HighlightTextConfig {
+  alignment: HighlightTextAlign;
+  labelSize: number;       // px — "CHEF'S PICK" subtitle size
+  titleSize: number;       // px — "Osso Buco alla Milanese" title size
+  labelFont?: string;      // font family override for label (defaults to body font)
+  titleFont?: string;      // font family override for title (defaults to heading font)
+}
+
 export interface VariantHighlightConfig {
   show: boolean;
   position: HighlightPosition;
@@ -110,7 +120,7 @@ export interface VariantHighlightConfig {
   imageFit: "fit" | "contain" | "cover";  // how the image fills the container
   imageUrl?: string;      // image URL or data URI
   imageLocked: boolean;   // if true, image cannot be changed in menu editor
-  image?: SectionImageConfig;
+  text?: HighlightTextConfig;  // text overlay controls
 }
 
 export interface PageVariant {
