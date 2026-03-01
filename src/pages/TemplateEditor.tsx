@@ -62,7 +62,7 @@ import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } fro
 import type { MenuTemplate, PageVariant, HighlightStyle } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
-import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, type FontPairing } from "../data/fonts";
+import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFont, loadFont, type FontPairing } from "../data/fonts";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -125,6 +125,17 @@ export default function TemplateEditor() {
   useEffect(() => {
     if (template) loadTemplateFonts(template.fonts.heading, template.fonts.body);
   }, [template?.fonts.heading, template?.fonts.body]);
+
+  // Load custom highlight text fonts
+  useEffect(() => {
+    if (!template) return;
+    for (const v of template.pageVariants) {
+      const lf = v.highlight.text?.labelFont;
+      const tf = v.highlight.text?.titleFont;
+      if (lf) { const f = findFont(lf); if (f) loadFont(f); }
+      if (tf) { const f = findFont(tf); if (f) loadFont(f); }
+    }
+  }, [template?.pageVariants]);
 
   useEffect(() => {
     if (template && !activeVariantId) {
@@ -906,52 +917,62 @@ export default function TemplateEditor() {
                                 </div>
                               )}
 
-                              {/* Background Image (layer behind the main image) */}
+                              {/* Text Overlay Controls */}
                               <div className="pt-2">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Overlay</Label>
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Text Overlay</Label>
                                 <div className="space-y-2 mt-1.5">
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px]">URL</Label>
-                                    <Input
-                                      value={activeVariant.highlight.image?.url || ""}
-                                      placeholder="No background set"
-                                      className="h-7 text-xs"
-                                      onChange={(e) => updateVariant(activeVariant.id, { 
-                                        highlight: { 
-                                          ...activeVariant.highlight, 
-                                          image: { 
-                                            offsetX: 0, offsetY: 0, width: 100, height: 100, opacity: 0.5, objectFit: "cover", 
-                                            ...activeVariant.highlight.image, 
-                                            url: e.target.value 
-                                          } 
-                                        } 
-                                      })}
-                                    />
-                                  </div>
-                                  {activeVariant.highlight.image?.url && (
-                                    <>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div className="space-y-1">
-                                          <Label className="text-[10px]">Opacity</Label>
-                                          <Input type="number" min="0" max="1" step="0.1" value={activeVariant.highlight.image.opacity} className="h-7 text-xs"
-                                            onChange={(e) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, opacity: Number(e.target.value) } } })} />
+                                  {(() => {
+                                    const hlText = () => ({
+                                      alignment: activeVariant.highlight.text?.alignment ?? "left" as const,
+                                      labelSize: activeVariant.highlight.text?.labelSize ?? 5,
+                                      titleSize: activeVariant.highlight.text?.titleSize ?? 8,
+                                      labelFont: activeVariant.highlight.text?.labelFont,
+                                      titleFont: activeVariant.highlight.text?.titleFont,
+                                    });
+                                    const setHlText = (patch: Record<string, any>) =>
+                                      updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, text: { ...hlText(), ...patch } } });
+                                    return (
+                                      <>
+                                        <SelectRow label="Alignment" value={hlText().alignment}
+                                          options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
+                                          onChange={(v) => setHlText({ alignment: v })} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <NumberRow label="Label Size" value={hlText().labelSize} unit="px" compact
+                                            onChange={(v) => setHlText({ labelSize: v })} />
+                                          <NumberRow label="Title Size" value={hlText().titleSize} unit="px" compact
+                                            onChange={(v) => setHlText({ titleSize: v })} />
                                         </div>
                                         <div className="space-y-1">
-                                          <Label className="text-[10px]">Object Fit</Label>
-                                          <Select value={activeVariant.highlight.image.objectFit} onValueChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, objectFit: v as "cover" | "contain" | "fill" } } })}>
+                                          <Label className="text-[10px]">Label Font</Label>
+                                          <Select value={hlText().labelFont || "__default__"} onValueChange={(v) => setHlText({ labelFont: v === "__default__" ? undefined : v })}>
                                             <SelectTrigger className="h-7 text-xs">
-                                              <SelectValue />
+                                              <SelectValue placeholder="Template body font" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value="cover">Cover</SelectItem>
-                                              <SelectItem value="contain">Contain</SelectItem>
-                                              <SelectItem value="fill">Fill</SelectItem>
+                                              <SelectItem value="__default__">Default (body)</SelectItem>
+                                              {FONT_CATALOG.map(f => (
+                                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                              ))}
                                             </SelectContent>
                                           </Select>
                                         </div>
-                                      </div>
-                                    </>
-                                  )}
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Title Font</Label>
+                                          <Select value={hlText().titleFont || "__default__"} onValueChange={(v) => setHlText({ titleFont: v === "__default__" ? undefined : v })}>
+                                            <SelectTrigger className="h-7 text-xs">
+                                              <SelectValue placeholder="Template heading font" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="__default__">Default (heading)</SelectItem>
+                                              {FONT_CATALOG.map(f => (
+                                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </>
@@ -1650,17 +1671,32 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         const hlFit = hl.imageFit || "cover";
         const isCustom = hlStyle === "custom";
         const isFullWidth = hlStyle === "full-width";
+        const txt = hl.text;
+        const textAlign = txt?.alignment || "left";
+        const labelSize = txt?.labelSize ?? 5;
+        const titleSize = txt?.titleSize ?? 8;
+        const labelFont = txt?.labelFont || fonts.body;
+        const titleFont = txt?.titleFont || fonts.heading;
 
-        // Margins: "fit" uses margins, "full-width" ignores them, "custom" uses free positioning
+        // Margins: "fit" uses margins, "full-width" breaks out of padding, "custom" uses free positioning
+        const mLeft = template.spacing.marginLeft ?? 0;
+        const mRight = template.spacing.marginRight ?? 0;
         const containerStyle: React.CSSProperties = isCustom
           ? { position: "relative" }
-          : {
-              position: "relative",
-              marginTop: isFullWidth ? 0 : `${hl.marginTop ?? 12}px`,
-              marginBottom: isFullWidth ? 0 : `${hl.marginBottom ?? 0}px`,
-              marginLeft: isFullWidth ? `${-(template.spacing.marginLeft ?? 0)}px` : `${hl.marginLeft ?? 0}px`,
-              marginRight: isFullWidth ? `${-(template.spacing.marginRight ?? 0)}px` : `${hl.marginRight ?? 0}px`,
-            };
+          : isFullWidth
+            ? {
+                position: "relative",
+                marginLeft: -mLeft,
+                marginRight: -mRight,
+                width: `calc(100% + ${mLeft + mRight}px)`,
+              }
+            : {
+                position: "relative",
+                marginTop: `${hl.marginTop ?? 12}px`,
+                marginBottom: `${hl.marginBottom ?? 0}px`,
+                marginLeft: `${hl.marginLeft ?? 0}px`,
+                marginRight: `${hl.marginRight ?? 0}px`,
+              };
 
         // Image dimensions
         const imgHeight = isCustom ? (hl.customHeight ?? hl.height ?? 80) : (hl.height ?? 80);
@@ -1668,7 +1704,6 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
         return (
           <div style={containerStyle}>
-            {renderBackgroundImage("highlight")}
             <div style={{ borderRadius: isFullWidth ? 0 : "4px", overflow: "hidden", position: "relative", zIndex: 1 }}>
               {hlImage ? (
                 <img src={hlImage} alt="" style={{ 
@@ -1681,9 +1716,14 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                   <p style={{ fontSize: fs(6), color: colors.muted, fontFamily: fonts.body }}>No image set</p>
                 </div>
               )}
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
-                <p style={{ fontSize: fs(5), color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: fonts.body }}>{data.highlightLabel}</p>
-                <p style={{ fontSize: fs(8), color: "white", fontStyle: "italic", fontFamily: fonts.heading }}>{data.highlightTitle}</p>
+              <div style={{ 
+                position: "absolute", bottom: 0, left: 0, right: 0, 
+                padding: "6px 8px", 
+                background: "linear-gradient(transparent, rgba(0,0,0,0.6))",
+                textAlign,
+              }}>
+                <p style={{ fontSize: fs(labelSize), color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: labelFont }}>{data.highlightLabel}</p>
+                <p style={{ fontSize: fs(titleSize), color: "white", fontStyle: "italic", fontFamily: titleFont }}>{data.highlightTitle}</p>
               </div>
             </div>
           </div>
