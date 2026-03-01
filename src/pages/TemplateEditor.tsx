@@ -591,7 +591,25 @@ export default function TemplateEditor() {
                             <>
                               <SelectRow label="Style" value={activeVariant.header.style}
                                 options={[{ v: "centered", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }, { v: "custom", l: "Custom" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: v as "centered" | "left" | "right" | "custom" } })} />
+                                onChange={(v) => {
+                                  const newStyle = v as "centered" | "left" | "right" | "custom";
+                                  if (newStyle === "custom" && activeVariant.header.style !== "custom") {
+                                    // Initialize custom dimensions from page format (content area)
+                                    const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
+                                    updateVariant(activeVariant.id, {
+                                      header: {
+                                        ...activeVariant.header,
+                                        style: newStyle,
+                                        offsetX: activeVariant.header.offsetX ?? 0,
+                                        offsetY: activeVariant.header.offsetY ?? 0,
+                                        customWidth: activeVariant.header.customWidth || contentW,
+                                        customHeight: activeVariant.header.customHeight || 120,
+                                      },
+                                    });
+                                  } else {
+                                    updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: newStyle } });
+                                  }
+                                }} />
                               {activeVariant.header.style === "custom" && (
                                 <>
                                   <SelectRow label="Alignment" value={activeVariant.header.customAlignment || "center"}
@@ -1134,96 +1152,99 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   onClickSection?: (section: SectionType) => void;
   lockedSections?: Set<SectionType>;
 }) {
-  // --- Drag, Resize & Snap State ---
+  /* ─── Figma-like interaction state ───────────────────────────────── */
+  const [selectedSection, setSelectedSection] = useState<SectionType | null>(null);
+  const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [resizeState, setResizeState] = useState<{ section: SectionType; handle: string; w: number; h: number } | null>(null);
+  const [activeGuides, setActiveGuides] = useState<{ type: "x" | "y"; value: number }[]>([]);
+
+  // Refs for smooth drag/resize (avoids stale closures + React batching)
   const dragRef = useRef<{ section: SectionType; startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ section: SectionType; handle: string; startX: number; startY: number; origW: number; origH: number; origOX: number; origOY: number } | null>(null);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
-  const [hoveredHandle, setHoveredHandle] = useState<string | null>(null);
+  const resizeDimsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [activeGuides, setActiveGuides] = useState<{ type: "x" | "y"; value: number }[]>([]);
 
-  const SNAP_DISTANCE = 8; // px — magnetic snap threshold (matches AdaMenu)
-  const HANDLE_SIZE = 10;  // px — resize handle size
-  const GUIDE_COLOR = "#ff69b4"; // pink guidelines (matches AdaMenu)
+  const SNAP_DISTANCE = 8;
+  const HANDLE_SIZE = 8;
+  const GUIDE_COLOR = "#ff69b4";
+  const SELECT_COLOR = "#0d99ff"; // Figma's blue
 
-  // Build snap points: container edges + center + margin boundaries
-  // All in container-local coordinates (0,0 = top-left of the preview div)
+  // Sync selectedSection when panel highlights change
+  useEffect(() => {
+    if (highlightedSection) setSelectedSection(highlightedSection);
+  }, [highlightedSection]);
+
+  /* ─── Snap engine ────────────────────────────────────────────────── */
+
   const getSnapPoints = () => {
-    const container = containerRef.current;
-    if (!container) return [];
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
-    const ml = spacing.marginLeft, mr = spacing.marginRight, mt = spacing.marginTop, mb = spacing.marginBottom;
+    const c = containerRef.current;
+    if (!c) return [];
+    const cw = c.clientWidth, ch = c.clientHeight;
+    const { marginLeft: ml, marginRight: mr, marginTop: mt, marginBottom: mb } = template.spacing;
+    // Scaled margin values
+    const sml = ml * scale, smr = mr * scale, smt = mt * scale, smb = mb * scale;
     return [
-      // Container edges
+      // Full container edges
       { type: "x" as const, value: 0 }, { type: "x" as const, value: cw },
       { type: "y" as const, value: 0 }, { type: "y" as const, value: ch },
       // Container center
       { type: "x" as const, value: cw / 2 }, { type: "y" as const, value: ch / 2 },
-      // Margin boundaries
-      { type: "x" as const, value: ml }, { type: "x" as const, value: cw - mr },
-      { type: "y" as const, value: mt }, { type: "y" as const, value: ch - mb },
-      // Margin center
-      { type: "x" as const, value: ml + (cw - ml - mr) / 2 },
-      { type: "y" as const, value: mt + (ch - mt - mb) / 2 },
+      // Margin boundaries (in rendered/scaled px)
+      { type: "x" as const, value: sml }, { type: "x" as const, value: cw - smr },
+      { type: "y" as const, value: smt }, { type: "y" as const, value: ch - smb },
+      // Content area center
+      { type: "x" as const, value: sml + (cw - sml - smr) / 2 },
+      { type: "y" as const, value: smt + (ch - smt - smb) / 2 },
     ];
   };
 
-  // Calculate snap for an element rect (in container-local px after scale)
-  // Returns the delta to apply + active guide lines
+  /** Calculate snap deltas + guidelines for an element rect (all in rendered px) */
   const calculateSnap = (elLeft: number, elTop: number, elW: number, elH: number) => {
     const snapPoints = getSnapPoints();
     const t = SNAP_DISTANCE;
     let snapDx = 0, snapDy = 0;
-    const newGuides: { type: "x" | "y"; value: number }[] = [];
+    const guides: { type: "x" | "y"; value: number }[] = [];
 
-    // Element edges + center in container coords
     const edgesX = [elLeft, elLeft + elW / 2, elLeft + elW];
     const edgesY = [elTop, elTop + elH / 2, elTop + elH];
 
-    // Best X snap
     let bestXDist = Infinity;
-    edgesX.forEach(ex => {
-      snapPoints.filter(p => p.type === "x").forEach(sp => {
-        const dist = Math.abs(ex - sp.value);
-        if (dist <= t && dist < bestXDist) {
-          bestXDist = dist;
+    for (const ex of edgesX) {
+      for (const sp of snapPoints) {
+        if (sp.type !== "x") continue;
+        const d = Math.abs(ex - sp.value);
+        if (d <= t && d < bestXDist) {
+          bestXDist = d;
           snapDx = sp.value - ex;
-          // Replace: only keep the winning guide for this axis
-          const idx = newGuides.findIndex(g => g.type === "x");
-          if (idx >= 0) newGuides[idx] = { type: "x", value: sp.value };
-          else newGuides.push({ type: "x", value: sp.value });
+          const idx = guides.findIndex(g => g.type === "x");
+          if (idx >= 0) guides[idx] = sp; else guides.push({ ...sp });
         }
-      });
-    });
-
-    // Best Y snap
+      }
+    }
     let bestYDist = Infinity;
-    edgesY.forEach(ey => {
-      snapPoints.filter(p => p.type === "y").forEach(sp => {
-        const dist = Math.abs(ey - sp.value);
-        if (dist <= t && dist < bestYDist) {
-          bestYDist = dist;
+    for (const ey of edgesY) {
+      for (const sp of snapPoints) {
+        if (sp.type !== "y") continue;
+        const d = Math.abs(ey - sp.value);
+        if (d <= t && d < bestYDist) {
+          bestYDist = d;
           snapDy = sp.value - ey;
-          const idx = newGuides.findIndex(g => g.type === "y");
-          if (idx >= 0) newGuides[idx] = { type: "y", value: sp.value };
-          else newGuides.push({ type: "y", value: sp.value });
+          const idx = guides.findIndex(g => g.type === "y");
+          if (idx >= 0) guides[idx] = sp; else guides.push({ ...sp });
         }
-      });
-    });
-
-    return { snapDx, snapDy, guides: newGuides };
+      }
+    }
+    return { snapDx, snapDy, guides };
   };
 
-  // --- Drag effect ---
+  /* ─── Drag effect (window-level listeners for smooth tracking) ──── */
   useEffect(() => {
     if (!activeDragSection) return;
-    const handleMove = (e: MouseEvent) => {
+    const onMove = (e: MouseEvent) => {
       const d = dragRef.current;
       if (!d) return;
       const dx = (e.clientX - d.startX) / scale;
@@ -1231,26 +1252,23 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       let newX = Math.round(d.origX + dx);
       let newY = Math.round(d.origY + dy);
 
-      // Snap: element is position:absolute, left/top = offset * scale in container coords
-      const sectionEl = sectionRefs.current[d.section];
-      if (sectionEl) {
-        const elW = sectionEl.offsetWidth;  // already in rendered (scaled) px
-        const elH = sectionEl.offsetHeight;
-        const scaledLeft = newX * scale;
-        const scaledTop = newY * scale;
-        const { snapDx, snapDy, guides } = calculateSnap(scaledLeft, scaledTop, elW, elH);
-        // Convert snap delta back to unscaled offset coords
+      // Snap using rendered (scaled) coordinates
+      const el = sectionRefs.current[d.section];
+      if (el) {
+        const elW = el.offsetWidth, elH = el.offsetHeight;
+        const { snapDx, snapDy, guides } = calculateSnap(newX * scale, newY * scale, elW, elH);
         newX += Math.round(snapDx / scale);
         newY += Math.round(snapDy / scale);
         setActiveGuides(guides);
       }
-
       dragOffsetRef.current = { x: newX, y: newY };
       setDragOffset({ x: newX, y: newY });
     };
-    const handleUp = () => {
+    const onUp = () => {
       const d = dragRef.current;
-      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); setActiveGuides([]); return; }
+      if (!d || !onUpdateVariant || !variant) {
+        dragRef.current = null; setActiveDragSection(null); setActiveGuides([]); return;
+      }
       const final = dragOffsetRef.current;
       onUpdateVariant(variant.id, {
         [d.section]: { ...variant[d.section], offsetX: final.x, offsetY: final.y },
@@ -1259,99 +1277,115 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       setActiveDragSection(null);
       setActiveGuides([]);
     };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [activeDragSection, scale, onUpdateVariant, variant]);
 
-  // --- Resize effect ---
+  /* ─── Resize effect ──────────────────────────────────────────────── */
   useEffect(() => {
     if (!resizeState) return;
-    const handleMove = (e: MouseEvent) => {
+    const onMove = (e: MouseEvent) => {
       const r = resizeRef.current;
       if (!r) return;
       const dx = (e.clientX - r.startX) / scale;
       const dy = (e.clientY - r.startY) / scale;
       let newW = r.origW, newH = r.origH, newOX = r.origOX, newOY = r.origOY;
-      const minW = 20, minH = 20;
-      switch (r.handle) {
-        case "br": newW = Math.max(minW, r.origW + dx); newH = Math.max(minH, r.origH + dy); break;
-        case "bl": newW = Math.max(minW, r.origW - dx); newH = Math.max(minH, r.origH + dy); newOX = r.origOX + (r.origW - newW); break;
-        case "tr": newW = Math.max(minW, r.origW + dx); newH = Math.max(minH, r.origH - dy); newOY = r.origOY + (r.origH - newH); break;
-        case "tl": newW = Math.max(minW, r.origW - dx); newH = Math.max(minH, r.origH - dy); newOX = r.origOX + (r.origW - newW); newOY = r.origOY + (r.origH - newH); break;
-      }
-      setResizeState({ section: r.section, handle: r.handle, w: Math.round(newW), h: Math.round(newH) });
-      dragOffsetRef.current = { x: Math.round(newOX), y: Math.round(newOY) };
-      setDragOffset({ x: Math.round(newOX), y: Math.round(newOY) });
+      const minSz = 20;
 
-      // Snap edges during resize (all in container-scaled px)
-      const { guides: resizeGuides } = calculateSnap(newOX * scale, newOY * scale, newW * scale, newH * scale);
-      setActiveGuides(resizeGuides);
+      // Handle-aware resize (each corner anchors the opposite corner)
+      if (r.handle.includes("r")) newW = Math.max(minSz, r.origW + dx);
+      if (r.handle.includes("l")) { newW = Math.max(minSz, r.origW - dx); newOX = r.origOX + (r.origW - newW); }
+      if (r.handle.includes("b")) newH = Math.max(minSz, r.origH + dy);
+      if (r.handle.includes("t")) { newH = Math.max(minSz, r.origH - dy); newOY = r.origOY + (r.origH - newH); }
+
+      // Edge handles preserve the other dimension
+      if (r.handle === "t" || r.handle === "b") newW = r.origW;
+      if (r.handle === "l" || r.handle === "r") newH = r.origH;
+
+      newW = Math.round(newW); newH = Math.round(newH);
+      newOX = Math.round(newOX); newOY = Math.round(newOY);
+
+      // Snap during resize
+      const { guides } = calculateSnap(newOX * scale, newOY * scale, newW * scale, newH * scale);
+      setActiveGuides(guides);
+
+      resizeDimsRef.current = { w: newW, h: newH };
+      dragOffsetRef.current = { x: newOX, y: newOY };
+      setResizeState({ section: r.section, handle: r.handle, w: newW, h: newH });
+      setDragOffset({ x: newOX, y: newOY });
     };
-    const handleUp = () => {
+    const onUp = () => {
       const r = resizeRef.current;
-      if (!r || !onUpdateVariant || !variant) { resizeRef.current = null; setResizeState(null); setActiveGuides([]); return; }
-      const final = dragOffsetRef.current;
+      if (!r || !onUpdateVariant || !variant) {
+        resizeRef.current = null; setResizeState(null); setActiveGuides([]); return;
+      }
+      const finalPos = dragOffsetRef.current;
+      const finalDims = resizeDimsRef.current;
       onUpdateVariant(variant.id, {
-        [r.section]: { ...variant[r.section], offsetX: final.x, offsetY: final.y, customWidth: resizeState?.w, customHeight: resizeState?.h },
+        [r.section]: { ...variant[r.section], offsetX: finalPos.x, offsetY: finalPos.y, customWidth: finalDims.w, customHeight: finalDims.h },
       });
       resizeRef.current = null;
       setResizeState(null);
       setActiveGuides([]);
     };
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [resizeState, scale, onUpdateVariant, variant]);
 
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
   const data = sampleMenuData;
   const { colors, fonts, spacing } = template;
-
   const fs = (size: number) => `${size}px`;
 
+  /* ─── Helpers ────────────────────────────────────────────────────── */
+
+  const isSectionCustom = (section: SectionType): boolean => {
+    if (section === "header") return variant.header.style === "custom";
+    return false;
+  };
+
   const getOffset = (section: SectionType) => {
-    const config = variant[section];
-    const ox = config.offsetX ?? 0;
-    const oy = config.offsetY ?? 0;
-    if (activeDragSection === section || resizeState?.section === section) {
-      return { x: dragOffset.x, y: dragOffset.y };
-    }
-    return { x: ox, y: oy };
+    if (activeDragSection === section || resizeState?.section === section) return dragOffset;
+    const cfg = variant[section];
+    return { x: cfg.offsetX ?? 0, y: cfg.offsetY ?? 0 };
   };
 
   const getDimensions = (section: SectionType) => {
     if (resizeState?.section === section) return { w: resizeState.w, h: resizeState.h };
-    const config = variant[section] as any;
-    return { w: config.customWidth, h: config.customHeight };
+    const cfg = variant[section] as any;
+    return { w: cfg.customWidth as number | undefined, h: cfg.customHeight as number | undefined };
   };
 
-  const handleMouseDown = (e: React.MouseEvent, section: SectionType) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const config = variant[section];
-    const origX = config.offsetX ?? 0;
-    const origY = config.offsetY ?? 0;
-    dragRef.current = { section, startX: e.clientX, startY: e.clientY, origX, origY };
-    dragOffsetRef.current = { x: origX, y: origY };
-    setDragOffset({ x: origX, y: origY });
+  const startDrag = (e: React.MouseEvent, section: SectionType) => {
+    e.preventDefault(); e.stopPropagation();
+    const cfg = variant[section];
+    const ox = cfg.offsetX ?? 0, oy = cfg.offsetY ?? 0;
+    dragRef.current = { section, startX: e.clientX, startY: e.clientY, origX: ox, origY: oy };
+    dragOffsetRef.current = { x: ox, y: oy };
+    setDragOffset({ x: ox, y: oy });
     setActiveDragSection(section);
+    setSelectedSection(section);
   };
 
-  const handleResizeStart = (e: React.MouseEvent, section: SectionType, handle: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const config = variant[section] as any;
+  const startResize = (e: React.MouseEvent, section: SectionType, handle: string) => {
+    e.preventDefault(); e.stopPropagation();
+    const cfg = variant[section] as any;
     const el = sectionRefs.current[section];
-    // Store everything in unscaled coords; el.offsetWidth is scaled, so divide by scale
-    const origW = config.customWidth || (el ? Math.round(el.offsetWidth / scale) : 100);
-    const origH = config.customHeight || (el ? Math.round(el.offsetHeight / scale) : 60);
-    resizeRef.current = { section, handle, startX: e.clientX, startY: e.clientY, origW, origH, origOX: config.offsetX ?? 0, origOY: config.offsetY ?? 0 };
-    dragOffsetRef.current = { x: config.offsetX ?? 0, y: config.offsetY ?? 0 };
-    setDragOffset({ x: config.offsetX ?? 0, y: config.offsetY ?? 0 });
+    const origW = cfg.customWidth || (el ? Math.round(el.offsetWidth / scale) : 200);
+    const origH = cfg.customHeight || (el ? Math.round(el.offsetHeight / scale) : 100);
+    const origOX = cfg.offsetX ?? 0, origOY = cfg.offsetY ?? 0;
+    resizeRef.current = { section, handle, startX: e.clientX, startY: e.clientY, origW, origH, origOX, origOY };
+    dragOffsetRef.current = { x: origOX, y: origOY };
+    resizeDimsRef.current = { w: origW, h: origH };
+    setDragOffset({ x: origOX, y: origOY });
     setResizeState({ section, handle, w: origW, h: origH });
+    setSelectedSection(section);
   };
+
+  /* ─── Section renderers ──────────────────────────────────────────── */
 
   const renderSeparator = (style: string) => {
     if (style === "none") return null;
@@ -1367,135 +1401,16 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   };
 
   const renderBackgroundImage = (section: SectionType) => {
-    const config = variant[section];
-    if (!config.image?.url) return null;
-    
+    const cfg = variant[section];
+    if (!cfg.image?.url) return null;
     return (
-      <div
-        style={{
-          position: "absolute",
-          top: config.image.offsetY,
-          left: config.image.offsetX,
-          width: config.image.width,
-          height: config.image.height,
-          opacity: config.image.opacity,
-          zIndex: -1,
-          pointerEvents: "none",
-        }}
-      >
-        <img
-          src={config.image.url}
-          alt=""
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: config.image.objectFit,
-            borderRadius: "4px",
-          }}
-        />
-      </div>
-    );
-  };
-
-  const isSectionCustom = (section: SectionType): boolean => {
-    if (!variant) return false;
-    if (section === "header") return variant.header.style === "custom";
-    return false;
-  };
-
-  const wrapDraggable = (section: SectionType, content: React.ReactNode) => {
-    const offset = getOffset(section);
-    const dims = getDimensions(section);
-    const isDragging = activeDragSection === section;
-    const isResizing = resizeState?.section === section;
-    const isActive = isDragging || isResizing;
-    const isHovered = hoverSection === section;
-    const isHighlightedFromPanel = highlightedSection === section && !isActive;
-    const canDrag = isSectionCustom(section);
-    const isLocked = lockedSections?.has(section) ?? false;
-    const isSelected = canDrag && (isHighlightedFromPanel || isActive || isHovered);
-
-    if (isLocked) {
-      return (
-        <div key={section} style={{ position: "relative", pointerEvents: "none", opacity: 0.6 }}>
-          {content}
-        </div>
-      );
-    }
-
-    // Resize handle style (matches AdaMenu: blue squares with white border)
-    const hs = HANDLE_SIZE;
-    const handleStyle = (cursor: string): React.CSSProperties => ({
-      position: "absolute", width: hs, height: hs, boxSizing: "border-box",
-      backgroundColor: "#0066cc", border: "2px solid #fff", cursor,
-      zIndex: 15, pointerEvents: "auto",
-    });
-
-    return (
-      <div
-        key={section}
-        ref={(el) => { sectionRefs.current[section] = el; }}
-        onMouseDown={(e) => { if (canDrag && !hoveredHandle) handleMouseDown(e, section); }}
-        onClick={() => onClickSection?.(section)}
-        onMouseEnter={() => setHoverSection(section)}
-        onMouseLeave={() => { setHoverSection(null); setHoveredHandle(null); }}
-        style={{
-          // Custom sections are absolutely positioned — they don't affect layout flow
-          position: canDrag ? "absolute" : "relative",
-          left: canDrag ? offset.x * scale : undefined,
-          top: canDrag ? offset.y * scale : undefined,
-          width: dims.w ? `${dims.w * scale}px` : undefined,
-          height: dims.h ? `${dims.h * scale}px` : undefined,
-          // Never overflow:hidden — it clips resize handles
-          cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
-          borderRadius: "4px",
-          outline: isActive
-            ? "2px solid #0066cc"
-            : isHighlightedFromPanel
-              ? "2px solid #4d6aff"
-              : isHovered && canDrag
-                ? "1px dashed #ff69b466"
-                : isHovered
-                  ? "1px dashed #4d6aff66"
-                  : "none",
-          outlineOffset: "2px",
-          backgroundColor: isHighlightedFromPanel ? "rgba(77, 106, 255, 0.06)" : undefined,
-          transition: isActive ? "none" : "outline 0.2s ease, background-color 0.2s ease",
-          userSelect: "none",
-          animation: isHighlightedFromPanel && !isActive ? "previewPulse 1.5s ease-in-out infinite" : undefined,
-          zIndex: canDrag ? 10 : undefined,
-        }}
-      >
-        {content}
-        {/* Resize handles — show on hover or active for custom sections */}
-        {canDrag && isSelected && !isDragging && (
-          <>
-            <div style={{ ...handleStyle("nw-resize"), top: -hs / 2, left: -hs / 2 }}
-              onMouseEnter={() => setHoveredHandle("tl")} onMouseLeave={() => setHoveredHandle(null)}
-              onMouseDown={(e) => handleResizeStart(e, section, "tl")} />
-            <div style={{ ...handleStyle("ne-resize"), top: -hs / 2, right: -hs / 2 }}
-              onMouseEnter={() => setHoveredHandle("tr")} onMouseLeave={() => setHoveredHandle(null)}
-              onMouseDown={(e) => handleResizeStart(e, section, "tr")} />
-            <div style={{ ...handleStyle("sw-resize"), bottom: -hs / 2, left: -hs / 2 }}
-              onMouseEnter={() => setHoveredHandle("bl")} onMouseLeave={() => setHoveredHandle(null)}
-              onMouseDown={(e) => handleResizeStart(e, section, "bl")} />
-            <div style={{ ...handleStyle("se-resize"), bottom: -hs / 2, right: -hs / 2 }}
-              onMouseEnter={() => setHoveredHandle("br")} onMouseLeave={() => setHoveredHandle(null)}
-              onMouseDown={(e) => handleResizeStart(e, section, "br")} />
-          </>
-        )}
-        {/* Coordinate/dimension tooltip while dragging or resizing */}
-        {isActive && (
-          <div style={{
-            position: "absolute", top: -18, left: 0,
-            fontSize: "8px", fontFamily: "monospace",
-            background: "#0066cc", color: "white",
-            padding: "1px 4px", borderRadius: "2px",
-            whiteSpace: "nowrap", pointerEvents: "none", zIndex: 16,
-          }}>
-            x:{offset.x} y:{offset.y}{dims.w ? ` w:${dims.w}` : ""}{dims.h ? ` h:${dims.h}` : ""}
-          </div>
-        )}
+      <div style={{
+        position: "absolute", inset: 0,
+        top: cfg.image.offsetY, left: cfg.image.offsetX,
+        width: cfg.image.width, height: cfg.image.height,
+        opacity: cfg.image.opacity, zIndex: 0, pointerEvents: "none",
+      }}>
+        <img src={cfg.image.url} alt="" style={{ width: "100%", height: "100%", objectFit: cfg.image.objectFit, borderRadius: "4px" }} />
       </div>
     );
   };
@@ -1514,26 +1429,25 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           }}>
             {renderBackgroundImage("header")}
             {variant.header.showSubtitle && (
-              <p style={{ fontSize: fs(7), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body }}>
+              <p style={{ fontSize: fs(7), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
                 {data.subtitle}
               </p>
             )}
-            <h1 style={{ fontFamily: fonts.heading, fontSize: fs(22), fontWeight: 400, fontStyle: "italic", letterSpacing: "0.05em", color: colors.text }}>
+            <h1 style={{ fontFamily: fonts.heading, fontSize: fs(22), fontWeight: 400, fontStyle: "italic", letterSpacing: "0.05em", color: colors.text, position: "relative", zIndex: 1 }}>
               {data.restaurantName}
             </h1>
             {variant.header.showEstablished && data.established && (
-              <p style={{ fontSize: fs(7), letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px", fontFamily: fonts.body }}>
+              <p style={{ fontSize: fs(7), letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
                 EST. {data.established}
               </p>
             )}
             {variant.header.showDivider && (
-              <div style={{ display: "flex", justifyContent: variant.header.style === "custom" ? (variant.header.customAlignment === "left" ? "flex-start" : variant.header.customAlignment === "right" ? "flex-end" : "center") : variant.header.style === "left" ? "flex-start" : variant.header.style === "right" ? "flex-end" : "center", marginTop: "12px" }}>
+              <div style={{ display: "flex", justifyContent: variant.header.style === "custom" ? (variant.header.customAlignment === "left" ? "flex-start" : variant.header.customAlignment === "right" ? "flex-end" : "center") : variant.header.style === "left" ? "flex-start" : variant.header.style === "right" ? "flex-end" : "center", marginTop: "12px", position: "relative", zIndex: 1 }}>
                 <span style={{ width: "40px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
               </div>
             )}
           </div>
         );
-
       case "body":
         if (variant.body.show === false) return null;
         return (
@@ -1546,26 +1460,20 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           }}>
             {renderBackgroundImage("body")}
             {data.categories.map((cat, catIdx) => (
-              <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px` }}>
-                {/* Category header */}
+              <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px`, position: "relative", zIndex: 1 }}>
                 <div style={{
                   textAlign: variant.body.itemAlignment,
                   marginBottom: `${spacing.itemGap * 0.4}px`,
                   display: variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" ? "flex" : "block",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
+                  alignItems: "center", justifyContent: "center", gap: "8px",
                 }}>
                   {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                   <h2 style={{
                     fontSize: fs(variant.body.categoryStyle === "bold" ? 9 : 8),
-                    letterSpacing: "0.25em",
-                    color: colors.primary,
-                    textTransform: "uppercase",
-                    fontWeight: variant.body.categoryStyle === "bold" ? 800 : 600,
-                    whiteSpace: "nowrap",
+                    letterSpacing: "0.25em", color: colors.primary, textTransform: "uppercase",
+                    fontWeight: variant.body.categoryStyle === "bold" ? 800 : 600, whiteSpace: "nowrap",
                     fontFamily: variant.body.categoryStyle === "bold" ? fonts.heading : fonts.body,
                     borderBottom: variant.body.categoryStyle === "bold" ? `2px solid ${colors.primary}` : "none",
                     paddingBottom: variant.body.categoryStyle === "bold" ? "4px" : "0",
@@ -1576,8 +1484,6 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                 </div>
-
-                {/* Items */}
                 <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap * 0.3}px` }}>
                   {cat.items.slice(0, variant.body.columns > 1 ? 2 : 3).map((item) => (
                     <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
@@ -1623,27 +1529,22 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     </div>
                   ))}
                 </div>
-
-                {/* Separator between categories */}
                 {catIdx < data.categories.length - 1 && variant.body.separatorStyle !== "dotted" && renderSeparator(variant.body.separatorStyle)}
               </div>
             ))}
           </div>
         );
-
       case "highlight": {
         if (!variant.highlight.show || !data.highlightImage) return null;
         const hl = variant.highlight;
         return (
           <div style={{
             position: "relative",
-            marginTop: `${hl.marginTop ?? 12}px`,
-            marginBottom: `${hl.marginBottom ?? 0}px`,
-            marginLeft: `${hl.marginLeft ?? 0}px`,
-            marginRight: `${hl.marginRight ?? 0}px`,
+            marginTop: `${hl.marginTop ?? 12}px`, marginBottom: `${hl.marginBottom ?? 0}px`,
+            marginLeft: `${hl.marginLeft ?? 0}px`, marginRight: `${hl.marginRight ?? 0}px`,
           }}>
             {renderBackgroundImage("highlight")}
-            <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative" }}>
+            <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative", zIndex: 1 }}>
               <img src={data.highlightImage} alt="" style={{ width: "100%", height: `${hl.height ?? 80}px`, objectFit: "cover" }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
                 <p style={{ fontSize: fs(5), color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: fonts.body }}>{data.highlightLabel}</p>
@@ -1656,23 +1557,158 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     }
   };
 
-  const marginColors = {
-    top: "rgba(255, 82, 120, 0.18)",
-    bottom: "rgba(220, 70, 150, 0.18)",
-    left: "rgba(255, 120, 90, 0.16)",
-    right: "rgba(180, 80, 180, 0.16)",
+  /* ─── Figma-like element wrapper ─────────────────────────────────── */
+
+  const wrapSection = (section: SectionType, content: React.ReactNode) => {
+    const offset = getOffset(section);
+    const dims = getDimensions(section);
+    const isDragging = activeDragSection === section;
+    const isResizing = resizeState?.section === section;
+    const isInteracting = isDragging || isResizing;
+    const isHovered = hoverSection === section;
+    const isSelected = selectedSection === section;
+    const isHighlighted = highlightedSection === section && !isInteracting;
+    const canDrag = isSectionCustom(section);
+    const isLocked = lockedSections?.has(section) ?? false;
+    const showHandles = canDrag && (isSelected || isInteracting) && !isDragging;
+
+    if (isLocked) {
+      return (
+        <div key={section} style={{ position: "relative", pointerEvents: "none", opacity: 0.6 }}>
+          {content}
+        </div>
+      );
+    }
+
+    // Determine outline style (Figma-like: blue on select, light blue on hover)
+    let outline = "none";
+    let outlineOffset = "0px";
+    if (isInteracting) {
+      outline = `2px solid ${SELECT_COLOR}`;
+      outlineOffset = "0px";
+    } else if (isSelected) {
+      outline = `2px solid ${SELECT_COLOR}`;
+      outlineOffset = "0px";
+    } else if (isHighlighted) {
+      outline = `2px solid ${SELECT_COLOR}88`;
+      outlineOffset = "0px";
+    } else if (isHovered) {
+      outline = `1px solid ${SELECT_COLOR}66`;
+      outlineOffset = "0px";
+    }
+
+    // Resize handle positions: 4 corners + 4 edge midpoints
+    const hs = HANDLE_SIZE;
+    const handles = canDrag ? [
+      { id: "tl", cursor: "nwse-resize", top: -hs / 2, left: -hs / 2 },
+      { id: "tr", cursor: "nesw-resize", top: -hs / 2, right: -hs / 2 },
+      { id: "bl", cursor: "nesw-resize", bottom: -hs / 2, left: -hs / 2 },
+      { id: "br", cursor: "nwse-resize", bottom: -hs / 2, right: -hs / 2 },
+      { id: "t", cursor: "ns-resize", top: -hs / 2, left: "calc(50% - 4px)" },
+      { id: "b", cursor: "ns-resize", bottom: -hs / 2, left: "calc(50% - 4px)" },
+      { id: "l", cursor: "ew-resize", top: "calc(50% - 4px)", left: -hs / 2 },
+      { id: "r", cursor: "ew-resize", top: "calc(50% - 4px)", right: -hs / 2 },
+    ] : [];
+
+    return (
+      <div
+        key={section}
+        ref={(el) => { sectionRefs.current[section] = el; }}
+        onMouseDown={(e) => {
+          // Click to select; start drag only for custom sections
+          setSelectedSection(section);
+          onClickSection?.(section);
+          if (canDrag) startDrag(e, section);
+        }}
+        onMouseEnter={() => setHoverSection(section)}
+        onMouseLeave={() => setHoverSection(null)}
+        style={{
+          position: canDrag ? "absolute" : "relative",
+          left: canDrag ? offset.x * scale : undefined,
+          top: canDrag ? offset.y * scale : undefined,
+          width: canDrag && dims.w ? dims.w * scale : undefined,
+          height: canDrag && dims.h ? dims.h * scale : undefined,
+          cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
+          outline,
+          outlineOffset,
+          borderRadius: "2px",
+          transition: isInteracting ? "none" : "outline 0.15s ease",
+          userSelect: "none",
+          zIndex: isInteracting ? 100 : canDrag ? 10 : undefined,
+        }}
+      >
+        {/* Content container — clips content for custom/absolute sections */}
+        <div style={{
+          width: "100%", height: "100%",
+          overflow: canDrag && dims.w ? "hidden" : undefined,
+          borderRadius: "2px",
+        }}>
+          {content}
+        </div>
+
+        {/* Resize handles — Figma style: white squares with blue border */}
+        {showHandles && handles.map(h => (
+          <div
+            key={h.id}
+            onMouseDown={(e) => startResize(e, section, h.id)}
+            style={{
+              position: "absolute",
+              width: hs, height: hs,
+              top: h.top, left: h.left, right: h.right, bottom: h.bottom,
+              backgroundColor: "white",
+              border: `1.5px solid ${SELECT_COLOR}`,
+              borderRadius: "1px",
+              cursor: h.cursor,
+              zIndex: 20,
+              pointerEvents: "auto",
+              boxShadow: "0 0 0 0.5px rgba(0,0,0,0.1)",
+            } as React.CSSProperties}
+          />
+        ))}
+
+        {/* Position/size tooltip (Figma-style, top-center) */}
+        {isInteracting && (
+          <div style={{
+            position: "absolute",
+            top: -22, left: "50%", transform: "translateX(-50%)",
+            fontSize: "9px", fontFamily: "'Inter', monospace", fontWeight: 500,
+            background: "rgba(0,0,0,0.8)", color: "white",
+            padding: "2px 6px", borderRadius: "3px",
+            whiteSpace: "nowrap", pointerEvents: "none", zIndex: 30,
+            letterSpacing: "0.02em",
+          }}>
+            {isResizing
+              ? `${dims.w ?? "?"} × ${dims.h ?? "?"}`
+              : `${offset.x}, ${offset.y}`
+            }
+          </div>
+        )}
+      </div>
+    );
   };
-  const marginTextColor = "#d44070";
-  const marginTextStyle: React.CSSProperties = {
+
+  /* ─── Margin overlays ────────────────────────────────────────────── */
+
+  const mrgColor = "rgba(255, 82, 120, 0.15)";
+  const mrgLabelStyle: React.CSSProperties = {
     position: "absolute", display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "7px", fontWeight: 700, fontFamily: "monospace", color: marginTextColor,
+    fontSize: "7px", fontWeight: 600, fontFamily: "'Inter', monospace", color: "#e84393",
     pointerEvents: "none", zIndex: 5,
   };
+
+  /* ─── Render ─────────────────────────────────────────────────────── */
 
   return (
     <div
       ref={containerRef}
       className="h-full flex flex-col"
+      onClick={(e) => {
+        // Deselect on clicking empty canvas space (Figma behavior)
+        if (e.target === e.currentTarget) {
+          setSelectedSection(null);
+          onClickSection?.(null as any);
+        }
+      }}
       style={{
         position: "relative",
         fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
@@ -1682,46 +1718,35 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       {/* Margin overlays */}
       {(showMargins || !!activeDragSection || !!resizeState) && (
         <>
-          {/* Top margin */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${spacing.marginTop}px`, backgroundColor: marginColors.top, zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginTop}px</div>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: spacing.marginTop, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+            {spacing.marginTop > 8 && <div style={{ ...mrgLabelStyle, inset: 0 }}>{spacing.marginTop}</div>}
           </div>
-          {/* Bottom margin */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${spacing.marginBottom}px`, backgroundColor: marginColors.bottom, zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginBottom}px</div>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: spacing.marginBottom, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+            {spacing.marginBottom > 8 && <div style={{ ...mrgLabelStyle, inset: 0 }}>{spacing.marginBottom}</div>}
           </div>
-          {/* Left margin */}
-          <div style={{ position: "absolute", top: `${spacing.marginTop}px`, bottom: `${spacing.marginBottom}px`, left: 0, width: `${spacing.marginLeft}px`, backgroundColor: marginColors.left, zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginLeft}px</div>
+          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, left: 0, width: spacing.marginLeft, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+            {spacing.marginLeft > 8 && <div style={{ ...mrgLabelStyle, inset: 0, writingMode: "vertical-lr", transform: "rotate(180deg)" }}>{spacing.marginLeft}</div>}
           </div>
-          {/* Right margin */}
-          <div style={{ position: "absolute", top: `${spacing.marginTop}px`, bottom: `${spacing.marginBottom}px`, right: 0, width: `${spacing.marginRight}px`, backgroundColor: marginColors.right, zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginRight}px</div>
+          <div style={{ position: "absolute", top: spacing.marginTop, bottom: spacing.marginBottom, right: 0, width: spacing.marginRight, backgroundColor: mrgColor, zIndex: 4, pointerEvents: "none" }}>
+            {spacing.marginRight > 8 && <div style={{ ...mrgLabelStyle, inset: 0, writingMode: "vertical-lr" }}>{spacing.marginRight}</div>}
           </div>
         </>
       )}
-      {/* Snap guidelines — pink dashed (matches AdaMenu) */}
-      {activeGuides.map((guide, i) => (
-        guide.type === "x" ? (
-          <div key={`guide-${i}`} style={{
-            position: "absolute", top: 0, bottom: 0,
-            left: `${guide.value}px`, width: 0,
-            borderLeft: `1px dashed ${GUIDE_COLOR}`,
-            pointerEvents: "none", zIndex: 20,
-          }} />
+
+      {/* Snap guidelines (pink dashed lines spanning the full container) */}
+      {activeGuides.map((g, i) =>
+        g.type === "x" ? (
+          <div key={`g${i}`} style={{ position: "absolute", top: 0, bottom: 0, left: g.value, width: 0, borderLeft: `1px dashed ${GUIDE_COLOR}`, pointerEvents: "none", zIndex: 25 }} />
         ) : (
-          <div key={`guide-${i}`} style={{
-            position: "absolute", left: 0, right: 0,
-            top: `${guide.value}px`, height: 0,
-            borderTop: `1px dashed ${GUIDE_COLOR}`,
-            pointerEvents: "none", zIndex: 20,
-          }} />
+          <div key={`g${i}`} style={{ position: "absolute", left: 0, right: 0, top: g.value, height: 0, borderTop: `1px dashed ${GUIDE_COLOR}`, pointerEvents: "none", zIndex: 25 }} />
         )
-      ))}
+      )}
+
+      {/* Render sections in order */}
       {sectionOrder.map((section) => {
         const content = renderSection(section);
         if (!content) return null;
-        return wrapDraggable(section, content);
+        return wrapSection(section, content);
       })}
     </div>
   );
