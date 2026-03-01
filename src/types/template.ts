@@ -74,6 +74,8 @@ export interface VariantHeaderConfig {
   showDivider: boolean;
   offsetX?: number;       // px offset for preview drag
   offsetY?: number;       // px offset for preview drag
+  customWidth?: number;   // px bounding box width (custom mode)
+  customHeight?: number;  // px bounding box height (custom mode)
   image?: SectionImageConfig;
 }
 

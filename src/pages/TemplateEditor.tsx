@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { uid } from "../utils/uid";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -603,6 +603,12 @@ export default function TemplateEditor() {
                                     <NumberRow label="Y" value={activeVariant.header.offsetY ?? 0} unit="px" compact
                                       onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, offsetY: v } })} />
                                   </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="W" value={activeVariant.header.customWidth ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, customWidth: v || undefined } })} />
+                                    <NumberRow label="H" value={activeVariant.header.customHeight ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, customHeight: v || undefined } })} />
+                                  </div>
                                 </>
                               )}
                               <ToggleRow label="Show Subtitle" checked={activeVariant.header.showSubtitle}
@@ -1128,37 +1134,37 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   onClickSection?: (section: SectionType) => void;
   lockedSections?: Set<SectionType>;
 }) {
-  const [dragState, setDragState] = useState<{
-    section: SectionType;
-    startX: number;
-    startY: number;
-    origX: number;
-    origY: number;
-    currentX: number;
-    currentY: number;
-  } | null>(null);
+  const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragRef = useRef<{ section: SectionType; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragState) return;
-    const dx = (e.clientX - dragState.startX) / scale;
-    const dy = (e.clientY - dragState.startY) / scale;
-    setDragState((prev) => prev ? {
-      ...prev,
-      currentX: Math.round(prev.origX + dx),
-      currentY: Math.round(prev.origY + dy),
-    } : null);
-  }, [dragState, scale]);
-
-  const handleMouseUp = useCallback(() => {
-    if (!dragState || !onUpdateVariant || !variant) return;
-    const { section, currentX, currentY } = dragState;
-    const configKey = section;
-    onUpdateVariant(variant.id, {
-      [configKey]: { ...variant[configKey], offsetX: currentX, offsetY: currentY },
-    });
-    setDragState(null);
-  }, [dragState, onUpdateVariant, variant]);
+  useEffect(() => {
+    if (!activeDragSection) return;
+    const handleMove = (e: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const dx = (e.clientX - d.startX) / scale;
+      const dy = (e.clientY - d.startY) / scale;
+      const newOffset = { x: Math.round(d.origX + dx), y: Math.round(d.origY + dy) };
+      dragOffsetRef.current = newOffset;
+      setDragOffset(newOffset);
+    };
+    const handleUp = () => {
+      const d = dragRef.current;
+      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); return; }
+      const final = dragOffsetRef.current;
+      onUpdateVariant(variant.id, {
+        [d.section]: { ...variant[d.section], offsetX: final.x, offsetY: final.y },
+      });
+      dragRef.current = null;
+      setActiveDragSection(null);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+  }, [activeDragSection, scale, onUpdateVariant, variant]);
 
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
@@ -1171,8 +1177,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     const config = variant[section];
     const ox = config.offsetX ?? 0;
     const oy = config.offsetY ?? 0;
-    if (dragState?.section === section) {
-      return { x: dragState.currentX, y: dragState.currentY };
+    if (activeDragSection === section) {
+      return { x: dragOffset.x, y: dragOffset.y };
     }
     return { x: ox, y: oy };
   };
@@ -1181,15 +1187,12 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     e.preventDefault();
     e.stopPropagation();
     const config = variant[section];
-    setDragState({
-      section,
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: config.offsetX ?? 0,
-      origY: config.offsetY ?? 0,
-      currentX: config.offsetX ?? 0,
-      currentY: config.offsetY ?? 0,
-    });
+    const origX = config.offsetX ?? 0;
+    const origY = config.offsetY ?? 0;
+    dragRef.current = { section, startX: e.clientX, startY: e.clientY, origX, origY };
+    dragOffsetRef.current = { x: origX, y: origY };
+    setDragOffset({ x: origX, y: origY });
+    setActiveDragSection(section);
   };
 
   const renderSeparator = (style: string) => {
@@ -1244,11 +1247,16 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const wrapDraggable = (section: SectionType, content: React.ReactNode) => {
     const offset = getOffset(section);
-    const isDragging = dragState?.section === section;
+    const isDragging = activeDragSection === section;
     const isHovered = hoverSection === section;
     const isHighlightedFromPanel = highlightedSection === section && !isDragging;
     const canDrag = isSectionCustom(section);
     const isLocked = lockedSections?.has(section) ?? false;
+
+    // Custom bounding box dimensions (header only for now)
+    const config = variant[section];
+    const customW = section === "header" && "customWidth" in config ? (config as any).customWidth : undefined;
+    const customH = section === "header" && "customHeight" in config ? (config as any).customHeight : undefined;
 
     if (isLocked) {
       return (
@@ -1268,6 +1276,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         style={{
           position: "relative",
           transform: canDrag ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
+          width: customW ? `${customW}px` : undefined,
+          height: customH ? `${customH}px` : undefined,
+          overflow: (customW || customH) ? "hidden" : undefined,
           cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
           borderRadius: "4px",
           outline: isDragging
@@ -1300,7 +1311,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
             pointerEvents: "none",
             zIndex: 10,
           }}>
-            x: {offset.x}, y: {offset.y}
+            x: {offset.x}, y: {offset.y}{customW ? ` w: ${customW}` : ""}{customH ? ` h: ${customH}` : ""}
           </div>
         )}
       </div>
@@ -1479,9 +1490,6 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   return (
     <div
       className="h-full flex flex-col"
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       style={{
         position: "relative",
         fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
