@@ -59,7 +59,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
-import type { MenuTemplate, PageVariant } from "../types/template";
+import type { MenuTemplate, PageVariant, HighlightStyle } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
 import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, type FontPairing } from "../data/fonts";
@@ -179,7 +179,7 @@ export default function TemplateEditor() {
       name: `Page ${template.pageVariants.length + 1}`,
       header: { show: false, style: "none", showSubtitle: false, showEstablished: false, showDivider: false },
       body: { columns: 1, categoryStyle: "lines", itemAlignment: "center", pricePosition: "below", separatorStyle: "line", showDescriptions: true, showFeaturedBadge: true },
-      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
+      highlight: { show: false, position: "none", style: "fit", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0, imageFit: "cover", imageLocked: false },
     };
     save({ pageVariants: [...template.pageVariants, newVar] });
     setActiveVariantId(newVar.id);
@@ -780,31 +780,141 @@ export default function TemplateEditor() {
                           )}
                           {section === "highlight" && (
                             <>
-                              <NumberRow label="Height" value={activeVariant.highlight.height ?? 80} unit="px"
-                                onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, height: v } })} />
-                              <div className="pt-1">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Margin</Label>
-                                <div className="grid grid-cols-2 gap-2 mt-1.5">
-                                  <NumberRow label="Top" value={activeVariant.highlight.marginTop ?? 12} unit="px" compact
-                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginTop: v } })} />
-                                  <NumberRow label="Bottom" value={activeVariant.highlight.marginBottom ?? 0} unit="px" compact
-                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginBottom: v } })} />
-                                  <NumberRow label="Left" value={activeVariant.highlight.marginLeft ?? 0} unit="px" compact
-                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginLeft: v } })} />
-                                  <NumberRow label="Right" value={activeVariant.highlight.marginRight ?? 0} unit="px" compact
-                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginRight: v } })} />
+                              {/* Style selector */}
+                              <SelectRow label="Style" value={activeVariant.highlight.style || "fit"}
+                                options={[
+                                  { v: "fit", l: "Fit (margins)" },
+                                  { v: "full-width", l: "Full Width" },
+                                  { v: "custom", l: "Custom" },
+                                ]}
+                                onChange={(v) => {
+                                  const newStyle = v as HighlightStyle;
+                                  if (newStyle === "custom" && activeVariant.highlight.style !== "custom") {
+                                    const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
+                                    updateVariant(activeVariant.id, {
+                                      highlight: {
+                                        ...activeVariant.highlight,
+                                        style: newStyle,
+                                        offsetX: activeVariant.highlight.offsetX ?? 0,
+                                        offsetY: activeVariant.highlight.offsetY ?? 0,
+                                        customWidth: activeVariant.highlight.customWidth || contentW,
+                                        customHeight: activeVariant.highlight.customHeight || (activeVariant.highlight.height || 80),
+                                      },
+                                    });
+                                  } else {
+                                    updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, style: newStyle } });
+                                  }
+                                }} />
+
+                              {/* Custom mode: position & size controls */}
+                              {activeVariant.highlight.style === "custom" && (
+                                <>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="X" value={activeVariant.highlight.offsetX ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetX: v } })} />
+                                    <NumberRow label="Y" value={activeVariant.highlight.offsetY ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetY: v } })} />
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="W" value={activeVariant.highlight.customWidth ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customWidth: v || undefined } })} />
+                                    <NumberRow label="H" value={activeVariant.highlight.customHeight ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customHeight: v || undefined } })} />
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Non-custom: height control */}
+                              {activeVariant.highlight.style !== "custom" && (
+                                <NumberRow label="Height" value={activeVariant.highlight.height ?? 80} unit="px"
+                                  onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, height: v } })} />
+                              )}
+
+                              {/* Image Fit Mode */}
+                              <SelectRow label="Image Fit" value={activeVariant.highlight.imageFit || "cover"}
+                                options={[
+                                  { v: "fit", l: "Fit" },
+                                  { v: "contain", l: "Contain" },
+                                  { v: "cover", l: "Cover" },
+                                ]}
+                                onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, imageFit: v as "fit" | "contain" | "cover" } })} />
+                              
+                              {/* Image Source */}
+                              <div className="pt-2">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Image</Label>
+                                <div className="space-y-2 mt-1.5">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">URL</Label>
+                                    <Input
+                                      value={activeVariant.highlight.imageUrl || ""}
+                                      placeholder="Paste image URL…"
+                                      className="h-7 text-xs"
+                                      onChange={(e) => updateVariant(activeVariant.id, { 
+                                        highlight: { ...activeVariant.highlight, imageUrl: e.target.value } 
+                                      })}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">Or import</Label>
+                                    <Input
+                                      type="file"
+                                      accept="image/*"
+                                      className="h-7 text-xs"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+                                        const reader = new FileReader();
+                                        reader.onload = () => {
+                                          updateVariant(activeVariant.id, {
+                                            highlight: { ...activeVariant.highlight, imageUrl: reader.result as string }
+                                          });
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }}
+                                    />
+                                  </div>
+                                  {activeVariant.highlight.imageUrl && (
+                                    <div className="flex items-center gap-1.5">
+                                      <img src={activeVariant.highlight.imageUrl} alt="" className="w-10 h-10 rounded object-cover border" />
+                                      <Button variant="ghost" size="sm" className="h-6 text-[10px] text-destructive"
+                                        onClick={() => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, imageUrl: undefined } })}>
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              
-                              {/* Image Configuration */}
+
+                              {/* Lock image change in menu editor */}
+                              <ToggleRow label="Lock Image" checked={activeVariant.highlight.imageLocked ?? false}
+                                onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, imageLocked: v } })} />
+
+                              {/* Margin (only for non-custom, since custom uses free positioning) */}
+                              {activeVariant.highlight.style !== "custom" && (
+                                <div className="pt-1">
+                                  <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Margin</Label>
+                                  <div className="grid grid-cols-2 gap-2 mt-1.5">
+                                    <NumberRow label="Top" value={activeVariant.highlight.marginTop ?? 12} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginTop: v } })} />
+                                    <NumberRow label="Bottom" value={activeVariant.highlight.marginBottom ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginBottom: v } })} />
+                                    <NumberRow label="Left" value={activeVariant.highlight.marginLeft ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginLeft: v } })} />
+                                    <NumberRow label="Right" value={activeVariant.highlight.marginRight ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginRight: v } })} />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Background Image (layer behind the main image) */}
                               <div className="pt-2">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Image</Label>
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Overlay</Label>
                                 <div className="space-y-2 mt-1.5">
                                   <div className="space-y-1">
                                     <Label className="text-[10px]">URL</Label>
                                     <Input
                                       value={activeVariant.highlight.image?.url || ""}
-                                      placeholder="No image set"
+                                      placeholder="No background set"
                                       className="h-7 text-xs"
                                       onChange={(e) => updateVariant(activeVariant.id, { 
                                         highlight: { 
@@ -820,16 +930,6 @@ export default function TemplateEditor() {
                                   </div>
                                   {activeVariant.highlight.image?.url && (
                                     <>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <NumberRow label="X Offset" value={activeVariant.highlight.image.offsetX} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, offsetX: v } } })} />
-                                        <NumberRow label="Y Offset" value={activeVariant.highlight.image.offsetY} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, offsetY: v } } })} />
-                                        <NumberRow label="Width" value={activeVariant.highlight.image.width} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, width: v } } })} />
-                                        <NumberRow label="Height" value={activeVariant.highlight.image.height} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, height: v } } })} />
-                                      </div>
                                       <div className="grid grid-cols-2 gap-2">
                                         <div className="space-y-1">
                                           <Label className="text-[10px]">Opacity</Label>
@@ -1351,6 +1451,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const isSectionCustom = (section: SectionType): boolean => {
     if (section === "header") return variant.header.style === "custom";
+    if (section === "highlight") return variant.highlight.style === "custom";
     return false;
   };
 
@@ -1542,17 +1643,44 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           </div>
         );
       case "highlight": {
-        if (!variant.highlight.show || !data.highlightImage) return null;
+        if (!variant.highlight.show) return null;
         const hl = variant.highlight;
+        const hlStyle = hl.style || "fit";
+        const hlImage = hl.imageUrl || data.highlightImage;
+        const hlFit = hl.imageFit || "cover";
+        const isCustom = hlStyle === "custom";
+        const isFullWidth = hlStyle === "full-width";
+
+        // Margins: "fit" uses margins, "full-width" ignores them, "custom" uses free positioning
+        const containerStyle: React.CSSProperties = isCustom
+          ? { position: "relative" }
+          : {
+              position: "relative",
+              marginTop: isFullWidth ? 0 : `${hl.marginTop ?? 12}px`,
+              marginBottom: isFullWidth ? 0 : `${hl.marginBottom ?? 0}px`,
+              marginLeft: isFullWidth ? `${-(template.spacing.marginLeft ?? 0)}px` : `${hl.marginLeft ?? 0}px`,
+              marginRight: isFullWidth ? `${-(template.spacing.marginRight ?? 0)}px` : `${hl.marginRight ?? 0}px`,
+            };
+
+        // Image dimensions
+        const imgHeight = isCustom ? (hl.customHeight ?? hl.height ?? 80) : (hl.height ?? 80);
+        const imgObjectFit = hlFit === "fit" ? ("fill" as const) : hlFit;
+
         return (
-          <div style={{
-            position: "relative",
-            marginTop: `${hl.marginTop ?? 12}px`, marginBottom: `${hl.marginBottom ?? 0}px`,
-            marginLeft: `${hl.marginLeft ?? 0}px`, marginRight: `${hl.marginRight ?? 0}px`,
-          }}>
+          <div style={containerStyle}>
             {renderBackgroundImage("highlight")}
-            <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative", zIndex: 1 }}>
-              <img src={data.highlightImage} alt="" style={{ width: "100%", height: `${hl.height ?? 80}px`, objectFit: "cover" }} />
+            <div style={{ borderRadius: isFullWidth ? 0 : "4px", overflow: "hidden", position: "relative", zIndex: 1 }}>
+              {hlImage ? (
+                <img src={hlImage} alt="" style={{ 
+                  width: "100%", 
+                  height: `${imgHeight}px`, 
+                  objectFit: imgObjectFit,
+                }} />
+              ) : (
+                <div style={{ width: "100%", height: `${imgHeight}px`, background: `${colors.muted}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <p style={{ fontSize: fs(6), color: colors.muted, fontFamily: fonts.body }}>No image set</p>
+                </div>
+              )}
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
                 <p style={{ fontSize: fs(5), color: "rgba(255,255,255,0.7)", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: fonts.body }}>{data.highlightLabel}</p>
                 <p style={{ fontSize: fs(8), color: "white", fontStyle: "italic", fontFamily: fonts.heading }}>{data.highlightTitle}</p>

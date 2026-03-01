@@ -52,6 +52,7 @@ export type CategoryStyle = "lines" | "dots" | "bold" | "minimal";
 export type ItemAlignment = "center" | "left";
 export type PricePosition = "right" | "below" | "inline";
 export type HighlightPosition = "bottom" | "top" | "none";
+export type HighlightStyle = "fit" | "full-width" | "custom";
 export type SeparatorStyle = "line" | "dotted" | "none";
 export type SectionType = "header" | "body" | "highlight";
 
@@ -96,13 +97,19 @@ export interface VariantBodyConfig {
 export interface VariantHighlightConfig {
   show: boolean;
   position: HighlightPosition;
-  height: number;        // px — image height in preview
-  marginTop: number;     // px
-  marginBottom: number;  // px
-  marginLeft: number;    // px
-  marginRight: number;   // px
+  style: HighlightStyle;  // "fit" = full width respecting margins, "full-width" = full page width, "custom" = free position/resize
+  height: number;         // px — image height in preview
+  marginTop: number;      // px
+  marginBottom: number;   // px
+  marginLeft: number;     // px
+  marginRight: number;    // px
   offsetX?: number;       // px offset for preview drag
   offsetY?: number;       // px offset for preview drag
+  customWidth?: number;   // px bounding box width (custom mode)
+  customHeight?: number;  // px bounding box height (custom mode)
+  imageFit: "fit" | "contain" | "cover";  // how the image fills the container
+  imageUrl?: string;      // image URL or data URI
+  imageLocked: boolean;   // if true, image cannot be changed in menu editor
   image?: SectionImageConfig;
 }
 
