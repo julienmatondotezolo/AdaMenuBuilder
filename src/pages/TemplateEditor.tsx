@@ -1188,20 +1188,22 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     const c = containerRef.current;
     if (!c) return [];
     const cw = c.clientWidth, ch = c.clientHeight;
+    // Container has CSS padding = raw margin values (NOT scaled).
+    // Absolutely-positioned children use the container's coordinate system
+    // where left:0 = padding edge. So margin inner boundary = raw margin px.
     const { marginLeft: ml, marginRight: mr, marginTop: mt, marginBottom: mb } = template.spacing;
-    const sml = ml * scale, smr = mr * scale, smt = mt * scale, smb = mb * scale;
     return [
-      // Full container edges
+      // Full container edges (padding edge)
       { type: "x", value: 0, source: "edge" }, { type: "x", value: cw, source: "edge" },
       { type: "y", value: 0, source: "edge" }, { type: "y", value: ch, source: "edge" },
       // Container center
       { type: "x", value: cw / 2, source: "center" }, { type: "y", value: ch / 2, source: "center" },
-      // Margin inner boundaries
-      { type: "x", value: sml, source: "margin" }, { type: "x", value: cw - smr, source: "margin" },
-      { type: "y", value: smt, source: "margin" }, { type: "y", value: ch - smb, source: "margin" },
+      // Margin inner boundaries (raw px, matching CSS padding)
+      { type: "x", value: ml, source: "margin" }, { type: "x", value: cw - mr, source: "margin" },
+      { type: "y", value: mt, source: "margin" }, { type: "y", value: ch - mb, source: "margin" },
       // Content area center
-      { type: "x", value: sml + (cw - sml - smr) / 2, source: "center" },
-      { type: "y", value: smt + (ch - smt - smb) / 2, source: "center" },
+      { type: "x", value: ml + (cw - ml - mr) / 2, source: "center" },
+      { type: "y", value: mt + (ch - mt - mb) / 2, source: "center" },
     ];
   };
 
