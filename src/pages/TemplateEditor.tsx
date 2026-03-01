@@ -15,6 +15,8 @@ import {
   GripVertical,
   Eye,
   EyeOff,
+  Lock,
+  Unlock,
   Ruler,
   Check,
   Space,
@@ -39,6 +41,23 @@ import {
   DialogDescription,
   cn,
 } from "ada-design-system";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
 import type { MenuTemplate, PageVariant } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
@@ -81,10 +100,26 @@ export default function TemplateEditor() {
   const [sectionOrder, setSectionOrder] = useState<SectionType[]>(["header", "body", "highlight"]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Drag state
-  const [draggedSection, setDraggedSection] = useState<SectionType | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const dragStartIndex = useRef<number | null>(null);
+  // Drag state (dnd-kit)
+  const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
+  const [hoveredSection, setHoveredSection] = useState<SectionType | null>(null);
+  const [hoveredPanel, setHoveredPanel] = useState<PanelId | null>(null);
+  const [lockedSections, setLockedSections] = useState<Set<SectionType>>(new Set());
+
+  const toggleLock = (section: SectionType) => {
+    setLockedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+        // Collapse panel when locking
+        if (openPanel === section) setOpenPanel(null);
+      }
+      return next;
+    });
+  };
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // Load Google Fonts for this template
   useEffect(() => {
@@ -169,12 +204,14 @@ export default function TemplateEditor() {
     if (!activeVariant) return false;
     if (s === "header") return activeVariant.header.show;
     if (s === "highlight") return activeVariant.highlight.show;
-    return true; // body always on
+    if (s === "body") return activeVariant.body.show !== false;
+    return true;
   };
 
   const toggleSection = (s: SectionType) => {
     if (!activeVariant) return;
     if (s === "header") updateVariant(activeVariant.id, { header: { ...activeVariant.header, show: !activeVariant.header.show } });
+    if (s === "body") updateVariant(activeVariant.id, { body: { ...activeVariant.body, show: activeVariant.body.show === false } });
     if (s === "highlight") updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, show: !activeVariant.highlight.show, position: !activeVariant.highlight.show ? "bottom" : "none" } });
   };
 
@@ -191,33 +228,31 @@ export default function TemplateEditor() {
     setShowDeleteDialog(false);
   };
 
-  /* ── Drag handlers ── */
+  /* ── Drag handlers (dnd-kit) ── */
 
-  const handleDragStart = (idx: number, section: SectionType) => {
-    dragStartIndex.current = idx;
-    setDraggedSection(section);
+  const handleSectionDragStart = (event: DragStartEvent) => {
+    setActiveDragSection(event.active.id as SectionType);
+    setHoveredSection(null);
   };
 
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverIndex(idx);
-  };
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragSection(null);
 
-  const handleDrop = (e: React.DragEvent, dropIdx: number) => {
-    e.preventDefault();
-    if (dragStartIndex.current === null || draggedSection === null) return;
-    const newOrder = [...sectionOrder];
-    const fromIdx = dragStartIndex.current;
-    const [moved] = newOrder.splice(fromIdx, 1);
-    newOrder.splice(dropIdx, 0, moved);
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sectionOrder.indexOf(active.id as SectionType);
+    const newIndex = sectionOrder.indexOf(over.id as SectionType);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newOrder = arrayMove(sectionOrder, oldIndex, newIndex);
     setSectionOrder(newOrder);
 
     if (activeVariant) {
-      // Persist section order to variant
       updateVariant(activeVariant.id, { sectionOrder: newOrder });
-      
+
       // Keep highlight position logic for backward compatibility
+      const moved = active.id as SectionType;
       if (moved === "highlight") {
         const bodyIdx = newOrder.indexOf("body");
         const highlightIdx = newOrder.indexOf("highlight");
@@ -225,16 +260,6 @@ export default function TemplateEditor() {
         updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: pos as "top" | "bottom" } });
       }
     }
-
-    setDraggedSection(null);
-    setDragOverIndex(null);
-    dragStartIndex.current = null;
-  };
-
-  const handleDragEnd = () => {
-    setDraggedSection(null);
-    setDragOverIndex(null);
-    dragStartIndex.current = null;
   };
 
   const previewW = mmToPx(template.format.width);
@@ -495,6 +520,8 @@ export default function TemplateEditor() {
                     onChange={(v) => save({ colors: { ...template.colors, accent: v } })} />
                   <ColorRow label="Muted" value={template.colors.muted}
                     onChange={(v) => save({ colors: { ...template.colors, muted: v } })} />
+                  <ColorRow label="Price" value={template.colors.price || template.colors.primary}
+                    onChange={(v) => save({ colors: { ...template.colors, price: v } })} />
                 </SettingsPanel>
 
                 {/* ── Spacing ── */}
@@ -503,6 +530,9 @@ export default function TemplateEditor() {
                   label="Spacing & Margins"
                   isOpen={openPanel === "spacing"}
                   onToggle={() => togglePanel("spacing")}
+                  isHovered={hoveredPanel === "spacing"}
+                  onMouseEnter={() => setHoveredPanel("spacing")}
+                  onMouseLeave={() => setHoveredPanel(null)}
                 >
                   <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Page Margins</Label>
                   <div className="grid grid-cols-2 gap-2 mt-1.5">
@@ -533,76 +563,48 @@ export default function TemplateEditor() {
                 </div>
 
                 {/* ── Draggable section blocks ── */}
-                {sectionOrder.map((section, idx) => {
-                  const meta = SECTION_META[section];
-                  const Icon = meta.icon;
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleSectionDragStart} onDragEnd={handleSectionDragEnd}>
+                <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+                {sectionOrder.map((section) => {
                   const enabled = isSectionEnabled(section);
-                  const isDragging = draggedSection === section;
-                  const isDropTarget = dragOverIndex === idx && draggedSection !== null;
-                  const isDraggable = true; // All sections are now draggable
 
                   return (
-                    <div
+                    <SortableSectionCard
                       key={section}
-                      draggable={isDraggable}
-                      onDragStart={() => handleDragStart(idx, section)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDrop={(e) => handleDrop(e, idx)}
-                      onDragEnd={handleDragEnd}
-                      className={cn(
-                        "rounded-lg border transition-all",
-                        isDragging && "opacity-40 scale-95",
-                        isDropTarget && "border-primary border-dashed bg-primary/5",
-                        !isDragging && !isDropTarget && "border-border",
-                        openPanel === section && "ring-1 ring-primary/30",
-                      )}
+                      section={section}
+                      enabled={enabled}
+                      isActivePanel={openPanel === section && !lockedSections.has(section)}
+                      isDragActive={!!activeDragSection}
+                      isHovered={hoveredSection === section}
+                      isLocked={lockedSections.has(section)}
+                      onMouseEnter={() => { if (!activeDragSection) setHoveredSection(section); }}
+                      onMouseLeave={() => { if (!activeDragSection) setHoveredSection(null); }}
+                      onTogglePanel={() => { if (!lockedSections.has(section)) togglePanel(section); }}
+                      onToggleSection={() => toggleSection(section)}
+                      onToggleLock={() => toggleLock(section)}
                     >
-                      {/* Section header row */}
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2.5 rounded-t-lg transition-colors",
-                          enabled ? "bg-background" : "bg-muted/30",
-                          openPanel === section && "bg-primary/5",
-                        )}
-                      >
-                        {isDraggable ? (
-                          <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
-                        ) : (
-                          <div className="w-3.5 shrink-0" />
-                        )}
-                        <button
-                          className="flex items-center gap-2 flex-1 min-w-0"
-                          onClick={() => togglePanel(section)}
-                        >
-                          <Icon className={cn("w-4 h-4 shrink-0", enabled ? "text-primary" : "text-muted-foreground/40")} />
-                          <span className={cn("text-xs font-semibold", enabled ? "text-foreground" : "text-muted-foreground/50")}>{meta.label}</span>
-                        </button>
-                        {section !== "body" && (
-                          <button
-                            onClick={() => toggleSection(section)}
-                            className="p-1 rounded hover:bg-muted/50 transition-colors"
-                            title={enabled ? "Hide section" : "Show section"}
-                          >
-                            {enabled
-                              ? <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                              : <EyeOff className="w-3.5 h-3.5 text-muted-foreground/40" />}
-                          </button>
-                        )}
-                        <button onClick={() => togglePanel(section)} className="p-0.5">
-                          {openPanel === section
-                            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-                            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
-                        </button>
-                      </div>
 
                       {/* Expanded settings */}
-                      {openPanel === section && enabled && (
+                      {openPanel === section && enabled && !lockedSections.has(section) && (
                         <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/50">
                           {section === "header" && (
                             <>
                               <SelectRow label="Style" value={activeVariant.header.style}
-                                options={[{ v: "centered", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "minimal", l: "Minimal" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: v as "centered" | "left" | "minimal" } })} />
+                                options={[{ v: "centered", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }, { v: "custom", l: "Custom" }]}
+                                onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, style: v as "centered" | "left" | "right" | "custom" } })} />
+                              {activeVariant.header.style === "custom" && (
+                                <>
+                                  <SelectRow label="Alignment" value={activeVariant.header.customAlignment || "center"}
+                                    options={[{ v: "center", l: "Center" }, { v: "left", l: "Left" }, { v: "right", l: "Right" }]}
+                                    onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, customAlignment: v as "center" | "left" | "right" } })} />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="X" value={activeVariant.header.offsetX ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, offsetX: v } })} />
+                                    <NumberRow label="Y" value={activeVariant.header.offsetY ?? 0} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, offsetY: v } })} />
+                                  </div>
+                                </>
+                              )}
                               <ToggleRow label="Show Subtitle" checked={activeVariant.header.showSubtitle}
                                 onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, showSubtitle: v } })} />
                               <ToggleRow label="Show Year" checked={activeVariant.header.showEstablished}
@@ -832,9 +834,16 @@ export default function TemplateEditor() {
                           )}
                         </div>
                       )}
-                    </div>
+                    </SortableSectionCard>
                   );
                 })}
+                </SortableContext>
+                <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
+                  {activeDragSection && (
+                    <SectionCardOverlay section={activeDragSection} enabled={isSectionEnabled(activeDragSection)} />
+                  )}
+                </DragOverlay>
+                </DndContext>
               </div>
             )}
           </div>
@@ -856,6 +865,11 @@ export default function TemplateEditor() {
               sectionOrder={sectionOrder} 
               scale={scale} 
               onUpdateVariant={updateVariant}
+              highlightedSection={hoveredSection ?? (openPanel && ["header", "body", "highlight"].includes(openPanel) ? openPanel as SectionType : null)}
+              isDraggingCard={!!activeDragSection}
+              showMargins={hoveredPanel === "spacing" || openPanel === "spacing"}
+              onClickSection={(section) => { if (!lockedSections.has(section)) setOpenPanel(openPanel === section ? null : section); }}
+              lockedSections={lockedSections}
             />
           </div>
         </div>
@@ -864,19 +878,144 @@ export default function TemplateEditor() {
   );
 }
 
+/* ── Sortable Section Card ───────────────────────────────────────────── */
+
+function SortableSectionCard({ section, enabled, isActivePanel, isDragActive, isHovered, isLocked, onMouseEnter, onMouseLeave, onTogglePanel, onToggleSection, onToggleLock, children }: {
+  section: SectionType;
+  enabled: boolean;
+  isActivePanel: boolean;
+  isDragActive: boolean;
+  isHovered: boolean;
+  isLocked: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onTogglePanel: () => void;
+  onToggleSection: () => void;
+  onToggleLock: () => void;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section });
+
+  const meta = SECTION_META[section];
+  const Icon = meta.icon;
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={cn(
+        "rounded-lg border transition-all",
+        isDragging && "scale-95",
+        !isDragging && "border-border",
+        isActivePanel && "ring-1 ring-primary/30",
+      )}
+    >
+      {/* Section header row */}
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-2.5 transition-colors",
+          isActivePanel ? "rounded-t-lg" : "rounded-lg",
+          !isHovered && (enabled ? "bg-background" : "bg-muted/30"),
+          isActivePanel && !isHovered && "bg-primary/5",
+        )}
+        style={isHovered && !isDragging && !isActivePanel ? { backgroundColor: "#f6f7fe" } : undefined}
+      >
+        <div {...attributes} {...listeners} className="shrink-0 cursor-grab active:cursor-grabbing">
+          <GripVertical className="w-3.5 h-3.5 text-muted-foreground/40" />
+        </div>
+        <button
+          className="flex items-center gap-2 flex-1 min-w-0"
+          onClick={onTogglePanel}
+        >
+          <Icon className={cn("w-4 h-4 shrink-0", enabled ? "text-primary" : "text-muted-foreground/40")} />
+          <span className={cn("text-xs font-semibold", enabled ? "text-foreground" : "text-muted-foreground/50")}>{meta.label}</span>
+        </button>
+        <button
+          onClick={onToggleLock}
+          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          title={isLocked ? "Unlock section" : "Lock section"}
+        >
+          {isLocked
+            ? <Lock className="w-3.5 h-3.5 text-amber-500" />
+            : <Unlock className="w-3.5 h-3.5 text-muted-foreground/40" />}
+        </button>
+        <button
+          onClick={onToggleSection}
+          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          title={enabled ? "Hide section" : "Show section"}
+        >
+          {enabled
+            ? <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+            : <EyeOff className="w-3.5 h-3.5 text-muted-foreground/40" />}
+        </button>
+        <button onClick={isLocked ? onToggleLock : onTogglePanel} className="p-0.5">
+          {isActivePanel
+            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+        </button>
+      </div>
+
+      {/* Expanded settings (passed as children) */}
+      {children}
+    </div>
+  );
+}
+
+/* ── Drag Overlay Card (ghost that follows cursor) ───────────────────── */
+
+function SectionCardOverlay({ section, enabled }: { section: SectionType; enabled: boolean }) {
+  const meta = SECTION_META[section];
+  const Icon = meta.icon;
+
+  return (
+    <div className="rounded-lg border border-primary bg-background shadow-lg opacity-90">
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-2.5 rounded-lg",
+        enabled ? "bg-background" : "bg-muted/30",
+      )}>
+        <GripVertical className="w-3.5 h-3.5 text-primary/40 shrink-0" />
+        <Icon className={cn("w-4 h-4 shrink-0", enabled ? "text-primary" : "text-muted-foreground/40")} />
+        <span className={cn("text-xs font-semibold", enabled ? "text-foreground" : "text-muted-foreground/50")}>{meta.label}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ── Settings Panel (collapsible) ────────────────────────────────────── */
 
-function SettingsPanel({ icon, label, badge, isOpen, onToggle, children }: {
-  icon: React.ReactNode; label: string; badge?: React.ReactNode; isOpen: boolean; onToggle: () => void; children: React.ReactNode;
+function SettingsPanel({ icon, label, badge, isOpen, onToggle, onMouseEnter, onMouseLeave, isHovered, children }: {
+  icon: React.ReactNode; label: string; badge?: React.ReactNode; isOpen: boolean; onToggle: () => void;
+  onMouseEnter?: () => void; onMouseLeave?: () => void; isHovered?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <div className={cn("rounded-lg border transition-all", isOpen ? "ring-1 ring-primary/30 border-border" : "border-border")}>
+    <div
+      className={cn("rounded-lg border transition-all", isOpen ? "ring-1 ring-primary/30 border-border" : "border-border")}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <button
         onClick={onToggle}
         className={cn(
-          "w-full flex items-center gap-2.5 px-3 py-3 rounded-t-lg transition-colors",
-          isOpen ? "bg-primary/5" : "hover:bg-muted/30",
+          "w-full flex items-center gap-2.5 px-3 py-3 transition-colors",
+          isOpen ? "rounded-t-lg bg-primary/5" : "rounded-lg",
         )}
+        style={isHovered && !isOpen ? { backgroundColor: "#f6f7fe" } : undefined}
       >
         {icon}
         <span className="text-xs font-semibold text-foreground flex-1 text-left">{label}</span>
@@ -953,7 +1092,7 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
           style={{ WebkitAppearance: "none" }}
         />
         <Input value={value} onChange={(e) => onChange(e.target.value)}
-          className="w-20 h-7 text-[10px] font-mono" />
+          className="w-[72px] h-6 text-[8px] font-mono px-1.5" />
       </div>
     </div>
   );
@@ -980,9 +1119,14 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard, showMargins, onClickSection, lockedSections }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
   onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
+  highlightedSection?: SectionType | null;
+  isDraggingCard?: boolean;
+  showMargins?: boolean;
+  onClickSection?: (section: SectionType) => void;
+  lockedSections?: Set<SectionType>;
 }) {
   const [dragState, setDragState] = useState<{
     section: SectionType;
@@ -1092,25 +1236,52 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
+  const isSectionCustom = (section: SectionType): boolean => {
+    if (!variant) return false;
+    if (section === "header") return variant.header.style === "custom";
+    return false;
+  };
+
   const wrapDraggable = (section: SectionType, content: React.ReactNode) => {
     const offset = getOffset(section);
     const isDragging = dragState?.section === section;
     const isHovered = hoverSection === section;
+    const isHighlightedFromPanel = highlightedSection === section && !isDragging;
+    const canDrag = isSectionCustom(section);
+    const isLocked = lockedSections?.has(section) ?? false;
+
+    if (isLocked) {
+      return (
+        <div key={section} style={{ position: "relative", pointerEvents: "none", opacity: 0.6 }}>
+          {content}
+        </div>
+      );
+    }
+
     return (
       <div
         key={section}
-        onMouseDown={(e) => handleMouseDown(e, section)}
+        onMouseDown={(e) => { if (canDrag) handleMouseDown(e, section); }}
+        onClick={() => onClickSection?.(section)}
         onMouseEnter={() => setHoverSection(section)}
         onMouseLeave={() => setHoverSection(null)}
         style={{
           position: "relative",
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
-          cursor: isDragging ? "grabbing" : "move",
-          outline: isDragging ? "2px solid #4d6aff" : isHovered ? "1px dashed #4d6aff66" : "none",
+          transform: canDrag ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
+          cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
+          borderRadius: "4px",
+          outline: isDragging
+            ? "2px solid #4d6aff"
+            : isHighlightedFromPanel
+              ? "2px solid #4d6aff"
+              : isHovered
+                ? "1px dashed #4d6aff66"
+                : "none",
           outlineOffset: "2px",
-          borderRadius: "2px",
-          transition: isDragging ? "none" : "outline 0.15s ease",
+          backgroundColor: isHighlightedFromPanel ? "rgba(77, 106, 255, 0.06)" : undefined,
+          transition: isDragging ? "none" : "outline 0.2s ease, background-color 0.2s ease",
           userSelect: "none",
+          animation: isHighlightedFromPanel ? "previewPulse 1.5s ease-in-out infinite" : undefined,
         }}
       >
         {content}
@@ -1143,7 +1314,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         return (
           <div style={{
             position: "relative",
-            textAlign: variant.header.style === "left" ? "left" : "center",
+            textAlign: variant.header.style === "custom"
+              ? (variant.header.customAlignment || "center")
+              : variant.header.style === "left" ? "left" : variant.header.style === "right" ? "right" : "center",
             paddingBottom: "16px",
           }}>
             {renderBackgroundImage("header")}
@@ -1161,7 +1334,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
               </p>
             )}
             {variant.header.showDivider && (
-              <div style={{ display: "flex", justifyContent: variant.header.style === "left" ? "flex-start" : "center", marginTop: "12px" }}>
+              <div style={{ display: "flex", justifyContent: variant.header.style === "custom" ? (variant.header.customAlignment === "left" ? "flex-start" : variant.header.customAlignment === "right" ? "flex-end" : "center") : variant.header.style === "left" ? "flex-start" : variant.header.style === "right" ? "flex-end" : "center", marginTop: "12px" }}>
                 <span style={{ width: "40px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
               </div>
             )}
@@ -1169,6 +1342,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         );
 
       case "body":
+        if (variant.body.show === false) return null;
         return (
           <div style={{
             position: "relative",
@@ -1216,15 +1390,15 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
                       <div style={{
                         display: variant.body.pricePosition === "right" ? "flex" : "block",
-                        justifyContent: "space-between",
+                        justifyContent: variant.body.pricePosition === "right" ? "space-between" : undefined,
                         alignItems: "baseline",
                       }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: variant.body.itemAlignment === "center" ? "center" : variant.body.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
                           <p style={{ fontSize: fs(8), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
                             {item.name}
                           </p>
                           {variant.body.pricePosition === "inline" && (
-                            <span style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600 }}>€{item.price}</span>
+                            <span style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
                           )}
                           {item.featured && variant.body.showFeaturedBadge && (
                             <span style={{ fontSize: fs(5), color: colors.accent, marginLeft: "2px" }}>★</span>
@@ -1235,7 +1409,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                             {variant.body.separatorStyle === "dotted" && (
                               <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
                             )}
-                            <span style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                            <span style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
                           </div>
                         )}
                       </div>
@@ -1251,7 +1425,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                         </p>
                       )}
                       {variant.body.pricePosition === "below" && (
-                        <p style={{ fontSize: fs(7), color: colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
+                        <p style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
                       )}
                     </div>
                   ))}
@@ -1289,6 +1463,19 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     }
   };
 
+  const marginColors = {
+    top: "rgba(255, 82, 120, 0.18)",
+    bottom: "rgba(220, 70, 150, 0.18)",
+    left: "rgba(255, 120, 90, 0.16)",
+    right: "rgba(180, 80, 180, 0.16)",
+  };
+  const marginTextColor = "#d44070";
+  const marginTextStyle: React.CSSProperties = {
+    position: "absolute", display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "7px", fontWeight: 700, fontFamily: "monospace", color: marginTextColor,
+    pointerEvents: "none", zIndex: 5,
+  };
+
   return (
     <div
       className="h-full flex flex-col"
@@ -1296,10 +1483,32 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       style={{
+        position: "relative",
         fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
         padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
       }}
     >
+      {/* Margin overlays */}
+      {showMargins && (
+        <>
+          {/* Top margin */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${spacing.marginTop}px`, backgroundColor: marginColors.top, zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginTop}px</div>
+          </div>
+          {/* Bottom margin */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${spacing.marginBottom}px`, backgroundColor: marginColors.bottom, zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginBottom}px</div>
+          </div>
+          {/* Left margin */}
+          <div style={{ position: "absolute", top: `${spacing.marginTop}px`, bottom: `${spacing.marginBottom}px`, left: 0, width: `${spacing.marginLeft}px`, backgroundColor: marginColors.left, zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginLeft}px</div>
+          </div>
+          {/* Right margin */}
+          <div style={{ position: "absolute", top: `${spacing.marginTop}px`, bottom: `${spacing.marginBottom}px`, right: 0, width: `${spacing.marginRight}px`, backgroundColor: marginColors.right, zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginRight}px</div>
+          </div>
+        </>
+      )}
       {sectionOrder.map((section) => {
         const content = renderSection(section);
         if (!content) return null;

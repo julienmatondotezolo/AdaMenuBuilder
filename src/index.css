@@ -96,6 +96,12 @@ body {
   color: hsl(346 87% 43%);
 }
 
+/* Preview section highlight pulse */
+@keyframes previewPulse {
+  0%, 100% { outline-color: rgba(77, 106, 255, 0.9); background-color: rgba(77, 106, 255, 0.04); }
+  50% { outline-color: rgba(77, 106, 255, 0.4); background-color: rgba(77, 106, 255, 0.1); }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

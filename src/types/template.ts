@@ -26,6 +26,7 @@ export interface ColorScheme {
   text: string;
   accent: string;
   muted: string;
+  price?: string;
 }
 
 export interface FontScheme {
@@ -46,7 +47,7 @@ export interface SpacingConfig {
 
 /* ── Page Variant Layouts ────────────────────────────────────────────── */
 
-export type HeaderStyle = "centered" | "left" | "minimal" | "none";
+export type HeaderStyle = "centered" | "left" | "right" | "minimal" | "custom" | "none";
 export type CategoryStyle = "lines" | "dots" | "bold" | "minimal";
 export type ItemAlignment = "center" | "left";
 export type PricePosition = "right" | "below" | "inline";
@@ -67,6 +68,7 @@ export interface SectionImageConfig {
 export interface VariantHeaderConfig {
   show: boolean;
   style: HeaderStyle;
+  customAlignment?: "center" | "left" | "right";
   showSubtitle: boolean;
   showEstablished: boolean;
   showDivider: boolean;
@@ -76,6 +78,7 @@ export interface VariantHeaderConfig {
 }
 
 export interface VariantBodyConfig {
+  show?: boolean;
   columns: number;
   categoryStyle: CategoryStyle;
   itemAlignment: ItemAlignment;
