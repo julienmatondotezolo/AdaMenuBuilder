@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { uid } from "../utils/uid";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -47,7 +47,7 @@ import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, type F
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
-type SectionType = "header" | "body" | "highlight";
+import type { SectionType } from "../types/template";
 
 const SECTION_META: Record<SectionType, { label: string; icon: typeof TypeIcon }> = {
   header: { label: "Header", icon: TypeIcon },
@@ -97,15 +97,22 @@ export default function TemplateEditor() {
     }
   }, [template]);
 
-  // Derive section order from variant highlight position
+  // Derive section order from variant (use persisted order if available, otherwise fallback to highlight position)
   useEffect(() => {
     if (!template) return;
     const v = template.pageVariants.find((p) => p.id === activeVariantId);
     if (!v) return;
-    if (v.highlight.show && v.highlight.position === "top") {
-      setSectionOrder(["header", "highlight", "body"]);
+    
+    // Use persisted section order if available
+    if (v.sectionOrder && v.sectionOrder.length > 0) {
+      setSectionOrder(v.sectionOrder);
     } else {
-      setSectionOrder(["header", "body", "highlight"]);
+      // Fallback to deriving from highlight position for backward compatibility
+      if (v.highlight.show && v.highlight.position === "top") {
+        setSectionOrder(["header", "highlight", "body"]);
+      } else {
+        setSectionOrder(["header", "body", "highlight"]);
+      }
     }
   }, [activeVariantId, template]);
 
@@ -187,7 +194,6 @@ export default function TemplateEditor() {
   /* ── Drag handlers ── */
 
   const handleDragStart = (idx: number, section: SectionType) => {
-    if (section === "body") return;
     dragStartIndex.current = idx;
     setDraggedSection(section);
   };
@@ -207,11 +213,17 @@ export default function TemplateEditor() {
     newOrder.splice(dropIdx, 0, moved);
     setSectionOrder(newOrder);
 
-    if (activeVariant && moved === "highlight") {
-      const bodyIdx = newOrder.indexOf("body");
-      const highlightIdx = newOrder.indexOf("highlight");
-      const pos = highlightIdx < bodyIdx ? "top" : "bottom";
-      updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: pos as "top" | "bottom" } });
+    if (activeVariant) {
+      // Persist section order to variant
+      updateVariant(activeVariant.id, { sectionOrder: newOrder });
+      
+      // Keep highlight position logic for backward compatibility
+      if (moved === "highlight") {
+        const bodyIdx = newOrder.indexOf("body");
+        const highlightIdx = newOrder.indexOf("highlight");
+        const pos = highlightIdx < bodyIdx ? "top" : "bottom";
+        updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, position: pos as "top" | "bottom" } });
+      }
     }
 
     setDraggedSection(null);
@@ -527,7 +539,7 @@ export default function TemplateEditor() {
                   const enabled = isSectionEnabled(section);
                   const isDragging = draggedSection === section;
                   const isDropTarget = dragOverIndex === idx && draggedSection !== null;
-                  const isDraggable = section !== "body";
+                  const isDraggable = true; // All sections are now draggable
 
                   return (
                     <div
@@ -597,6 +609,65 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, showEstablished: v } })} />
                               <ToggleRow label="Divider Line" checked={activeVariant.header.showDivider}
                                 onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, showDivider: v } })} />
+                              
+                              {/* Image Configuration */}
+                              <div className="pt-2">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Image</Label>
+                                <div className="space-y-2 mt-1.5">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">URL</Label>
+                                    <Input
+                                      value={activeVariant.header.image?.url || ""}
+                                      placeholder="No image set"
+                                      className="h-7 text-xs"
+                                      onChange={(e) => updateVariant(activeVariant.id, { 
+                                        header: { 
+                                          ...activeVariant.header, 
+                                          image: { 
+                                            offsetX: 0, offsetY: 0, width: 100, height: 100, opacity: 0.3, objectFit: "cover", 
+                                            ...activeVariant.header.image, 
+                                            url: e.target.value 
+                                          } 
+                                        } 
+                                      })}
+                                    />
+                                  </div>
+                                  {activeVariant.header.image?.url && (
+                                    <>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <NumberRow label="X Offset" value={activeVariant.header.image.offsetX} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, offsetX: v } } })} />
+                                        <NumberRow label="Y Offset" value={activeVariant.header.image.offsetY} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, offsetY: v } } })} />
+                                        <NumberRow label="Width" value={activeVariant.header.image.width} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, width: v } } })} />
+                                        <NumberRow label="Height" value={activeVariant.header.image.height} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, height: v } } })} />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Opacity</Label>
+                                          <Input type="number" min="0" max="1" step="0.1" value={activeVariant.header.image.opacity} className="h-7 text-xs"
+                                            onChange={(e) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, opacity: Number(e.target.value) } } })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Object Fit</Label>
+                                          <Select value={activeVariant.header.image.objectFit} onValueChange={(v) => updateVariant(activeVariant.id, { header: { ...activeVariant.header, image: { ...activeVariant.header.image!, objectFit: v as "cover" | "contain" | "fill" } } })}>
+                                            <SelectTrigger className="h-7 text-xs">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="cover">Cover</SelectItem>
+                                              <SelectItem value="contain">Contain</SelectItem>
+                                              <SelectItem value="fill">Fill</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </>
                           )}
                           {section === "body" && (
@@ -620,6 +691,65 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showDescriptions: v } })} />
                               <ToggleRow label="Featured Badge" checked={activeVariant.body.showFeaturedBadge}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showFeaturedBadge: v } })} />
+                              
+                              {/* Image Configuration */}
+                              <div className="pt-2">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Image</Label>
+                                <div className="space-y-2 mt-1.5">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">URL</Label>
+                                    <Input
+                                      value={activeVariant.body.image?.url || ""}
+                                      placeholder="No image set"
+                                      className="h-7 text-xs"
+                                      onChange={(e) => updateVariant(activeVariant.id, { 
+                                        body: { 
+                                          ...activeVariant.body, 
+                                          image: { 
+                                            offsetX: 0, offsetY: 0, width: 100, height: 100, opacity: 0.1, objectFit: "cover", 
+                                            ...activeVariant.body.image, 
+                                            url: e.target.value 
+                                          } 
+                                        } 
+                                      })}
+                                    />
+                                  </div>
+                                  {activeVariant.body.image?.url && (
+                                    <>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <NumberRow label="X Offset" value={activeVariant.body.image.offsetX} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, offsetX: v } } })} />
+                                        <NumberRow label="Y Offset" value={activeVariant.body.image.offsetY} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, offsetY: v } } })} />
+                                        <NumberRow label="Width" value={activeVariant.body.image.width} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, width: v } } })} />
+                                        <NumberRow label="Height" value={activeVariant.body.image.height} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, height: v } } })} />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Opacity</Label>
+                                          <Input type="number" min="0" max="1" step="0.1" value={activeVariant.body.image.opacity} className="h-7 text-xs"
+                                            onChange={(e) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, opacity: Number(e.target.value) } } })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Object Fit</Label>
+                                          <Select value={activeVariant.body.image.objectFit} onValueChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, objectFit: v as "cover" | "contain" | "fill" } } })}>
+                                            <SelectTrigger className="h-7 text-xs">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="cover">Cover</SelectItem>
+                                              <SelectItem value="contain">Contain</SelectItem>
+                                              <SelectItem value="fill">Fill</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
                             </>
                           )}
                           {section === "highlight" && (
@@ -637,6 +767,65 @@ export default function TemplateEditor() {
                                     onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginLeft: v } })} />
                                   <NumberRow label="Right" value={activeVariant.highlight.marginRight ?? 0} unit="px" compact
                                     onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginRight: v } })} />
+                                </div>
+                              </div>
+                              
+                              {/* Image Configuration */}
+                              <div className="pt-2">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Image</Label>
+                                <div className="space-y-2 mt-1.5">
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">URL</Label>
+                                    <Input
+                                      value={activeVariant.highlight.image?.url || ""}
+                                      placeholder="No image set"
+                                      className="h-7 text-xs"
+                                      onChange={(e) => updateVariant(activeVariant.id, { 
+                                        highlight: { 
+                                          ...activeVariant.highlight, 
+                                          image: { 
+                                            offsetX: 0, offsetY: 0, width: 100, height: 100, opacity: 0.5, objectFit: "cover", 
+                                            ...activeVariant.highlight.image, 
+                                            url: e.target.value 
+                                          } 
+                                        } 
+                                      })}
+                                    />
+                                  </div>
+                                  {activeVariant.highlight.image?.url && (
+                                    <>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <NumberRow label="X Offset" value={activeVariant.highlight.image.offsetX} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, offsetX: v } } })} />
+                                        <NumberRow label="Y Offset" value={activeVariant.highlight.image.offsetY} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, offsetY: v } } })} />
+                                        <NumberRow label="Width" value={activeVariant.highlight.image.width} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, width: v } } })} />
+                                        <NumberRow label="Height" value={activeVariant.highlight.image.height} unit="px" compact
+                                          onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, height: v } } })} />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Opacity</Label>
+                                          <Input type="number" min="0" max="1" step="0.1" value={activeVariant.highlight.image.opacity} className="h-7 text-xs"
+                                            onChange={(e) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, opacity: Number(e.target.value) } } })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-[10px]">Object Fit</Label>
+                                          <Select value={activeVariant.highlight.image.objectFit} onValueChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, image: { ...activeVariant.highlight.image!, objectFit: v as "cover" | "contain" | "fill" } } })}>
+                                            <SelectTrigger className="h-7 text-xs">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="cover">Cover</SelectItem>
+                                              <SelectItem value="contain">Contain</SelectItem>
+                                              <SelectItem value="fill">Fill</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </>
@@ -661,7 +850,13 @@ export default function TemplateEditor() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
-            <VariantPreview template={template} variant={activeVariant} sectionOrder={sectionOrder} scale={scale} />
+            <VariantPreview 
+              template={template} 
+              variant={activeVariant} 
+              sectionOrder={sectionOrder} 
+              scale={scale} 
+              onUpdateVariant={updateVariant}
+            />
           </div>
         </div>
       </div>
@@ -785,16 +980,73 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
+  onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
 }) {
+  const [dragState, setDragState] = useState<{
+    section: SectionType;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+  const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragState) return;
+    const dx = (e.clientX - dragState.startX) / scale;
+    const dy = (e.clientY - dragState.startY) / scale;
+    setDragState((prev) => prev ? {
+      ...prev,
+      currentX: Math.round(prev.origX + dx),
+      currentY: Math.round(prev.origY + dy),
+    } : null);
+  }, [dragState, scale]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!dragState || !onUpdateVariant || !variant) return;
+    const { section, currentX, currentY } = dragState;
+    const configKey = section;
+    onUpdateVariant(variant.id, {
+      [configKey]: { ...variant[configKey], offsetX: currentX, offsetY: currentY },
+    });
+    setDragState(null);
+  }, [dragState, onUpdateVariant, variant]);
+
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
   const data = sampleMenuData;
   const { colors, fonts, spacing } = template;
 
-  // Scale font sizes relative to preview scale
   const fs = (size: number) => `${size}px`;
+
+  const getOffset = (section: SectionType) => {
+    const config = variant[section];
+    const ox = config.offsetX ?? 0;
+    const oy = config.offsetY ?? 0;
+    if (dragState?.section === section) {
+      return { x: dragState.currentX, y: dragState.currentY };
+    }
+    return { x: ox, y: oy };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, section: SectionType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const config = variant[section];
+    setDragState({
+      section,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: config.offsetX ?? 0,
+      origY: config.offsetY ?? 0,
+      currentX: config.offsetX ?? 0,
+      currentY: config.offsetY ?? 0,
+    });
+  };
 
   const renderSeparator = (style: string) => {
     if (style === "none") return null;
@@ -809,15 +1061,92 @@ function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
     );
   };
 
+  const renderBackgroundImage = (section: SectionType) => {
+    const config = variant[section];
+    if (!config.image?.url) return null;
+    
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: config.image.offsetY,
+          left: config.image.offsetX,
+          width: config.image.width,
+          height: config.image.height,
+          opacity: config.image.opacity,
+          zIndex: -1,
+          pointerEvents: "none",
+        }}
+      >
+        <img
+          src={config.image.url}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: config.image.objectFit,
+            borderRadius: "4px",
+          }}
+        />
+      </div>
+    );
+  };
+
+  const wrapDraggable = (section: SectionType, content: React.ReactNode) => {
+    const offset = getOffset(section);
+    const isDragging = dragState?.section === section;
+    const isHovered = hoverSection === section;
+    return (
+      <div
+        key={section}
+        onMouseDown={(e) => handleMouseDown(e, section)}
+        onMouseEnter={() => setHoverSection(section)}
+        onMouseLeave={() => setHoverSection(null)}
+        style={{
+          position: "relative",
+          transform: `translate(${offset.x}px, ${offset.y}px)`,
+          cursor: isDragging ? "grabbing" : "move",
+          outline: isDragging ? "2px solid #4d6aff" : isHovered ? "1px dashed #4d6aff66" : "none",
+          outlineOffset: "2px",
+          borderRadius: "2px",
+          transition: isDragging ? "none" : "outline 0.15s ease",
+          userSelect: "none",
+        }}
+      >
+        {content}
+        {isDragging && (
+          <div style={{
+            position: "absolute",
+            top: -18,
+            left: 0,
+            fontSize: "8px",
+            fontFamily: "monospace",
+            background: "#4d6aff",
+            color: "white",
+            padding: "1px 4px",
+            borderRadius: "2px",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}>
+            x: {offset.x}, y: {offset.y}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderSection = (section: SectionType) => {
     switch (section) {
       case "header":
         if (!variant.header.show) return null;
         return (
-          <div key="header" style={{
+          <div style={{
+            position: "relative",
             textAlign: variant.header.style === "left" ? "left" : "center",
             paddingBottom: "16px",
           }}>
+            {renderBackgroundImage("header")}
             {variant.header.showSubtitle && (
               <p style={{ fontSize: fs(7), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body }}>
                 {data.subtitle}
@@ -841,7 +1170,7 @@ function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
 
       case "body":
         return (
-          <div key="body" style={{
+          <div style={{
             display: variant.body.columns > 1 ? "grid" : "block",
             gridTemplateColumns: variant.body.columns > 1 ? `repeat(${variant.body.columns}, 1fr)` : undefined,
             gap: variant.body.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
@@ -937,7 +1266,7 @@ function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
         if (!variant.highlight.show || !data.highlightImage) return null;
         const hl = variant.highlight;
         return (
-          <div key="highlight" style={{
+          <div style={{
             marginTop: `${hl.marginTop ?? 12}px`,
             marginBottom: `${hl.marginBottom ?? 0}px`,
             marginLeft: `${hl.marginLeft ?? 0}px`,
@@ -957,11 +1286,21 @@ function VariantPreview({ template, variant, sectionOrder, scale: _scale }: {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{
-      fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
-      padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
-    }}>
-      {sectionOrder.map(renderSection)}
+    <div
+      className="h-full flex flex-col"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      style={{
+        fontFamily: fonts.body, color: colors.text, backgroundColor: colors.background,
+        padding: `${spacing.marginTop}px ${spacing.marginRight}px ${spacing.marginBottom}px ${spacing.marginLeft}px`,
+      }}
+    >
+      {sectionOrder.map((section) => {
+        const content = renderSection(section);
+        if (!content) return null;
+        return wrapDraggable(section, content);
+      })}
     </div>
   );
 }

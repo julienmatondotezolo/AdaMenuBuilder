@@ -52,6 +52,17 @@ export type ItemAlignment = "center" | "left";
 export type PricePosition = "right" | "below" | "inline";
 export type HighlightPosition = "bottom" | "top" | "none";
 export type SeparatorStyle = "line" | "dotted" | "none";
+export type SectionType = "header" | "body" | "highlight";
+
+export interface SectionImageConfig {
+  url?: string;           // image URL (optional)
+  offsetX: number;        // px offset from left
+  offsetY: number;        // px offset from top  
+  width: number;          // px
+  height: number;         // px
+  opacity: number;        // 0-1
+  objectFit: "cover" | "contain" | "fill";
+}
 
 export interface VariantHeaderConfig {
   show: boolean;
@@ -59,6 +70,9 @@ export interface VariantHeaderConfig {
   showSubtitle: boolean;
   showEstablished: boolean;
   showDivider: boolean;
+  offsetX?: number;       // px offset for preview drag
+  offsetY?: number;       // px offset for preview drag
+  image?: SectionImageConfig;
 }
 
 export interface VariantBodyConfig {
@@ -69,6 +83,9 @@ export interface VariantBodyConfig {
   separatorStyle: SeparatorStyle;
   showDescriptions: boolean;
   showFeaturedBadge: boolean;
+  offsetX?: number;       // px offset for preview drag
+  offsetY?: number;       // px offset for preview drag
+  image?: SectionImageConfig;
 }
 
 export interface VariantHighlightConfig {
@@ -79,6 +96,9 @@ export interface VariantHighlightConfig {
   marginBottom: number;  // px
   marginLeft: number;    // px
   marginRight: number;   // px
+  offsetX?: number;       // px offset for preview drag
+  offsetY?: number;       // px offset for preview drag
+  image?: SectionImageConfig;
 }
 
 export interface PageVariant {
@@ -87,6 +107,7 @@ export interface PageVariant {
   header: VariantHeaderConfig;
   body: VariantBodyConfig;
   highlight: VariantHighlightConfig;
+  sectionOrder?: SectionType[];  // Order of sections for drag-and-drop
 }
 
 /* ── Template ────────────────────────────────────────────────────────── */
