@@ -1436,10 +1436,82 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       newW = Math.round(newW); newH = Math.round(newH);
       newOX = Math.round(newOX); newOY = Math.round(newOY);
 
-      // Snap during resize
-      const { guides } = calculateSnap(newOX * scale, newOY * scale, newW * scale, newH * scale);
-      setActiveGuides(guides);
+      // Snap edges to guidelines during resize
+      const snapPts = getSnapPoints();
+      const t = SNAP_DISTANCE;
+      const guides: { type: "x" | "y"; value: number; source: SnapSource }[] = [];
 
+      // Compute edges in scaled (rendered) coordinates
+      const left = newOX * scale, top = newOY * scale;
+      const right = left + newW * scale, bottom = top + newH * scale;
+      const cx = (left + right) / 2, cy = (top + bottom) / 2;
+
+      // Snap X edges (left, center, right) — adjust width or position depending on handle
+      const xEdges: { val: number; side: "l" | "c" | "r" }[] = [];
+      if (r.handle.includes("l")) xEdges.push({ val: left, side: "l" });
+      if (r.handle.includes("r")) xEdges.push({ val: right, side: "r" });
+      xEdges.push({ val: cx, side: "c" });
+
+      let bestXDist = Infinity;
+      for (const edge of xEdges) {
+        for (const sp of snapPts) {
+          if (sp.type !== "x") continue;
+          const d = Math.abs(edge.val - sp.value);
+          if (d <= t && d < bestXDist) {
+            bestXDist = d;
+            const snapPx = Math.round((sp.value - edge.val) / scale);
+            if (edge.side === "r") {
+              newW += snapPx;
+            } else if (edge.side === "l") {
+              newOX += snapPx;
+              newW -= snapPx;
+            }
+            // center snap: shift both sides equally
+            if (edge.side === "c") {
+              newOX += snapPx;
+            }
+            const idx = guides.findIndex(g => g.type === "x");
+            if (idx >= 0) guides[idx] = { type: "x", value: sp.value, source: sp.source };
+            else guides.push({ type: "x", value: sp.value, source: sp.source });
+          }
+        }
+      }
+
+      // Snap Y edges (top, center, bottom)
+      const yEdges: { val: number; side: "t" | "c" | "b" }[] = [];
+      if (r.handle.includes("t")) yEdges.push({ val: top, side: "t" });
+      if (r.handle.includes("b")) yEdges.push({ val: bottom, side: "b" });
+      yEdges.push({ val: cy, side: "c" });
+
+      let bestYDist = Infinity;
+      for (const edge of yEdges) {
+        for (const sp of snapPts) {
+          if (sp.type !== "y") continue;
+          const d = Math.abs(edge.val - sp.value);
+          if (d <= t && d < bestYDist) {
+            bestYDist = d;
+            const snapPx = Math.round((sp.value - edge.val) / scale);
+            if (edge.side === "b") {
+              newH += snapPx;
+            } else if (edge.side === "t") {
+              newOY += snapPx;
+              newH -= snapPx;
+            }
+            if (edge.side === "c") {
+              newOY += snapPx;
+            }
+            const idx = guides.findIndex(g => g.type === "y");
+            if (idx >= 0) guides[idx] = { type: "y", value: sp.value, source: sp.source };
+            else guides.push({ type: "y", value: sp.value, source: sp.source });
+          }
+        }
+      }
+
+      // Enforce minimum size after snapping
+      newW = Math.max(minSz, newW);
+      newH = Math.max(minSz, newH);
+
+      setActiveGuides(guides);
       resizeDimsRef.current = { w: newW, h: newH };
       dragOffsetRef.current = { x: newOX, y: newOY };
       setResizeState({ section: r.section, handle: r.handle, w: newW, h: newH });
