@@ -1079,7 +1079,7 @@ export default function TemplateEditor() {
 
 /* ── Sortable Section Card ───────────────────────────────────────────── */
 
-function SortableSectionCard({ section, enabled, isActivePanel, isDragActive, isHovered, isLocked, onMouseEnter, onMouseLeave, onTogglePanel, onToggleSection, onToggleLock, children }: {
+function SortableSectionCard({ section, enabled, isActivePanel, isDragActive: _isDragActive, isHovered, isLocked, onMouseEnter, onMouseLeave, onTogglePanel, onToggleSection, onToggleLock, children }: {
   section: SectionType;
   enabled: boolean;
   isActivePanel: boolean;
@@ -1318,7 +1318,7 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard: _isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
   onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
   highlightedSection?: SectionType | null;
@@ -1657,7 +1657,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
-  const renderBackgroundImage = (section: SectionType) => {
+  const renderBackgroundImage = (section: "header" | "body") => {
     const cfg = variant[section];
     if (!cfg.image?.url) return null;
     return (
@@ -2058,7 +2058,6 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       {/* Snap guidelines — margin guides in darker pink, others in regular pink */}
       {!capturingThumbnail && activeGuides.map((g, i) => {
         const color = g.source === "margin" ? MARGIN_GUIDE_COLOR : GUIDE_COLOR;
-        const dash = g.source === "margin" ? "4px 3px" : "5px 5px";
         const weight = g.source === "margin" ? "1.5px" : "1px";
         return g.type === "x" ? (
           <div key={`g${i}`} style={{ position: "absolute", top: 0, bottom: 0, left: g.value, width: 0, borderLeft: `${weight} dashed ${color}`, pointerEvents: "none", zIndex: 25 }} />

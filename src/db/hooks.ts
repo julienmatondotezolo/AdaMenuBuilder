@@ -202,7 +202,7 @@ export async function importTemplate(jsonString: string): Promise<MenuTemplate> 
       name: "Content",
       header: { show: true, style: "centered", showSubtitle: true, showEstablished: true, showDivider: true },
       body: { columns: 1, categoryStyle: "lines", itemAlignment: "center", pricePosition: "below", separatorStyle: "line", showDescriptions: true, showFeaturedBadge: true },
-      highlight: { show: false, position: "none", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 },
+      highlight: { show: false, position: "none", style: "fit", height: 80, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0, imageFit: "cover", imageLocked: false },
     }];
   }
 
