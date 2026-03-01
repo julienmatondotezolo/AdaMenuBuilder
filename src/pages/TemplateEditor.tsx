@@ -1139,6 +1139,10 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const dragRef = useRef<{ section: SectionType; startX: number; startY: number; origX: number; origY: number } | null>(null);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [guides, setGuides] = useState<{ vertical: number | null; horizontal: number | null }>({ vertical: null, horizontal: null });
+  const SNAP_THRESHOLD = 6; // px threshold for showing guides
 
   useEffect(() => {
     if (!activeDragSection) return;
@@ -1150,16 +1154,48 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       const newOffset = { x: Math.round(d.origX + dx), y: Math.round(d.origY + dy) };
       dragOffsetRef.current = newOffset;
       setDragOffset(newOffset);
+
+      // Compute snap guidelines
+      const container = containerRef.current;
+      const sectionEl = sectionRefs.current[d.section];
+      if (container && sectionEl) {
+        const cRect = container.getBoundingClientRect();
+        const sRect = sectionEl.getBoundingClientRect();
+        // Container center (in container-local coords, accounting for scale)
+        const cCenterX = cRect.width / 2;
+        const cCenterY = cRect.height / 2;
+        // Section rect center (in container-local coords)
+        const sCenterX = (sRect.left - cRect.left) + sRect.width / 2;
+        const sCenterY = (sRect.top - cRect.top) + sRect.height / 2;
+        // Section edges
+        const sLeft = sRect.left - cRect.left;
+        const sRight = sLeft + sRect.width;
+        const sTop = sRect.top - cRect.top;
+        const sBottom = sTop + sRect.height;
+        const t = SNAP_THRESHOLD * scale;
+        // Check vertical (x-axis) center alignment
+        const vGuide = Math.abs(sCenterX - cCenterX) < t ? cCenterX
+          : Math.abs(sLeft - cCenterX) < t ? cCenterX
+          : Math.abs(sRight - cCenterX) < t ? cCenterX
+          : null;
+        // Check horizontal (y-axis) center alignment
+        const hGuide = Math.abs(sCenterY - cCenterY) < t ? cCenterY
+          : Math.abs(sTop - cCenterY) < t ? cCenterY
+          : Math.abs(sBottom - cCenterY) < t ? cCenterY
+          : null;
+        setGuides({ vertical: vGuide, horizontal: hGuide });
+      }
     };
     const handleUp = () => {
       const d = dragRef.current;
-      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); return; }
+      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); setGuides({ vertical: null, horizontal: null }); return; }
       const final = dragOffsetRef.current;
       onUpdateVariant(variant.id, {
         [d.section]: { ...variant[d.section], offsetX: final.x, offsetY: final.y },
       });
       dragRef.current = null;
       setActiveDragSection(null);
+      setGuides({ vertical: null, horizontal: null });
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
@@ -1269,6 +1305,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     return (
       <div
         key={section}
+        ref={(el) => { sectionRefs.current[section] = el; }}
         onMouseDown={(e) => { if (canDrag) handleMouseDown(e, section); }}
         onClick={() => onClickSection?.(section)}
         onMouseEnter={() => setHoverSection(section)}
@@ -1489,6 +1526,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   return (
     <div
+      ref={containerRef}
       className="h-full flex flex-col"
       style={{
         position: "relative",
@@ -1516,6 +1554,35 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
             <div style={{ ...marginTextStyle, inset: 0 }}>{spacing.marginRight}px</div>
           </div>
         </>
+      )}
+      {/* Snap guidelines */}
+      {activeDragSection && guides.vertical !== null && (
+        <div style={{
+          position: "absolute", top: 0, bottom: 0,
+          left: `${guides.vertical}px`, width: "1px",
+          background: "#4d6aff", opacity: 0.7,
+          pointerEvents: "none", zIndex: 20,
+        }}>
+          <div style={{
+            position: "absolute", top: 4, left: 4,
+            fontSize: "7px", fontFamily: "monospace", color: "#4d6aff",
+            whiteSpace: "nowrap", fontWeight: 600,
+          }}>center</div>
+        </div>
+      )}
+      {activeDragSection && guides.horizontal !== null && (
+        <div style={{
+          position: "absolute", left: 0, right: 0,
+          top: `${guides.horizontal}px`, height: "1px",
+          background: "#4d6aff", opacity: 0.7,
+          pointerEvents: "none", zIndex: 20,
+        }}>
+          <div style={{
+            position: "absolute", left: 4, top: 4,
+            fontSize: "7px", fontFamily: "monospace", color: "#4d6aff",
+            whiteSpace: "nowrap", fontWeight: 600,
+          }}>center</div>
+        </div>
       )}
       {sectionOrder.map((section) => {
         const content = renderSection(section);
