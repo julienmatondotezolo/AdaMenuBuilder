@@ -1171,11 +1171,13 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       case "body":
         return (
           <div style={{
+            position: "relative",
             display: variant.body.columns > 1 ? "grid" : "block",
             gridTemplateColumns: variant.body.columns > 1 ? `repeat(${variant.body.columns}, 1fr)` : undefined,
             gap: variant.body.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
             flex: 1,
           }}>
+            {renderBackgroundImage("body")}
             {data.categories.map((cat, catIdx) => (
               <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px` }}>
                 {/* Category header */}
@@ -1267,11 +1269,13 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         const hl = variant.highlight;
         return (
           <div style={{
+            position: "relative",
             marginTop: `${hl.marginTop ?? 12}px`,
             marginBottom: `${hl.marginBottom ?? 0}px`,
             marginLeft: `${hl.marginLeft ?? 0}px`,
             marginRight: `${hl.marginRight ?? 0}px`,
           }}>
+            {renderBackgroundImage("highlight")}
             <div style={{ borderRadius: "4px", overflow: "hidden", position: "relative" }}>
               <img src={data.highlightImage} alt="" style={{ width: "100%", height: `${hl.height ?? 80}px`, objectFit: "cover" }} />
               <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "6px 8px", background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}>
