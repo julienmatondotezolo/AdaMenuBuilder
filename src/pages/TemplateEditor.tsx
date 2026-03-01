@@ -1134,16 +1134,78 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   onClickSection?: (section: SectionType) => void;
   lockedSections?: Set<SectionType>;
 }) {
+  // --- Drag, Resize & Snap State ---
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [resizeState, setResizeState] = useState<{ section: SectionType; handle: string; w: number; h: number } | null>(null);
   const dragRef = useRef<{ section: SectionType; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeRef = useRef<{ section: SectionType; handle: string; startX: number; startY: number; origW: number; origH: number; origOX: number; origOY: number } | null>(null);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoverSection, setHoverSection] = useState<SectionType | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const [guides, setGuides] = useState<{ vertical: number | null; horizontal: number | null }>({ vertical: null, horizontal: null });
-  const SNAP_THRESHOLD = 6; // px threshold for showing guides
+  const [activeGuides, setActiveGuides] = useState<{ type: "x" | "y"; value: number }[]>([]);
 
+  const SNAP_DISTANCE = 8; // px — magnetic snap threshold (matches AdaMenu)
+  const HANDLE_SIZE = 10;  // px — resize handle size
+  const GUIDE_COLOR = "#ff69b4"; // pink guidelines (matches AdaMenu)
+
+  // Build snap points for the container (edges + center)
+  const getContainerSnapPoints = () => {
+    const container = containerRef.current;
+    if (!container) return [];
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    return [
+      { type: "x" as const, value: 0 }, { type: "x" as const, value: w / 2 }, { type: "x" as const, value: w },
+      { type: "y" as const, value: 0 }, { type: "y" as const, value: h / 2 }, { type: "y" as const, value: h },
+    ];
+  };
+
+  // Calculate snap — returns snapped position + active guidelines
+  const calculateSnap = (elRect: { left: number; top: number; width: number; height: number }) => {
+    const snapPoints = getContainerSnapPoints();
+    const t = SNAP_DISTANCE;
+    const guides: { type: "x" | "y"; value: number }[] = [];
+    let snapDx = 0, snapDy = 0;
+
+    // Element edge/center points
+    const elXPoints = [elRect.left, elRect.left + elRect.width / 2, elRect.left + elRect.width];
+    const elYPoints = [elRect.top, elRect.top + elRect.height / 2, elRect.top + elRect.height];
+
+    // Find best X snap
+    let bestXDist = Infinity;
+    elXPoints.forEach(ex => {
+      snapPoints.filter(p => p.type === "x").forEach(sp => {
+        const dist = Math.abs(ex - sp.value);
+        if (dist < t && dist < bestXDist) {
+          bestXDist = dist;
+          snapDx = sp.value - ex;
+          guides.push({ type: "x", value: sp.value });
+        }
+      });
+    });
+
+    // Find best Y snap
+    let bestYDist = Infinity;
+    elYPoints.forEach(ey => {
+      snapPoints.filter(p => p.type === "y").forEach(sp => {
+        const dist = Math.abs(ey - sp.value);
+        if (dist < t && dist < bestYDist) {
+          bestYDist = dist;
+          snapDy = sp.value - ey;
+          guides.push({ type: "y", value: sp.value });
+        }
+      });
+    });
+
+    // Dedupe guides
+    const uniqueGuides = guides.filter((g, i, arr) => arr.findIndex(a => a.type === g.type && a.value === g.value) === i);
+    return { snapDx, snapDy, guides: uniqueGuides };
+  };
+
+  // --- Drag effect ---
   useEffect(() => {
     if (!activeDragSection) return;
     const handleMove = (e: MouseEvent) => {
@@ -1151,56 +1213,97 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       if (!d) return;
       const dx = (e.clientX - d.startX) / scale;
       const dy = (e.clientY - d.startY) / scale;
-      const newOffset = { x: Math.round(d.origX + dx), y: Math.round(d.origY + dy) };
-      dragOffsetRef.current = newOffset;
-      setDragOffset(newOffset);
+      let newX = Math.round(d.origX + dx);
+      let newY = Math.round(d.origY + dy);
 
-      // Compute snap guidelines
-      const container = containerRef.current;
+      // Get section element rect for snap calculation (in container-local px)
       const sectionEl = sectionRefs.current[d.section];
-      if (container && sectionEl) {
+      const container = containerRef.current;
+      if (sectionEl && container) {
         const cRect = container.getBoundingClientRect();
         const sRect = sectionEl.getBoundingClientRect();
-        // Container center (in container-local coords, accounting for scale)
-        const cCenterX = cRect.width / 2;
-        const cCenterY = cRect.height / 2;
-        // Section rect center (in container-local coords)
-        const sCenterX = (sRect.left - cRect.left) + sRect.width / 2;
-        const sCenterY = (sRect.top - cRect.top) + sRect.height / 2;
-        // Section edges
-        const sLeft = sRect.left - cRect.left;
-        const sRight = sLeft + sRect.width;
-        const sTop = sRect.top - cRect.top;
-        const sBottom = sTop + sRect.height;
-        const t = SNAP_THRESHOLD * scale;
-        // Check vertical (x-axis) center alignment
-        const vGuide = Math.abs(sCenterX - cCenterX) < t ? cCenterX
-          : Math.abs(sLeft - cCenterX) < t ? cCenterX
-          : Math.abs(sRight - cCenterX) < t ? cCenterX
-          : null;
-        // Check horizontal (y-axis) center alignment
-        const hGuide = Math.abs(sCenterY - cCenterY) < t ? cCenterY
-          : Math.abs(sTop - cCenterY) < t ? cCenterY
-          : Math.abs(sBottom - cCenterY) < t ? cCenterY
-          : null;
-        setGuides({ vertical: vGuide, horizontal: hGuide });
+        const elW = sRect.width / scale;
+        const elH = sRect.height / scale;
+        // Predict where the element will be in container-local coords
+        const padding = { left: spacing.marginLeft, top: spacing.marginTop };
+        const elLeft = padding.left + newX;
+        const elTop = sRect.top / scale - cRect.top / scale; // approximate
+        const { snapDx, snapDy, guides } = calculateSnap({ left: elLeft, top: elTop, width: elW, height: elH });
+        newX += Math.round(snapDx / 1); // snap offsets are already in container coords, adjust for element space
+        newY += Math.round(snapDy / 1);
+        setActiveGuides(guides);
       }
+
+      dragOffsetRef.current = { x: newX, y: newY };
+      setDragOffset({ x: newX, y: newY });
     };
     const handleUp = () => {
       const d = dragRef.current;
-      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); setGuides({ vertical: null, horizontal: null }); return; }
+      if (!d || !onUpdateVariant || !variant) { dragRef.current = null; setActiveDragSection(null); setActiveGuides([]); return; }
       const final = dragOffsetRef.current;
       onUpdateVariant(variant.id, {
         [d.section]: { ...variant[d.section], offsetX: final.x, offsetY: final.y },
       });
       dragRef.current = null;
       setActiveDragSection(null);
-      setGuides({ vertical: null, horizontal: null });
+      setActiveGuides([]);
     };
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
     return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
   }, [activeDragSection, scale, onUpdateVariant, variant]);
+
+  // --- Resize effect ---
+  useEffect(() => {
+    if (!resizeState) return;
+    const handleMove = (e: MouseEvent) => {
+      const r = resizeRef.current;
+      if (!r) return;
+      const dx = (e.clientX - r.startX) / scale;
+      const dy = (e.clientY - r.startY) / scale;
+      let newW = r.origW, newH = r.origH, newOX = r.origOX, newOY = r.origOY;
+      const minW = 20, minH = 20;
+      switch (r.handle) {
+        case "br": newW = Math.max(minW, r.origW + dx); newH = Math.max(minH, r.origH + dy); break;
+        case "bl": newW = Math.max(minW, r.origW - dx); newH = Math.max(minH, r.origH + dy); newOX = r.origOX + (r.origW - newW); break;
+        case "tr": newW = Math.max(minW, r.origW + dx); newH = Math.max(minH, r.origH - dy); newOY = r.origOY + (r.origH - newH); break;
+        case "tl": newW = Math.max(minW, r.origW - dx); newH = Math.max(minH, r.origH - dy); newOX = r.origOX + (r.origW - newW); newOY = r.origOY + (r.origH - newH); break;
+      }
+      setResizeState({ section: r.section, handle: r.handle, w: Math.round(newW), h: Math.round(newH) });
+      dragOffsetRef.current = { x: Math.round(newOX), y: Math.round(newOY) };
+      setDragOffset({ x: Math.round(newOX), y: Math.round(newOY) });
+
+      // Snap edges during resize
+      const container = containerRef.current;
+      if (container) {
+        const padding = { left: spacing.marginLeft, top: spacing.marginTop };
+        const elLeft = padding.left + newOX;
+        const elTop = padding.top + newOY;
+        const edgeX = r.handle.includes("l") ? [elLeft] : [elLeft + newW];
+        const edgeY = r.handle.includes("t") ? [elTop] : [elTop + newH];
+        const snapPoints = getContainerSnapPoints();
+        const guides: { type: "x" | "y"; value: number }[] = [];
+        const t = SNAP_DISTANCE;
+        edgeX.forEach(ex => { snapPoints.filter(p => p.type === "x").forEach(sp => { if (Math.abs(ex - sp.value) < t) guides.push({ type: "x", value: sp.value }); }); });
+        edgeY.forEach(ey => { snapPoints.filter(p => p.type === "y").forEach(sp => { if (Math.abs(ey - sp.value) < t) guides.push({ type: "y", value: sp.value }); }); });
+        setActiveGuides(guides);
+      }
+    };
+    const handleUp = () => {
+      const r = resizeRef.current;
+      if (!r || !onUpdateVariant || !variant) { resizeRef.current = null; setResizeState(null); setActiveGuides([]); return; }
+      const final = dragOffsetRef.current;
+      onUpdateVariant(variant.id, {
+        [r.section]: { ...variant[r.section], offsetX: final.x, offsetY: final.y, customWidth: resizeState?.w, customHeight: resizeState?.h },
+      });
+      resizeRef.current = null;
+      setResizeState(null);
+      setActiveGuides([]);
+    };
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+  }, [resizeState, scale, onUpdateVariant, variant]);
 
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
@@ -1213,10 +1316,16 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     const config = variant[section];
     const ox = config.offsetX ?? 0;
     const oy = config.offsetY ?? 0;
-    if (activeDragSection === section) {
+    if (activeDragSection === section || resizeState?.section === section) {
       return { x: dragOffset.x, y: dragOffset.y };
     }
     return { x: ox, y: oy };
+  };
+
+  const getDimensions = (section: SectionType) => {
+    if (resizeState?.section === section) return { w: resizeState.w, h: resizeState.h };
+    const config = variant[section] as any;
+    return { w: config.customWidth, h: config.customHeight };
   };
 
   const handleMouseDown = (e: React.MouseEvent, section: SectionType) => {
@@ -1229,6 +1338,19 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     dragOffsetRef.current = { x: origX, y: origY };
     setDragOffset({ x: origX, y: origY });
     setActiveDragSection(section);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent, section: SectionType, handle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const config = variant[section] as any;
+    const el = sectionRefs.current[section];
+    const origW = config.customWidth || (el ? el.offsetWidth : 100);
+    const origH = config.customHeight || (el ? el.offsetHeight : 60);
+    resizeRef.current = { section, handle, startX: e.clientX, startY: e.clientY, origW, origH, origOX: config.offsetX ?? 0, origOY: config.offsetY ?? 0 };
+    dragOffsetRef.current = { x: config.offsetX ?? 0, y: config.offsetY ?? 0 };
+    setDragOffset({ x: config.offsetX ?? 0, y: config.offsetY ?? 0 });
+    setResizeState({ section, handle, w: origW, h: origH });
   };
 
   const renderSeparator = (style: string) => {
@@ -1283,16 +1405,15 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const wrapDraggable = (section: SectionType, content: React.ReactNode) => {
     const offset = getOffset(section);
+    const dims = getDimensions(section);
     const isDragging = activeDragSection === section;
+    const isResizing = resizeState?.section === section;
+    const isActive = isDragging || isResizing;
     const isHovered = hoverSection === section;
-    const isHighlightedFromPanel = highlightedSection === section && !isDragging;
+    const isHighlightedFromPanel = highlightedSection === section && !isActive;
     const canDrag = isSectionCustom(section);
     const isLocked = lockedSections?.has(section) ?? false;
-
-    // Custom bounding box dimensions (header only for now)
-    const config = variant[section];
-    const customW = section === "header" && "customWidth" in config ? (config as any).customWidth : undefined;
-    const customH = section === "header" && "customHeight" in config ? (config as any).customHeight : undefined;
+    const isSelected = canDrag && (isHighlightedFromPanel || isActive || isHovered);
 
     if (isLocked) {
       return (
@@ -1302,53 +1423,73 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       );
     }
 
+    // Resize handle style (matches AdaMenu: blue squares with white border)
+    const handleStyle = (cursor: string): React.CSSProperties => ({
+      position: "absolute", width: HANDLE_SIZE, height: HANDLE_SIZE,
+      backgroundColor: "#0066cc", border: "2px solid #fff", cursor,
+      zIndex: 15, pointerEvents: "auto",
+    });
+
     return (
       <div
         key={section}
         ref={(el) => { sectionRefs.current[section] = el; }}
-        onMouseDown={(e) => { if (canDrag) handleMouseDown(e, section); }}
+        onMouseDown={(e) => { if (canDrag && !hoveredHandle) handleMouseDown(e, section); }}
         onClick={() => onClickSection?.(section)}
         onMouseEnter={() => setHoverSection(section)}
-        onMouseLeave={() => setHoverSection(null)}
+        onMouseLeave={() => { setHoverSection(null); setHoveredHandle(null); }}
         style={{
           position: "relative",
           transform: canDrag ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
-          width: customW ? `${customW}px` : undefined,
-          height: customH ? `${customH}px` : undefined,
-          overflow: (customW || customH) ? "hidden" : undefined,
+          width: dims.w ? `${dims.w}px` : undefined,
+          height: dims.h ? `${dims.h}px` : undefined,
+          overflow: (dims.w || dims.h) ? "hidden" : undefined,
           cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
           borderRadius: "4px",
-          outline: isDragging
-            ? "2px solid #4d6aff"
+          outline: isActive
+            ? "2px solid #0066cc"
             : isHighlightedFromPanel
               ? "2px solid #4d6aff"
-              : isHovered
-                ? "1px dashed #4d6aff66"
-                : "none",
+              : isHovered && canDrag
+                ? "1px dashed #ff69b466"
+                : isHovered
+                  ? "1px dashed #4d6aff66"
+                  : "none",
           outlineOffset: "2px",
           backgroundColor: isHighlightedFromPanel ? "rgba(77, 106, 255, 0.06)" : undefined,
-          transition: isDragging ? "none" : "outline 0.2s ease, background-color 0.2s ease",
+          transition: isActive ? "none" : "outline 0.2s ease, background-color 0.2s ease",
           userSelect: "none",
-          animation: isHighlightedFromPanel ? "previewPulse 1.5s ease-in-out infinite" : undefined,
+          animation: isHighlightedFromPanel && !isActive ? "previewPulse 1.5s ease-in-out infinite" : undefined,
         }}
       >
         {content}
-        {isDragging && (
+        {/* Resize handles — show on hover or active for custom sections */}
+        {canDrag && isSelected && !isDragging && (
+          <>
+            <div style={{ ...handleStyle("nw-resize"), top: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2 }}
+              onMouseEnter={() => setHoveredHandle("tl")} onMouseLeave={() => setHoveredHandle(null)}
+              onMouseDown={(e) => handleResizeStart(e, section, "tl")} />
+            <div style={{ ...handleStyle("ne-resize"), top: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2 }}
+              onMouseEnter={() => setHoveredHandle("tr")} onMouseLeave={() => setHoveredHandle(null)}
+              onMouseDown={(e) => handleResizeStart(e, section, "tr")} />
+            <div style={{ ...handleStyle("sw-resize"), bottom: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2 }}
+              onMouseEnter={() => setHoveredHandle("bl")} onMouseLeave={() => setHoveredHandle(null)}
+              onMouseDown={(e) => handleResizeStart(e, section, "bl")} />
+            <div style={{ ...handleStyle("se-resize"), bottom: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2 }}
+              onMouseEnter={() => setHoveredHandle("br")} onMouseLeave={() => setHoveredHandle(null)}
+              onMouseDown={(e) => handleResizeStart(e, section, "br")} />
+          </>
+        )}
+        {/* Coordinate/dimension tooltip while dragging or resizing */}
+        {isActive && (
           <div style={{
-            position: "absolute",
-            top: -18,
-            left: 0,
-            fontSize: "8px",
-            fontFamily: "monospace",
-            background: "#4d6aff",
-            color: "white",
-            padding: "1px 4px",
-            borderRadius: "2px",
-            whiteSpace: "nowrap",
-            pointerEvents: "none",
-            zIndex: 10,
+            position: "absolute", top: -18, left: 0,
+            fontSize: "8px", fontFamily: "monospace",
+            background: "#0066cc", color: "white",
+            padding: "1px 4px", borderRadius: "2px",
+            whiteSpace: "nowrap", pointerEvents: "none", zIndex: 16,
           }}>
-            x: {offset.x}, y: {offset.y}{customW ? ` w: ${customW}` : ""}{customH ? ` h: ${customH}` : ""}
+            x:{offset.x} y:{offset.y}{dims.w ? ` w:${dims.w}` : ""}{dims.h ? ` h:${dims.h}` : ""}
           </div>
         )}
       </div>
@@ -1535,7 +1676,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       }}
     >
       {/* Margin overlays */}
-      {(showMargins || !!activeDragSection) && (
+      {(showMargins || !!activeDragSection || !!resizeState) && (
         <>
           {/* Top margin */}
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: `${spacing.marginTop}px`, backgroundColor: marginColors.top, zIndex: 4, pointerEvents: "none" }}>
@@ -1555,35 +1696,24 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           </div>
         </>
       )}
-      {/* Snap guidelines */}
-      {activeDragSection && guides.vertical !== null && (
-        <div style={{
-          position: "absolute", top: 0, bottom: 0,
-          left: `${guides.vertical}px`, width: "1px",
-          background: "#4d6aff", opacity: 0.7,
-          pointerEvents: "none", zIndex: 20,
-        }}>
-          <div style={{
-            position: "absolute", top: 4, left: 4,
-            fontSize: "7px", fontFamily: "monospace", color: "#4d6aff",
-            whiteSpace: "nowrap", fontWeight: 600,
-          }}>center</div>
-        </div>
-      )}
-      {activeDragSection && guides.horizontal !== null && (
-        <div style={{
-          position: "absolute", left: 0, right: 0,
-          top: `${guides.horizontal}px`, height: "1px",
-          background: "#4d6aff", opacity: 0.7,
-          pointerEvents: "none", zIndex: 20,
-        }}>
-          <div style={{
-            position: "absolute", left: 4, top: 4,
-            fontSize: "7px", fontFamily: "monospace", color: "#4d6aff",
-            whiteSpace: "nowrap", fontWeight: 600,
-          }}>center</div>
-        </div>
-      )}
+      {/* Snap guidelines — pink dashed (matches AdaMenu) */}
+      {activeGuides.map((guide, i) => (
+        guide.type === "x" ? (
+          <div key={`guide-${i}`} style={{
+            position: "absolute", top: 0, bottom: 0,
+            left: `${guide.value}px`, width: 0,
+            borderLeft: `1px dashed ${GUIDE_COLOR}`,
+            pointerEvents: "none", zIndex: 20,
+          }} />
+        ) : (
+          <div key={`guide-${i}`} style={{
+            position: "absolute", left: 0, right: 0,
+            top: `${guide.value}px`, height: 0,
+            borderTop: `1px dashed ${GUIDE_COLOR}`,
+            pointerEvents: "none", zIndex: 20,
+          }} />
+        )
+      ))}
       {sectionOrder.map((section) => {
         const content = renderSection(section);
         if (!content) return null;
