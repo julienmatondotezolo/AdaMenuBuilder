@@ -227,7 +227,7 @@ interface MenuCardProps {
 function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete, formatDate }: MenuCardProps) {
   return (
     <Card
-      className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md"
+      className="cursor-pointer transition-shadow hover:shadow-md"
       onClick={onEdit}
     >
       {/* Preview area */}
