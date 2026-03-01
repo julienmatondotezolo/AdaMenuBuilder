@@ -48,7 +48,7 @@ export interface SpacingConfig {
 /* ── Page Variant Layouts ────────────────────────────────────────────── */
 
 export type HeaderStyle = "centered" | "left" | "right" | "minimal" | "custom" | "none";
-export type CategoryStyle = "lines" | "dots" | "bold" | "minimal";
+export type CategoryStyle = "lines" | "dots" | "bold" | "minimal" | "custom";
 export type ItemAlignment = "center" | "left";
 export type PricePosition = "right" | "below" | "inline";
 export type HighlightPosition = "bottom" | "top" | "none";
@@ -91,6 +91,12 @@ export interface VariantBodyConfig {
   showFeaturedBadge: boolean;
   offsetX?: number;       // px offset for preview drag
   offsetY?: number;       // px offset for preview drag
+  // Custom category style fields
+  categoryFontSize?: number;      // px
+  categoryFont?: string;          // font family override
+  categoryLetterSpacing?: number; // em
+  categoryAlignment?: "left" | "center" | "right";
+  categoryBorderBottom?: boolean;
   image?: SectionImageConfig;
 }
 

@@ -126,14 +126,16 @@ export default function TemplateEditor() {
     if (template) loadTemplateFonts(template.fonts.heading, template.fonts.body);
   }, [template?.fonts.heading, template?.fonts.body]);
 
-  // Load custom highlight text fonts
+  // Load custom fonts (highlight text, custom category)
   useEffect(() => {
     if (!template) return;
     for (const v of template.pageVariants) {
       const lf = v.highlight.text?.labelFont;
       const tf = v.highlight.text?.titleFont;
+      const cf = v.body.categoryFont;
       if (lf) { const f = findFont(lf); if (f) loadFont(f); }
       if (tf) { const f = findFont(tf); if (f) loadFont(f); }
+      if (cf) { const f = findFont(cf); if (f) loadFont(f); }
     }
   }, [template?.pageVariants]);
 
@@ -713,8 +715,37 @@ export default function TemplateEditor() {
                                 options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
                               <SelectRow label="Category Style" value={activeVariant.body.categoryStyle}
-                                options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "dots", l: "Dotted" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: v as "lines" | "bold" | "minimal" | "dots" } })} />
+                                options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "dots", l: "Dotted" }, { v: "custom", l: "Custom" }]}
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: v as "lines" | "bold" | "minimal" | "dots" | "custom" } })} />
+                              {activeVariant.body.categoryStyle === "custom" && (
+                                <>
+                                  <SelectRow label="Cat. Alignment" value={activeVariant.body.categoryAlignment || "center"}
+                                    options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
+                                    onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryAlignment: v as "left" | "center" | "right" } })} />
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <NumberRow label="Font Size" value={activeVariant.body.categoryFontSize ?? 9} unit="px" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryFontSize: v } })} />
+                                    <NumberRow label="Spacing" value={activeVariant.body.categoryLetterSpacing ?? 0.25} unit="em" compact
+                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryLetterSpacing: v } })} />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px]">Font</Label>
+                                    <Select value={activeVariant.body.categoryFont || "__default__"} onValueChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryFont: v === "__default__" ? undefined : v } })}>
+                                      <SelectTrigger className="h-7 text-xs">
+                                        <SelectValue placeholder="Template heading font" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__default__">Default (heading)</SelectItem>
+                                        {FONT_CATALOG.map(f => (
+                                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <ToggleRow label="Underline" checked={activeVariant.body.categoryBorderBottom ?? false}
+                                    onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryBorderBottom: v } })} />
+                                </>
+                              )}
                               <SelectRow label="Alignment" value={activeVariant.body.itemAlignment}
                                 options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }]}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as "center" | "left" } })} />
@@ -728,65 +759,6 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showDescriptions: v } })} />
                               <ToggleRow label="Featured Badge" checked={activeVariant.body.showFeaturedBadge}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showFeaturedBadge: v } })} />
-                              
-                              {/* Image Configuration */}
-                              <div className="pt-2">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Background Image</Label>
-                                <div className="space-y-2 mt-1.5">
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px]">URL</Label>
-                                    <Input
-                                      value={activeVariant.body.image?.url || ""}
-                                      placeholder="No image set"
-                                      className="h-7 text-xs"
-                                      onChange={(e) => updateVariant(activeVariant.id, { 
-                                        body: { 
-                                          ...activeVariant.body, 
-                                          image: { 
-                                            offsetX: 0, offsetY: 0, width: 100, height: 100, opacity: 0.1, objectFit: "cover", 
-                                            ...activeVariant.body.image, 
-                                            url: e.target.value 
-                                          } 
-                                        } 
-                                      })}
-                                    />
-                                  </div>
-                                  {activeVariant.body.image?.url && (
-                                    <>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <NumberRow label="X Offset" value={activeVariant.body.image.offsetX} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, offsetX: v } } })} />
-                                        <NumberRow label="Y Offset" value={activeVariant.body.image.offsetY} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, offsetY: v } } })} />
-                                        <NumberRow label="Width" value={activeVariant.body.image.width} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, width: v } } })} />
-                                        <NumberRow label="Height" value={activeVariant.body.image.height} unit="px" compact
-                                          onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, height: v } } })} />
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <div className="space-y-1">
-                                          <Label className="text-[10px]">Opacity</Label>
-                                          <Input type="number" min="0" max="1" step="0.1" value={activeVariant.body.image.opacity} className="h-7 text-xs"
-                                            onChange={(e) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, opacity: Number(e.target.value) } } })} />
-                                        </div>
-                                        <div className="space-y-1">
-                                          <Label className="text-[10px]">Object Fit</Label>
-                                          <Select value={activeVariant.body.image.objectFit} onValueChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, image: { ...activeVariant.body.image!, objectFit: v as "cover" | "contain" | "fill" } } })}>
-                                            <SelectTrigger className="h-7 text-xs">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="cover">Cover</SelectItem>
-                                              <SelectItem value="contain">Contain</SelectItem>
-                                              <SelectItem value="fill">Fill</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
                             </>
                           )}
                           {section === "highlight" && (
@@ -1587,11 +1559,10 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
             gap: variant.body.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
             flex: 1,
           }}>
-            {renderBackgroundImage("body")}
             {data.categories.map((cat, catIdx) => (
               <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px`, position: "relative", zIndex: 1 }}>
                 <div style={{
-                  textAlign: variant.body.itemAlignment,
+                  textAlign: variant.body.categoryStyle === "custom" ? (variant.body.categoryAlignment || "center") : variant.body.itemAlignment,
                   marginBottom: `${spacing.itemGap * 0.4}px`,
                   display: variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" ? "flex" : "block",
                   alignItems: "center", justifyContent: "center", gap: "8px",
@@ -1600,12 +1571,22 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                   <h2 style={{
-                    fontSize: fs(variant.body.categoryStyle === "bold" ? 9 : 8),
-                    letterSpacing: "0.25em", color: colors.primary, textTransform: "uppercase",
-                    fontWeight: variant.body.categoryStyle === "bold" ? 800 : 600, whiteSpace: "nowrap",
-                    fontFamily: variant.body.categoryStyle === "bold" ? fonts.heading : fonts.body,
-                    borderBottom: variant.body.categoryStyle === "bold" ? `2px solid ${colors.primary}` : "none",
-                    paddingBottom: variant.body.categoryStyle === "bold" ? "4px" : "0",
+                    fontSize: fs(variant.body.categoryStyle === "custom"
+                      ? (variant.body.categoryFontSize ?? 9)
+                      : variant.body.categoryStyle === "bold" ? 9 : 8),
+                    letterSpacing: variant.body.categoryStyle === "custom"
+                      ? `${variant.body.categoryLetterSpacing ?? 0.25}em`
+                      : "0.25em",
+                    color: colors.primary, textTransform: "uppercase",
+                    fontWeight: variant.body.categoryStyle === "bold" || variant.body.categoryStyle === "custom" ? 800 : 600,
+                    whiteSpace: "nowrap",
+                    fontFamily: variant.body.categoryStyle === "custom"
+                      ? (variant.body.categoryFont || fonts.heading)
+                      : variant.body.categoryStyle === "bold" ? fonts.heading : fonts.body,
+                    borderBottom: (variant.body.categoryStyle === "bold" || (variant.body.categoryStyle === "custom" && variant.body.categoryBorderBottom))
+                      ? `2px solid ${colors.primary}` : "none",
+                    paddingBottom: (variant.body.categoryStyle === "bold" || (variant.body.categoryStyle === "custom" && variant.body.categoryBorderBottom))
+                      ? "4px" : "0",
                   }}>
                     {cat.name}
                   </h2>
