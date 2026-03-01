@@ -1151,58 +1151,73 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const HANDLE_SIZE = 10;  // px — resize handle size
   const GUIDE_COLOR = "#ff69b4"; // pink guidelines (matches AdaMenu)
 
-  // Build snap points for the container (edges + center)
-  const getContainerSnapPoints = () => {
+  // Build snap points: container edges + center + margin boundaries
+  // All in container-local coordinates (0,0 = top-left of the preview div)
+  const getSnapPoints = () => {
     const container = containerRef.current;
     if (!container) return [];
-    const w = container.clientWidth;
-    const h = container.clientHeight;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const ml = spacing.marginLeft, mr = spacing.marginRight, mt = spacing.marginTop, mb = spacing.marginBottom;
     return [
-      { type: "x" as const, value: 0 }, { type: "x" as const, value: w / 2 }, { type: "x" as const, value: w },
-      { type: "y" as const, value: 0 }, { type: "y" as const, value: h / 2 }, { type: "y" as const, value: h },
+      // Container edges
+      { type: "x" as const, value: 0 }, { type: "x" as const, value: cw },
+      { type: "y" as const, value: 0 }, { type: "y" as const, value: ch },
+      // Container center
+      { type: "x" as const, value: cw / 2 }, { type: "y" as const, value: ch / 2 },
+      // Margin boundaries
+      { type: "x" as const, value: ml }, { type: "x" as const, value: cw - mr },
+      { type: "y" as const, value: mt }, { type: "y" as const, value: ch - mb },
+      // Margin center
+      { type: "x" as const, value: ml + (cw - ml - mr) / 2 },
+      { type: "y" as const, value: mt + (ch - mt - mb) / 2 },
     ];
   };
 
-  // Calculate snap — returns snapped position + active guidelines
-  const calculateSnap = (elRect: { left: number; top: number; width: number; height: number }) => {
-    const snapPoints = getContainerSnapPoints();
+  // Calculate snap for an element rect (in container-local px after scale)
+  // Returns the delta to apply + active guide lines
+  const calculateSnap = (elLeft: number, elTop: number, elW: number, elH: number) => {
+    const snapPoints = getSnapPoints();
     const t = SNAP_DISTANCE;
-    const guides: { type: "x" | "y"; value: number }[] = [];
     let snapDx = 0, snapDy = 0;
+    const newGuides: { type: "x" | "y"; value: number }[] = [];
 
-    // Element edge/center points
-    const elXPoints = [elRect.left, elRect.left + elRect.width / 2, elRect.left + elRect.width];
-    const elYPoints = [elRect.top, elRect.top + elRect.height / 2, elRect.top + elRect.height];
+    // Element edges + center in container coords
+    const edgesX = [elLeft, elLeft + elW / 2, elLeft + elW];
+    const edgesY = [elTop, elTop + elH / 2, elTop + elH];
 
-    // Find best X snap
+    // Best X snap
     let bestXDist = Infinity;
-    elXPoints.forEach(ex => {
+    edgesX.forEach(ex => {
       snapPoints.filter(p => p.type === "x").forEach(sp => {
         const dist = Math.abs(ex - sp.value);
-        if (dist < t && dist < bestXDist) {
+        if (dist <= t && dist < bestXDist) {
           bestXDist = dist;
           snapDx = sp.value - ex;
-          guides.push({ type: "x", value: sp.value });
+          // Replace: only keep the winning guide for this axis
+          const idx = newGuides.findIndex(g => g.type === "x");
+          if (idx >= 0) newGuides[idx] = { type: "x", value: sp.value };
+          else newGuides.push({ type: "x", value: sp.value });
         }
       });
     });
 
-    // Find best Y snap
+    // Best Y snap
     let bestYDist = Infinity;
-    elYPoints.forEach(ey => {
+    edgesY.forEach(ey => {
       snapPoints.filter(p => p.type === "y").forEach(sp => {
         const dist = Math.abs(ey - sp.value);
-        if (dist < t && dist < bestYDist) {
+        if (dist <= t && dist < bestYDist) {
           bestYDist = dist;
           snapDy = sp.value - ey;
-          guides.push({ type: "y", value: sp.value });
+          const idx = newGuides.findIndex(g => g.type === "y");
+          if (idx >= 0) newGuides[idx] = { type: "y", value: sp.value };
+          else newGuides.push({ type: "y", value: sp.value });
         }
       });
     });
 
-    // Dedupe guides
-    const uniqueGuides = guides.filter((g, i, arr) => arr.findIndex(a => a.type === g.type && a.value === g.value) === i);
-    return { snapDx, snapDy, guides: uniqueGuides };
+    return { snapDx, snapDy, guides: newGuides };
   };
 
   // --- Drag effect ---
@@ -1216,21 +1231,17 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       let newX = Math.round(d.origX + dx);
       let newY = Math.round(d.origY + dy);
 
-      // Get section element rect for snap calculation (in container-local px)
+      // Snap: element is position:absolute, left/top = offset * scale in container coords
       const sectionEl = sectionRefs.current[d.section];
-      const container = containerRef.current;
-      if (sectionEl && container) {
-        const cRect = container.getBoundingClientRect();
-        const sRect = sectionEl.getBoundingClientRect();
-        const elW = sRect.width / scale;
-        const elH = sRect.height / scale;
-        // Predict where the element will be in container-local coords
-        const padding = { left: spacing.marginLeft, top: spacing.marginTop };
-        const elLeft = padding.left + newX;
-        const elTop = sRect.top / scale - cRect.top / scale; // approximate
-        const { snapDx, snapDy, guides } = calculateSnap({ left: elLeft, top: elTop, width: elW, height: elH });
-        newX += Math.round(snapDx / 1); // snap offsets are already in container coords, adjust for element space
-        newY += Math.round(snapDy / 1);
+      if (sectionEl) {
+        const elW = sectionEl.offsetWidth;  // already in rendered (scaled) px
+        const elH = sectionEl.offsetHeight;
+        const scaledLeft = newX * scale;
+        const scaledTop = newY * scale;
+        const { snapDx, snapDy, guides } = calculateSnap(scaledLeft, scaledTop, elW, elH);
+        // Convert snap delta back to unscaled offset coords
+        newX += Math.round(snapDx / scale);
+        newY += Math.round(snapDy / scale);
         setActiveGuides(guides);
       }
 
@@ -1273,21 +1284,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       dragOffsetRef.current = { x: Math.round(newOX), y: Math.round(newOY) };
       setDragOffset({ x: Math.round(newOX), y: Math.round(newOY) });
 
-      // Snap edges during resize
-      const container = containerRef.current;
-      if (container) {
-        const padding = { left: spacing.marginLeft, top: spacing.marginTop };
-        const elLeft = padding.left + newOX;
-        const elTop = padding.top + newOY;
-        const edgeX = r.handle.includes("l") ? [elLeft] : [elLeft + newW];
-        const edgeY = r.handle.includes("t") ? [elTop] : [elTop + newH];
-        const snapPoints = getContainerSnapPoints();
-        const guides: { type: "x" | "y"; value: number }[] = [];
-        const t = SNAP_DISTANCE;
-        edgeX.forEach(ex => { snapPoints.filter(p => p.type === "x").forEach(sp => { if (Math.abs(ex - sp.value) < t) guides.push({ type: "x", value: sp.value }); }); });
-        edgeY.forEach(ey => { snapPoints.filter(p => p.type === "y").forEach(sp => { if (Math.abs(ey - sp.value) < t) guides.push({ type: "y", value: sp.value }); }); });
-        setActiveGuides(guides);
-      }
+      // Snap edges during resize (all in container-scaled px)
+      const { guides: resizeGuides } = calculateSnap(newOX * scale, newOY * scale, newW * scale, newH * scale);
+      setActiveGuides(resizeGuides);
     };
     const handleUp = () => {
       const r = resizeRef.current;
@@ -1345,8 +1344,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     e.stopPropagation();
     const config = variant[section] as any;
     const el = sectionRefs.current[section];
-    const origW = config.customWidth || (el ? el.offsetWidth : 100);
-    const origH = config.customHeight || (el ? el.offsetHeight : 60);
+    // Store everything in unscaled coords; el.offsetWidth is scaled, so divide by scale
+    const origW = config.customWidth || (el ? Math.round(el.offsetWidth / scale) : 100);
+    const origH = config.customHeight || (el ? Math.round(el.offsetHeight / scale) : 60);
     resizeRef.current = { section, handle, startX: e.clientX, startY: e.clientY, origW, origH, origOX: config.offsetX ?? 0, origOY: config.offsetY ?? 0 };
     dragOffsetRef.current = { x: config.offsetX ?? 0, y: config.offsetY ?? 0 };
     setDragOffset({ x: config.offsetX ?? 0, y: config.offsetY ?? 0 });
@@ -1424,8 +1424,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     }
 
     // Resize handle style (matches AdaMenu: blue squares with white border)
+    const hs = HANDLE_SIZE;
     const handleStyle = (cursor: string): React.CSSProperties => ({
-      position: "absolute", width: HANDLE_SIZE, height: HANDLE_SIZE,
+      position: "absolute", width: hs, height: hs, boxSizing: "border-box",
       backgroundColor: "#0066cc", border: "2px solid #fff", cursor,
       zIndex: 15, pointerEvents: "auto",
     });
@@ -1439,11 +1440,13 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         onMouseEnter={() => setHoverSection(section)}
         onMouseLeave={() => { setHoverSection(null); setHoveredHandle(null); }}
         style={{
-          position: "relative",
-          transform: canDrag ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
-          width: dims.w ? `${dims.w}px` : undefined,
-          height: dims.h ? `${dims.h}px` : undefined,
-          overflow: (dims.w || dims.h) ? "hidden" : undefined,
+          // Custom sections are absolutely positioned — they don't affect layout flow
+          position: canDrag ? "absolute" : "relative",
+          left: canDrag ? offset.x * scale : undefined,
+          top: canDrag ? offset.y * scale : undefined,
+          width: dims.w ? `${dims.w * scale}px` : undefined,
+          height: dims.h ? `${dims.h * scale}px` : undefined,
+          // Never overflow:hidden — it clips resize handles
           cursor: isDragging ? "grabbing" : canDrag ? "move" : "pointer",
           borderRadius: "4px",
           outline: isActive
@@ -1460,22 +1463,23 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           transition: isActive ? "none" : "outline 0.2s ease, background-color 0.2s ease",
           userSelect: "none",
           animation: isHighlightedFromPanel && !isActive ? "previewPulse 1.5s ease-in-out infinite" : undefined,
+          zIndex: canDrag ? 10 : undefined,
         }}
       >
         {content}
         {/* Resize handles — show on hover or active for custom sections */}
         {canDrag && isSelected && !isDragging && (
           <>
-            <div style={{ ...handleStyle("nw-resize"), top: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2 }}
+            <div style={{ ...handleStyle("nw-resize"), top: -hs / 2, left: -hs / 2 }}
               onMouseEnter={() => setHoveredHandle("tl")} onMouseLeave={() => setHoveredHandle(null)}
               onMouseDown={(e) => handleResizeStart(e, section, "tl")} />
-            <div style={{ ...handleStyle("ne-resize"), top: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2 }}
+            <div style={{ ...handleStyle("ne-resize"), top: -hs / 2, right: -hs / 2 }}
               onMouseEnter={() => setHoveredHandle("tr")} onMouseLeave={() => setHoveredHandle(null)}
               onMouseDown={(e) => handleResizeStart(e, section, "tr")} />
-            <div style={{ ...handleStyle("sw-resize"), bottom: -HANDLE_SIZE / 2, left: -HANDLE_SIZE / 2 }}
+            <div style={{ ...handleStyle("sw-resize"), bottom: -hs / 2, left: -hs / 2 }}
               onMouseEnter={() => setHoveredHandle("bl")} onMouseLeave={() => setHoveredHandle(null)}
               onMouseDown={(e) => handleResizeStart(e, section, "bl")} />
-            <div style={{ ...handleStyle("se-resize"), bottom: -HANDLE_SIZE / 2, right: -HANDLE_SIZE / 2 }}
+            <div style={{ ...handleStyle("se-resize"), bottom: -hs / 2, right: -hs / 2 }}
               onMouseEnter={() => setHoveredHandle("br")} onMouseLeave={() => setHoveredHandle(null)}
               onMouseDown={(e) => handleResizeStart(e, section, "br")} />
           </>
