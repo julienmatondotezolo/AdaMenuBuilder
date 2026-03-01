@@ -48,8 +48,8 @@ export interface SpacingConfig {
 /* ── Page Variant Layouts ────────────────────────────────────────────── */
 
 export type HeaderStyle = "centered" | "left" | "right" | "minimal" | "custom" | "none";
-export type CategoryStyle = "lines" | "dots" | "bold" | "minimal" | "custom";
-export type ItemAlignment = "center" | "left";
+export type CategoryStyle = "lines" | "bold" | "minimal" | "custom";
+export type ItemAlignment = "center" | "left" | "right";
 export type PricePosition = "right" | "below" | "inline";
 export type HighlightPosition = "bottom" | "top" | "none";
 export type HighlightStyle = "fit" | "full-width" | "custom";
@@ -128,6 +128,7 @@ export interface VariantHighlightConfig {
   imageFit: "fit" | "contain" | "cover";  // how the image fills the container
   imageUrl?: string;      // image URL or data URI
   imageLocked: boolean;   // if true, image cannot be changed in menu editor
+  borderRadius?: number;  // px — image border radius (0 = sharp corners)
   text?: HighlightTextConfig;  // text overlay controls
 }
 

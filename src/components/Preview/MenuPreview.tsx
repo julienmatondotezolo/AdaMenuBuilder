@@ -3,7 +3,7 @@ import { useMenu } from "../../context/MenuContext";
 import type { MenuTemplate, PageVariant } from "../../types/template";
 import type { MenuPage, Category } from "../../types/menu";
 import { mmToPx } from "../../types/template";
-import { loadTemplateFonts } from "../../data/fonts";
+import { loadTemplateFonts, findFont, loadFont } from "../../data/fonts";
 
 interface MenuPreviewProps {
   template?: MenuTemplate;
@@ -31,6 +31,19 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
       loadTemplateFonts(template.fonts.heading, template.fonts.body);
     }
   }, [template?.fonts.heading, template?.fonts.body]);
+
+  // Load custom fonts (highlight text, custom category)
+  useEffect(() => {
+    if (!template) return;
+    for (const v of template.pageVariants) {
+      const lf = v.highlight.text?.labelFont;
+      const tf = v.highlight.text?.titleFont;
+      const cf = v.body.categoryFont;
+      if (lf) { const f = findFont(lf); if (f) loadFont(f); }
+      if (tf) { const f = findFont(tf); if (f) loadFont(f); }
+      if (cf) { const f = findFont(cf); if (f) loadFont(f); }
+    }
+  }, [template?.pageVariants]);
 
   const isActiveDrag = dragState.activeId !== null;
 
@@ -234,7 +247,7 @@ interface PageContentProps {
   categories: Category[];
   pageIndex: number;
   template: MenuTemplate | undefined;
-  colors: { primary: string; background: string; text: string; accent: string; muted: string };
+  colors: { primary: string; background: string; text: string; accent: string; muted: string; price?: string };
   fonts: { heading: string; body: string };
   spacing: { marginTop: number; marginBottom: number; marginLeft: number; marginRight: number; categoryGap: number; itemGap: number };
   menuData: { title: string; restaurantName: string; subtitle: string; established: string; highlightImage: string; highlightLabel: string; highlightTitle: string; categories: Category[] };
@@ -268,7 +281,7 @@ function PageContent({
 }: PageContentProps) {
   const headerConfig = variant?.header ?? { show: true, style: "centered" as const, showSubtitle: true, showEstablished: true, showDivider: true };
   const bodyConfig = variant?.body ?? { columns: 1, categoryStyle: "lines" as const, itemAlignment: "center" as const, pricePosition: "below" as const, separatorStyle: "line" as const, showDescriptions: true, showFeaturedBadge: true };
-  const highlightConfig = variant?.highlight ?? { show: true, position: "bottom" as const, height: 200, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0 };
+  const highlightConfig = variant?.highlight ?? { show: true, position: "bottom" as const, style: "fit" as const, height: 200, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0, imageFit: "cover" as const, imageLocked: false };
 
   const getCategoryHighlight = (categoryId: string) => {
     if (dragState.activeId === categoryId) return "drag-active";
@@ -303,71 +316,100 @@ function PageContent({
 
   const effectiveColumns = bodyConfig.columns > 1 ? bodyConfig.columns : columnCount;
   const isCenter = bodyConfig.itemAlignment === "center";
+  const isRight = bodyConfig.itemAlignment === "right";
+  const itemFlexJustify = isCenter ? "center" : isRight ? "flex-end" : "flex-start";
+
+  // When template has imageLocked + imageUrl, that image takes priority
+  const hlImageLocked = highlightConfig.imageLocked && !!highlightConfig.imageUrl;
+  const effectiveHighlightImage = hlImageLocked ? highlightConfig.imageUrl! : (highlightConfig.imageUrl || menuData.highlightImage);
 
   return (
     <>
       {/* Header section */}
-      {headerConfig.show && (
-        <div style={{
-          textAlign: headerConfig.style === "left" ? "left" : "center",
-          paddingTop: `${spacing.marginTop}px`,
-          paddingBottom: "32px",
-          paddingLeft: `${spacing.marginLeft}px`,
-          paddingRight: `${spacing.marginRight}px`,
-        }}>
-          {headerConfig.showSubtitle && (
-            <p style={{
-              fontSize: "10px",
-              letterSpacing: "0.4em",
-              color: colors.primary,
-              textTransform: "uppercase",
-              fontWeight: 600,
-              fontFamily: fonts.body,
-              marginBottom: "16px",
-            }}>
-              {menuData.subtitle || "DINNER SELECTION"}
-            </p>
-          )}
-
-          <h1 style={{
-            fontFamily: fonts.heading,
-            fontSize: "2.25rem",
-            fontWeight: 300,
-            fontStyle: "italic",
-            letterSpacing: "0.05em",
-            lineHeight: 1.2,
-            color: colors.text,
+      {headerConfig.show && (() => {
+        const hAlign = headerConfig.style === "left" ? "left"
+          : headerConfig.style === "right" ? "right"
+          : headerConfig.style === "custom" ? (headerConfig.customAlignment || "center")
+          : "center";
+        const flexJustify = hAlign === "left" ? "flex-start" : hAlign === "right" ? "flex-end" : "center";
+        return (
+          <div style={{
+            textAlign: hAlign,
+            paddingTop: `${spacing.marginTop}px`,
+            paddingBottom: "32px",
+            paddingLeft: `${spacing.marginLeft}px`,
+            paddingRight: `${spacing.marginRight}px`,
+            position: "relative",
           }}>
-            {menuData.restaurantName}
-          </h1>
+            {/* Background image */}
+            {headerConfig.image?.url && (
+              <div style={{
+                position: "absolute", inset: 0,
+                top: headerConfig.image.offsetY, left: headerConfig.image.offsetX,
+                width: headerConfig.image.width, height: headerConfig.image.height,
+                opacity: headerConfig.image.opacity, zIndex: 0, pointerEvents: "none",
+              }}>
+                <img src={headerConfig.image.url} alt="" style={{ width: "100%", height: "100%", objectFit: headerConfig.image.objectFit, borderRadius: "4px" }} />
+              </div>
+            )}
+            {headerConfig.showSubtitle && (
+              <p style={{
+                fontSize: "10px",
+                letterSpacing: "0.4em",
+                color: colors.primary,
+                textTransform: "uppercase",
+                fontWeight: 600,
+                fontFamily: fonts.body,
+                marginBottom: "16px",
+                position: "relative", zIndex: 1,
+              }}>
+                {menuData.subtitle || "DINNER SELECTION"}
+              </p>
+            )}
 
-          {headerConfig.showEstablished && menuData.established && (
-            <p style={{
-              fontSize: "10px",
-              letterSpacing: "0.3em",
-              color: colors.muted,
-              textTransform: "uppercase",
-              fontFamily: fonts.body,
-              marginTop: "8px",
+            <h1 style={{
+              fontFamily: fonts.heading,
+              fontSize: "2.25rem",
+              fontWeight: 300,
+              fontStyle: "italic",
+              letterSpacing: "0.05em",
+              lineHeight: 1.2,
+              color: colors.text,
+              position: "relative", zIndex: 1,
             }}>
-              EST. {menuData.established}
-            </p>
-          )}
+              {menuData.restaurantName}
+            </h1>
 
-          {headerConfig.showDivider && (
-            <div style={{
-              display: "flex",
-              justifyContent: headerConfig.style === "left" ? "flex-start" : "center",
-              marginTop: "20px",
-            }}>
-              <span style={{ width: "64px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
-            </div>
-          )}
-        </div>
-      )}
+            {headerConfig.showEstablished && menuData.established && (
+              <p style={{
+                fontSize: "10px",
+                letterSpacing: "0.3em",
+                color: colors.muted,
+                textTransform: "uppercase",
+                fontFamily: fonts.body,
+                marginTop: "8px",
+                position: "relative", zIndex: 1,
+              }}>
+                EST. {menuData.established}
+              </p>
+            )}
+
+            {headerConfig.showDivider && (
+              <div style={{
+                display: "flex",
+                justifyContent: flexJustify,
+                marginTop: "20px",
+                position: "relative", zIndex: 1,
+              }}>
+                <span style={{ width: "64px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Highlight image — top position */}
-      {highlightConfig.show && highlightConfig.position === "top" && menuData.highlightImage && renderHighlight()}
+      {highlightConfig.show && highlightConfig.position === "top" && effectiveHighlightImage && renderHighlight()}
 
       {/* Categories layout */}
       <div style={{
@@ -402,24 +444,39 @@ function PageContent({
                 },
               )}
             </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${effectiveColumns}, 1fr)`,
-                gap: `0 ${spacing.categoryGap * 0.6}px`,
-                alignItems: "start",
-              }}
-            >
-              {Array.from({ length: effectiveColumns }, (_, i) => i + 1).map((col) => (
-                <div key={col}>
-                  {categories
-                    .filter((cat) => (cat.column ?? 1) === col)
-                    .map((category) => renderCategory(category))}
-                </div>
-              ))}
-            </div>
-          )
+          ) : (() => {
+            // N-pattern: distribute categories into columns
+            // Use explicit column assignment if set, otherwise auto-distribute round-robin
+            const hasExplicitColumns = categories.some((c) => c.column != null && c.column > 0);
+            const columnBuckets: Category[][] = Array.from({ length: effectiveColumns }, () => []);
+            if (hasExplicitColumns) {
+              categories.forEach((cat) => {
+                const col = Math.min(Math.max((cat.column ?? 1) - 1, 0), effectiveColumns - 1);
+                columnBuckets[col].push(cat);
+              });
+            } else {
+              // Auto-distribute round-robin for even columns
+              categories.forEach((cat, idx) => {
+                columnBuckets[idx % effectiveColumns].push(cat);
+              });
+            }
+            return (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${effectiveColumns}, 1fr)`,
+                  gap: `0 ${spacing.categoryGap * 0.6}px`,
+                  alignItems: "start",
+                }}
+              >
+                {columnBuckets.map((bucketCats, colIdx) => (
+                  <div key={colIdx}>
+                    {bucketCats.map((category) => renderCategory(category))}
+                  </div>
+                ))}
+              </div>
+            );
+          })()
         ) : (
           <div>
             {categories.map((category) => renderCategory(category))}
@@ -442,37 +499,85 @@ function PageContent({
       </div>
 
       {/* Highlight image — bottom position */}
-      {highlightConfig.show && highlightConfig.position !== "top" && menuData.highlightImage && renderHighlight()}
+      {highlightConfig.show && highlightConfig.position !== "top" && effectiveHighlightImage && renderHighlight()}
     </>
   );
 
   function renderHighlight() {
+    const hl = highlightConfig;
+    const hlStyle = hl.style || "fit";
+    const hlImage = effectiveHighlightImage;
+    const hlFit = hl.imageFit || "cover";
+    const isFullWidth = hlStyle === "full-width";
+    const isCustom = hlStyle === "custom";
+    const mLeft = spacing.marginLeft;
+    const mRight = spacing.marginRight;
+    const borderRadius = hl.borderRadius ?? 4;
+    const txt = hl.text;
+    const textAlign = txt?.alignment || "left";
+    const labelSize = txt?.labelSize ?? 8;
+    const titleSize = txt?.titleSize ?? 16;
+    const labelFont = txt?.labelFont || fonts.body;
+    const titleFont = txt?.titleFont || fonts.heading;
+    const imgObjectFit = hlFit === "fit" ? ("fill" as const) : hlFit;
+
+    const containerStyle: React.CSSProperties = isCustom
+      ? {
+          position: "absolute",
+          left: `${(hl.offsetX ?? 0) + mLeft}px`,
+          top: `${(hl.offsetY ?? 0) + spacing.marginTop}px`,
+          width: hl.customWidth ? `${hl.customWidth}px` : undefined,
+          height: hl.customHeight ? `${hl.customHeight}px` : undefined,
+          zIndex: 5,
+        }
+      : isFullWidth
+        ? {
+            marginTop: `${hl.marginTop ?? 12}px`,
+            marginBottom: `${hl.marginBottom ?? 0}px`,
+            marginLeft: `${hl.marginLeft ?? 0}px`,
+            marginRight: `${hl.marginRight ?? 0}px`,
+          }
+        : {
+            marginTop: `${hl.marginTop ?? 12}px`,
+            marginBottom: `${hl.marginBottom ?? 0}px`,
+            marginLeft: `${(hl.marginLeft ?? 0) + mLeft}px`,
+            marginRight: `${(hl.marginRight ?? 0) + mRight}px`,
+          };
+
+    const imgHeight = isCustom ? "100%" : `${hl.height ?? 200}px`;
+
     return (
-      <div style={{
-        marginTop: `${highlightConfig.marginTop ?? 12}px`,
-        marginBottom: `${highlightConfig.marginBottom ?? 0}px`,
-        marginLeft: `${(highlightConfig.marginLeft ?? 0) + spacing.marginLeft}px`,
-        marginRight: `${(highlightConfig.marginRight ?? 0) + spacing.marginRight}px`,
-      }}>
-        <div style={{ position: "relative", overflow: "hidden", borderRadius: "4px" }}>
-          <img
-            src={menuData.highlightImage}
-            alt={menuData.highlightTitle}
-            style={{ width: "100%", objectFit: "cover", height: `${highlightConfig.height ?? 200}px` }}
-          />
+      <div style={containerStyle}>
+        <div style={{ position: "relative", overflow: "hidden", borderRadius: isFullWidth ? 0 : `${borderRadius}px`, width: "100%", height: isCustom ? "100%" : undefined }}>
+          {hlImage ? (
+            <img
+              src={hlImage}
+              alt={menuData.highlightTitle}
+              style={{ width: "100%", objectFit: imgObjectFit, height: imgHeight }}
+            />
+          ) : (
+            <div style={{
+              width: "100%", height: imgHeight,
+              background: `${colors.muted}33`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <p style={{ fontSize: "12px", color: colors.muted, fontFamily: fonts.body }}>No image set</p>
+            </div>
+          )}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
             padding: "12px 16px",
             background: "linear-gradient(transparent, rgba(0,0,0,0.7))",
+            textAlign,
           }}>
             <p style={{
-              fontSize: "8px", letterSpacing: "0.25em", color: "rgba(255,255,255,0.7)",
-              textTransform: "uppercase", fontFamily: fonts.body, fontWeight: 600, marginBottom: "2px",
+              fontSize: `${labelSize}px`, letterSpacing: "0.25em", color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase", fontFamily: labelFont, fontWeight: 600, marginBottom: "2px",
             }}>
               {menuData.highlightLabel}
             </p>
             <p style={{
-              fontSize: "16px", color: "white", fontStyle: "italic", fontFamily: fonts.heading, fontWeight: 300,
+              fontSize: `${titleSize}px`, color: "white", fontStyle: "italic", fontFamily: titleFont, fontWeight: 300,
             }}>
               {menuData.highlightTitle}
             </p>
@@ -495,7 +600,9 @@ function PageContent({
       >
         {/* Category header */}
         <div style={{
-          textAlign: isCenter ? "center" : "left",
+          textAlign: bodyConfig.categoryStyle === "custom"
+            ? (bodyConfig.categoryAlignment || "center")
+            : isCenter ? "center" : isRight ? "right" : "left",
           marginBottom: `${spacing.itemGap * 0.6}px`,
           display: bodyConfig.categoryStyle === "lines" && isCenter ? "flex" : "block",
           alignItems: "center",
@@ -506,15 +613,23 @@ function PageContent({
             <span style={{ flex: 1, maxWidth: "80px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
           )}
           <h2 style={{
-            fontSize: bodyConfig.categoryStyle === "bold" ? "13px" : "11px",
-            letterSpacing: "0.35em",
+            fontSize: bodyConfig.categoryStyle === "custom"
+              ? `${bodyConfig.categoryFontSize ?? 11}px`
+              : bodyConfig.categoryStyle === "bold" ? "13px" : "11px",
+            letterSpacing: bodyConfig.categoryStyle === "custom"
+              ? `${bodyConfig.categoryLetterSpacing ?? 0.35}em`
+              : "0.35em",
             color: colors.primary,
             textTransform: "uppercase",
-            fontWeight: bodyConfig.categoryStyle === "bold" ? 800 : 600,
+            fontWeight: bodyConfig.categoryStyle === "bold" || bodyConfig.categoryStyle === "custom" ? 800 : 600,
             whiteSpace: "nowrap",
-            fontFamily: bodyConfig.categoryStyle === "bold" ? fonts.heading : fonts.body,
-            borderBottom: bodyConfig.categoryStyle === "bold" ? `2px solid ${colors.primary}` : "none",
-            paddingBottom: bodyConfig.categoryStyle === "bold" ? "8px" : "0",
+            fontFamily: bodyConfig.categoryStyle === "custom"
+              ? (bodyConfig.categoryFont || fonts.heading)
+              : bodyConfig.categoryStyle === "bold" ? fonts.heading : fonts.body,
+            borderBottom: (bodyConfig.categoryStyle === "bold" || (bodyConfig.categoryStyle === "custom" && bodyConfig.categoryBorderBottom))
+              ? `2px solid ${colors.primary}` : "none",
+            paddingBottom: (bodyConfig.categoryStyle === "bold" || (bodyConfig.categoryStyle === "custom" && bodyConfig.categoryBorderBottom))
+              ? "8px" : "0",
             display: "inline-block",
           }}>
             {category.name}
@@ -533,7 +648,7 @@ function PageContent({
                 key={item.id}
                 data-item-id={item.id}
                 className={`transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)}`}
-                style={{ textAlign: isCenter ? "center" : "left" }}
+                style={{ textAlign: isCenter ? "center" : isRight ? "right" : "left" }}
                 onClick={() => selectItem(item.id)}
                 onMouseEnter={() => !isActiveDrag && setHover(item.id, "item")}
                 onMouseLeave={() => clearHover(item.id)}
@@ -541,10 +656,13 @@ function PageContent({
                 {/* Item name row */}
                 <div style={{
                   display: bodyConfig.pricePosition === "right" ? "flex" : "block",
-                  justifyContent: "space-between",
+                  justifyContent: bodyConfig.pricePosition === "right"
+                    ? (isRight ? "flex-end" : isCenter ? "center" : "space-between")
+                    : undefined,
                   alignItems: "baseline",
+                  gap: bodyConfig.pricePosition === "right" ? "6px" : undefined,
                 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: isCenter ? "center" : "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: itemFlexJustify }}>
                     <p style={{
                       fontSize: "14px",
                       fontFamily: fonts.body,
@@ -556,21 +674,25 @@ function PageContent({
                       {item.name}
                     </p>
                     {bodyConfig.pricePosition === "inline" && (
-                      <span style={{ fontSize: "12px", color: colors.primary, fontWeight: 600 }}>€{item.price}</span>
+                      <span style={{ fontSize: "12px", color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
                     )}
                     {item.featured && bodyConfig.showFeaturedBadge && (
                       <span style={{ fontSize: "10px", color: colors.accent }}>★</span>
                     )}
                   </div>
                   {bodyConfig.pricePosition === "right" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, marginLeft: "8px" }}>
-                      {bodyConfig.separatorStyle === "dotted" && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: "6px",
+                      flex: bodyConfig.itemAlignment === "left" ? 1 : undefined,
+                      marginLeft: bodyConfig.itemAlignment === "left" ? "8px" : undefined,
+                    }}>
+                      {bodyConfig.separatorStyle === "dotted" && bodyConfig.itemAlignment === "left" && (
                         <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "16px" }} />
                       )}
-                      {bodyConfig.separatorStyle === "line" && (
+                      {bodyConfig.separatorStyle === "line" && bodyConfig.itemAlignment === "left" && (
                         <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "16px" }} />
                       )}
-                      <span style={{ fontSize: "12px", color: colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                      <span style={{ fontSize: "12px", color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
                     </div>
                   )}
                 </div>
@@ -583,8 +705,8 @@ function PageContent({
                     fontStyle: "italic",
                     marginTop: "4px",
                     lineHeight: 1.5,
-                    maxWidth: isCenter ? "320px" : undefined,
-                    marginLeft: isCenter ? "auto" : undefined,
+                    maxWidth: isCenter || isRight ? "320px" : undefined,
+                    marginLeft: isCenter || isRight ? "auto" : undefined,
                     marginRight: isCenter ? "auto" : undefined,
                     fontFamily: fonts.body,
                   }}>
@@ -596,7 +718,7 @@ function PageContent({
                 {bodyConfig.pricePosition === "below" && (
                   <p style={{
                     fontSize: "12px",
-                    color: colors.primary,
+                    color: colors.price || colors.primary,
                     fontWeight: 600,
                     marginTop: "6px",
                   }}>

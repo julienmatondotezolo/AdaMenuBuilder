@@ -157,23 +157,27 @@ function TemplateSelector({
                     : "transparent";
               }}
             >
-              <div className="flex gap-0.5 shrink-0">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: tpl.colors.primary }}
-                />
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{
-                    backgroundColor: tpl.colors.background,
-                    border: "1px solid hsl(220 13% 91%)",
-                  }}
-                />
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: tpl.colors.accent }}
-                />
-              </div>
+              {tpl.thumbnail ? (
+                <img src={tpl.thumbnail} alt="" className="w-8 h-10 object-cover rounded-sm border border-border shrink-0" />
+              ) : (
+                <div className="flex gap-0.5 shrink-0">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: tpl.colors.primary }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{
+                      backgroundColor: tpl.colors.background,
+                      border: "1px solid hsl(220 13% 91%)",
+                    }}
+                  />
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: tpl.colors.accent }}
+                  />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium truncate">{tpl.name}</span>

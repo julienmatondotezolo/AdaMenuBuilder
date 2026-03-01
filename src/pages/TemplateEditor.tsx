@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { toPng } from "html-to-image";
 import { uid } from "../utils/uid";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -99,12 +100,15 @@ export default function TemplateEditor() {
   const [openPanel, setOpenPanel] = useState<PanelId | null>("format");
   const [sectionOrder, setSectionOrder] = useState<SectionType[]>(["header", "body", "highlight"]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // Drag state (dnd-kit)
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
   const [hoveredSection, setHoveredSection] = useState<SectionType | null>(null);
   const [hoveredPanel, setHoveredPanel] = useState<PanelId | null>(null);
   const [lockedSections, setLockedSections] = useState<Set<SectionType>>(new Set());
+  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
 
   const toggleLock = (section: SectionType) => {
     setLockedSections(prev => {
@@ -241,6 +245,48 @@ export default function TemplateEditor() {
     setShowDeleteDialog(false);
   };
 
+  const handleSave = async () => {
+    if (!id || isSaving) return;
+    setIsSaving(true);
+    try {
+      // Capture thumbnail from preview
+      if (previewRef.current) {
+        try {
+          // Hide selection outlines / guidelines / resize handles during capture
+          setCapturingThumbnail(true);
+          // Wait a tick for React to re-render without outlines
+          await new Promise((r) => setTimeout(r, 50));
+
+          const dataUrl = await toPng(previewRef.current, {
+            width: previewRef.current.offsetWidth,
+            height: previewRef.current.offsetHeight,
+            pixelRatio: 0.4, // small thumbnail
+            cacheBust: true,
+            skipFonts: true, // skip cross-origin Google Fonts stylesheets
+            filter: (node: HTMLElement) => {
+              // Filter out snap guideline elements (they have dashed borders)
+              if (node.dataset?.snapGuide === "true") return false;
+              // Filter out margin overlay elements
+              if (node.dataset?.marginOverlay === "true") return false;
+              return true;
+            },
+          });
+          await updateTemplate(id, { thumbnail: dataUrl });
+        } catch (err) {
+          // Thumbnail capture failed — save without it
+          console.warn("Thumbnail capture failed", err);
+        } finally {
+          setCapturingThumbnail(false);
+        }
+      }
+      // Brief delay so the user sees "Saving..."
+      await new Promise((r) => setTimeout(r, 300));
+      navigate("/templates");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   /* ── Drag handlers (dnd-kit) ── */
 
   const handleSectionDragStart = (event: DragStartEvent) => {
@@ -303,9 +349,9 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
-          <Button size="sm" onClick={() => navigate("/templates")}>
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
             <Check className="w-4 h-4 mr-1.5" />
-            Save
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
       </header>
@@ -715,9 +761,9 @@ export default function TemplateEditor() {
                                 options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
                               <SelectRow label="Category Style" value={activeVariant.body.categoryStyle}
-                                options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "dots", l: "Dotted" }, { v: "custom", l: "Custom" }]}
+                                options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "custom", l: "Custom" }]}
                                 onChange={(v) => {
-                                  const newStyle = v as "lines" | "bold" | "minimal" | "dots" | "custom";
+                                  const newStyle = v as "lines" | "bold" | "minimal" | "custom";
                                   if (newStyle === "custom" && activeVariant.body.categoryStyle !== "custom") {
                                     const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
                                     const contentH = mmToPx(template.format.height) - template.spacing.marginTop - template.spacing.marginBottom;
@@ -767,7 +813,7 @@ export default function TemplateEditor() {
                                       <SelectContent>
                                         <SelectItem value="__default__">Default (heading)</SelectItem>
                                         {FONT_CATALOG.map(f => (
-                                          <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                          <SelectItem key={f.family} value={f.family}>{f.name}</SelectItem>
                                         ))}
                                       </SelectContent>
                                     </Select>
@@ -777,8 +823,8 @@ export default function TemplateEditor() {
                                 </>
                               )}
                               <SelectRow label="Alignment" value={activeVariant.body.itemAlignment}
-                                options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as "center" | "left" } })} />
+                                options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }]}
+                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as "center" | "left" | "right" } })} />
                               <SelectRow label="Price" value={activeVariant.body.pricePosition}
                                 options={[{ v: "below", l: "Below Name" }, { v: "right", l: "Right Side" }, { v: "inline", l: "Inline" }]}
                                 onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, pricePosition: v as "right" | "below" | "inline" } })} />
@@ -851,6 +897,10 @@ export default function TemplateEditor() {
                                   { v: "cover", l: "Cover" },
                                 ]}
                                 onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, imageFit: v as "fit" | "contain" | "cover" } })} />
+
+                              {/* Border Radius */}
+                              <NumberRow label="Roundness" value={activeVariant.highlight.borderRadius ?? 4} unit="px"
+                                onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, borderRadius: v } })} />
                               
                               {/* Image Source */}
                               <div className="pt-2">
@@ -953,7 +1003,7 @@ export default function TemplateEditor() {
                                             <SelectContent>
                                               <SelectItem value="__default__">Default (body)</SelectItem>
                                               {FONT_CATALOG.map(f => (
-                                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                                <SelectItem key={f.family} value={f.family}>{f.name}</SelectItem>
                                               ))}
                                             </SelectContent>
                                           </Select>
@@ -967,7 +1017,7 @@ export default function TemplateEditor() {
                                             <SelectContent>
                                               <SelectItem value="__default__">Default (heading)</SelectItem>
                                               {FONT_CATALOG.map(f => (
-                                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                                                <SelectItem key={f.family} value={f.family}>{f.name}</SelectItem>
                                               ))}
                                             </SelectContent>
                                           </Select>
@@ -999,6 +1049,7 @@ export default function TemplateEditor() {
         {/* ═══ RIGHT: Live Preview ═══ */}
         <div className="flex-1 flex items-center justify-center bg-muted/30 overflow-auto p-6">
           <div
+            ref={previewRef}
             className="bg-white rounded-sm overflow-hidden"
             style={{
               width: previewW * scale,
@@ -1012,11 +1063,12 @@ export default function TemplateEditor() {
               sectionOrder={sectionOrder} 
               scale={scale} 
               onUpdateVariant={updateVariant}
-              highlightedSection={hoveredSection ?? (openPanel && ["header", "body", "highlight"].includes(openPanel) ? openPanel as SectionType : null)}
+              highlightedSection={capturingThumbnail ? null : (hoveredSection ?? (openPanel && ["header", "body", "highlight"].includes(openPanel) ? openPanel as SectionType : null))}
               isDraggingCard={!!activeDragSection}
-              showMargins={hoveredPanel === "spacing" || openPanel === "spacing"}
+              showMargins={capturingThumbnail ? false : (hoveredPanel === "spacing" || openPanel === "spacing")}
               onClickSection={(section) => { if (!lockedSections.has(section)) setOpenPanel(openPanel === section ? null : section); }}
               lockedSections={lockedSections}
+              capturingThumbnail={capturingThumbnail}
             />
           </div>
         </div>
@@ -1266,7 +1318,7 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard, showMargins, onClickSection, lockedSections }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
   onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
   highlightedSection?: SectionType | null;
@@ -1274,6 +1326,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   showMargins?: boolean;
   onClickSection?: (section: SectionType) => void;
   lockedSections?: Set<SectionType>;
+  capturingThumbnail?: boolean;
 }) {
   /* ─── Figma-like interaction state ───────────────────────────────── */
   const [selectedSection, setSelectedSection] = useState<SectionType | null>(null);
@@ -1702,8 +1755,11 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
                       <div style={{
                         display: variant.body.pricePosition === "right" ? "flex" : "block",
-                        justifyContent: variant.body.pricePosition === "right" ? "space-between" : undefined,
+                        justifyContent: variant.body.pricePosition === "right"
+                          ? (variant.body.itemAlignment === "right" ? "flex-end" : variant.body.itemAlignment === "center" ? "center" : "space-between")
+                          : undefined,
                         alignItems: "baseline",
+                        gap: variant.body.pricePosition === "right" ? "4px" : undefined,
                       }}>
                         <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: variant.body.itemAlignment === "center" ? "center" : variant.body.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
                           <p style={{ fontSize: fs(8), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
@@ -1717,8 +1773,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                           )}
                         </div>
                         {variant.body.pricePosition === "right" && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: 1, marginLeft: "4px" }}>
-                            {variant.body.separatorStyle === "dotted" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: variant.body.itemAlignment === "left" ? 1 : undefined, marginLeft: variant.body.itemAlignment === "left" ? "4px" : undefined }}>
+                            {variant.body.separatorStyle === "dotted" && variant.body.itemAlignment === "left" && (
                               <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
                             )}
                             <span style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
@@ -1729,7 +1785,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                         <p style={{
                           fontSize: fs(6), color: colors.muted, fontStyle: "italic", marginTop: "2px",
                           maxWidth: variant.body.columns > 1 ? "140px" : "200px",
-                          marginLeft: variant.body.itemAlignment === "center" ? "auto" : undefined,
+                          marginLeft: variant.body.itemAlignment === "center" || variant.body.itemAlignment === "right" ? "auto" : undefined,
                           marginRight: variant.body.itemAlignment === "center" ? "auto" : undefined,
                           fontFamily: fonts.body,
                         }}>
@@ -1782,21 +1838,21 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                 marginRight: `${hl.marginRight ?? 0}px`,
               };
 
-        // Image dimensions
-        const imgHeight = isCustom ? (hl.customHeight ?? hl.height ?? 80) : (hl.height ?? 80);
+        // Image dimensions — custom mode uses 100% (parent wrapper controls size), others use explicit px
+        const imgHeight = isCustom ? "100%" : `${hl.height ?? 80}px`;
         const imgObjectFit = hlFit === "fit" ? ("fill" as const) : hlFit;
 
         return (
-          <div style={containerStyle}>
-            <div style={{ borderRadius: isFullWidth ? 0 : "4px", overflow: "hidden", position: "relative", zIndex: 1 }}>
+          <div style={{ ...containerStyle, ...(isCustom ? { width: "100%", height: "100%" } : {}) }}>
+            <div style={{ borderRadius: isFullWidth ? 0 : `${hl.borderRadius ?? 4}px`, overflow: "hidden", position: "relative", zIndex: 1, width: "100%", height: isCustom ? "100%" : undefined }}>
               {hlImage ? (
                 <img src={hlImage} alt="" style={{ 
                   width: "100%", 
-                  height: `${imgHeight}px`, 
+                  height: imgHeight, 
                   objectFit: imgObjectFit,
                 }} />
               ) : (
-                <div style={{ width: "100%", height: `${imgHeight}px`, background: `${colors.muted}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: "100%", height: imgHeight, background: `${colors.muted}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <p style={{ fontSize: fs(6), color: colors.muted, fontFamily: fonts.body }}>No image set</p>
                 </div>
               )}
@@ -1829,11 +1885,11 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     const isHighlighted = highlightedSection === section && !isInteracting;
     const canDrag = isSectionCustom(section);
     const isLocked = lockedSections?.has(section) ?? false;
-    const showHandles = canDrag && (isSelected || isInteracting) && !isDragging;
+    const showHandles = canDrag && (isSelected || isInteracting) && !isDragging && !capturingThumbnail;
 
     if (isLocked) {
       return (
-        <div key={section} style={{ position: "relative", pointerEvents: "none", opacity: 0.6 }}>
+        <div key={section} style={{ position: "relative", pointerEvents: capturingThumbnail ? undefined : "none", opacity: capturingThumbnail ? 1 : 0.6 }}>
           {content}
         </div>
       );
@@ -1842,7 +1898,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     // Determine outline style (Figma-like: blue on select, light blue on hover)
     let outline = "none";
     let outlineOffset = "0px";
-    if (isInteracting) {
+    if (capturingThumbnail) {
+      // No outlines during thumbnail capture
+    } else if (isInteracting) {
       outline = `2px solid ${SELECT_COLOR}`;
       outlineOffset = "0px";
     } else if (isSelected) {
@@ -1926,7 +1984,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         ))}
 
         {/* Position/size tooltip (Figma-style, top-center) */}
-        {isInteracting && (
+        {isInteracting && !capturingThumbnail && (
           <div style={{
             position: "absolute",
             top: -22, left: "50%", transform: "translateX(-50%)",
@@ -1980,7 +2038,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       }}
     >
       {/* Margin overlays — each side a distinct pink tint */}
-      {(showMargins || !!activeDragSection || !!resizeState) && (
+      {!capturingThumbnail && (showMargins || !!activeDragSection || !!resizeState) && (
         <>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: spacing.marginTop, backgroundColor: mrgColors.top, zIndex: 4, pointerEvents: "none" }}>
             {spacing.marginTop > 8 && <div style={{ ...mrgLabelStyle, inset: 0 }}>{spacing.marginTop}</div>}
@@ -1998,7 +2056,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       )}
 
       {/* Snap guidelines — margin guides in darker pink, others in regular pink */}
-      {activeGuides.map((g, i) => {
+      {!capturingThumbnail && activeGuides.map((g, i) => {
         const color = g.source === "margin" ? MARGIN_GUIDE_COLOR : GUIDE_COLOR;
         const dash = g.source === "margin" ? "4px 3px" : "5px 5px";
         const weight = g.source === "margin" ? "1.5px" : "1px";

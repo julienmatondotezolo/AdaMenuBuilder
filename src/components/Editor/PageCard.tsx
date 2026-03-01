@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   FileText,
   ImageIcon,
+  Lock,
   Pencil,
   Trash2,
   Check,
@@ -366,110 +367,126 @@ export default function PageCard({
         )}
 
         {/* ── Highlight Image — only for variants with highlight.show ── */}
-        {hasHighlight && (
-          <div className="mt-3">
-            <EditorCard
-              icon={<ImageIcon className="w-4 h-4" />}
-              title="Highlight Image"
-              defaultCollapsed
-              collapseSignal={collapseSignal}
-              expandSignal={expandSignal}
-            >
-              {menuData.highlightImage && (
-                <div
-                  className="relative rounded-lg overflow-hidden"
-                  style={{ maxHeight: "200px" }}
-                >
-                  <img
-                    src={menuData.highlightImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ filter: "blur(20px)", transform: "scale(1.1)" }}
-                  />
-                  <img
-                    src={menuData.highlightImage}
-                    alt="Highlight preview"
-                    className="relative w-full object-contain mx-auto"
+        {hasHighlight && (() => {
+          const hlImageLocked = variant?.highlight?.imageLocked && !!variant?.highlight?.imageUrl;
+          const displayImage = hlImageLocked ? variant!.highlight.imageUrl! : menuData.highlightImage;
+          return (
+            <div className="mt-3">
+              <EditorCard
+                icon={<ImageIcon className="w-4 h-4" />}
+                title="Highlight Image"
+                defaultCollapsed
+                collapseSignal={collapseSignal}
+                expandSignal={expandSignal}
+              >
+                {displayImage && (
+                  <div
+                    className="relative rounded-lg overflow-hidden"
                     style={{ maxHeight: "200px" }}
+                  >
+                    <img
+                      src={displayImage}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{ filter: "blur(20px)", transform: "scale(1.1)" }}
+                    />
+                    <img
+                      src={displayImage}
+                      alt="Highlight preview"
+                      className="relative w-full object-contain mx-auto"
+                      style={{ maxHeight: "200px" }}
+                    />
+                    {hlImageLocked && (
+                      <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-white" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+                        <Lock className="w-3 h-3" />
+                        Locked by template
+                      </div>
+                    )}
+                  </div>
+                )}
+                {hlImageLocked ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    Image is locked by the template and cannot be changed. Edit the template to update it.
+                  </p>
+                ) : (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Image URL
+                    </label>
+                    <input
+                      type="text"
+                      value={menuData.highlightImage}
+                      onChange={(e) =>
+                        setMenuData((prev) => ({
+                          ...prev,
+                          highlightImage: e.target.value,
+                        }))
+                      }
+                      placeholder="https://..."
+                      className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                      style={{ border: "1px solid hsl(220 13% 91%)" }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                      }}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    Label
+                  </label>
+                  <input
+                    type="text"
+                    value={menuData.highlightLabel}
+                    onChange={(e) =>
+                      setMenuData((prev) => ({
+                        ...prev,
+                        highlightLabel: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. TODAY'S HIGHLIGHT"
+                    className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                    style={{ border: "1px solid hsl(220 13% 91%)" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                    }}
                   />
                 </div>
-              )}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Image URL
-                </label>
-                <input
-                  type="text"
-                  value={menuData.highlightImage}
-                  onChange={(e) =>
-                    setMenuData((prev) => ({
-                      ...prev,
-                      highlightImage: e.target.value,
-                    }))
-                  }
-                  placeholder="https://..."
-                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-                  style={{ border: "1px solid hsl(220 13% 91%)" }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Label
-                </label>
-                <input
-                  type="text"
-                  value={menuData.highlightLabel}
-                  onChange={(e) =>
-                    setMenuData((prev) => ({
-                      ...prev,
-                      highlightLabel: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. TODAY'S HIGHLIGHT"
-                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-                  style={{ border: "1px solid hsl(220 13% 91%)" }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={menuData.highlightTitle}
-                  onChange={(e) =>
-                    setMenuData((prev) => ({
-                      ...prev,
-                      highlightTitle: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. The Nordic Atlantic Salmon"
-                  className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
-                  style={{ border: "1px solid hsl(220 13% 91%)" }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
-                  }}
-                />
-              </div>
-            </EditorCard>
-          </div>
-        )}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={menuData.highlightTitle}
+                    onChange={(e) =>
+                      setMenuData((prev) => ({
+                        ...prev,
+                        highlightTitle: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. The Nordic Atlantic Salmon"
+                    className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
+                    style={{ border: "1px solid hsl(220 13% 91%)" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "hsl(232 100% 66% / 0.5)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "hsl(220 13% 91%)";
+                    }}
+                  />
+                </div>
+              </EditorCard>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

@@ -294,20 +294,29 @@ interface TemplateCardProps {
 function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete, onExport }: TemplateCardProps) {
   return (
     <Card className="cursor-pointer transition-shadow hover:shadow-md" onClick={onEdit}>
-      {/* Preview — mini page shapes */}
-      <div className="h-36 bg-gradient-to-br from-muted/40 to-muted/60 flex items-center justify-center gap-2 px-6">
-        {template.pageVariants.slice(0, 4).map((v) => {
-          const preview = FORMAT_PREVIEWS[template.format.type] || FORMAT_PREVIEWS.A4;
-          return (
-            <div
-              key={v.id}
-              className="bg-white rounded-sm shadow-sm border border-border flex flex-col items-center justify-center p-1"
-              style={{ width: preview.w + 8, height: preview.h + 16 }}
-            >
-              <span className="text-[6px] text-muted-foreground/60 font-medium truncate w-full text-center">{v.name}</span>
-            </div>
-          );
-        })}
+      {/* Preview — thumbnail or mini page shapes fallback */}
+      <div className="h-36 bg-gradient-to-br from-muted/40 to-muted/60 flex items-center justify-center gap-2 px-6 overflow-hidden">
+        {template.thumbnail ? (
+          <img
+            src={template.thumbnail}
+            alt={template.name}
+            className="h-full w-full object-contain"
+            draggable={false}
+          />
+        ) : (
+          template.pageVariants.slice(0, 4).map((v) => {
+            const preview = FORMAT_PREVIEWS[template.format.type] || FORMAT_PREVIEWS.A4;
+            return (
+              <div
+                key={v.id}
+                className="bg-white rounded-sm shadow-sm border border-border flex flex-col items-center justify-center p-1"
+                style={{ width: preview.w + 8, height: preview.h + 16 }}
+              >
+                <span className="text-[6px] text-muted-foreground/60 font-medium truncate w-full text-center">{v.name}</span>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <CardContent className="p-4">
