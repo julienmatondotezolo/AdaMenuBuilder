@@ -89,8 +89,6 @@ export async function updateTemplate(id: string, updates: Partial<MenuTemplate>)
 }
 
 export async function deleteTemplate(id: string) {
-  const tpl = await db.templates.get(id);
-  if (tpl?.isBuiltIn) throw new Error("Cannot delete built-in templates");
   await db.templates.delete(id);
 }
 

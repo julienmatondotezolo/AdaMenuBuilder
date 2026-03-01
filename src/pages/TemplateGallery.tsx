@@ -12,6 +12,7 @@ import {
   LayoutTemplate,
   Download,
   Upload,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Button,
@@ -67,6 +68,7 @@ export default function TemplateGallery() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState<string>("A4");
+  const [deleteTarget, setDeleteTarget] = useState<MenuTemplate | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = async () => {
@@ -101,13 +103,19 @@ export default function TemplateGallery() {
     await duplicateTemplate(id);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (tpl: MenuTemplate) => {
     setOpenDropdown(null);
+    setDeleteTarget(tpl);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      if (confirm("Delete this template?")) await deleteTemplate(id);
+      await deleteTemplate(deleteTarget.id);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Cannot delete");
     }
+    setDeleteTarget(null);
   };
 
   const handleExport = async (id: string) => {
@@ -212,6 +220,28 @@ export default function TemplateGallery() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Delete Template
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <main className="max-w-6xl mx-auto px-6 py-8">
         {!templates ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -227,7 +257,7 @@ export default function TemplateGallery() {
                 onToggleDropdown={() => setOpenDropdown(openDropdown === tpl.id ? null : tpl.id)}
                 onEdit={() => navigate(`/templates/${tpl.id}/edit`)}
                 onDuplicate={() => handleDuplicate(tpl.id)}
-                onDelete={() => handleDelete(tpl.id)}
+                onDelete={() => handleDelete(tpl)}
                 onExport={() => handleExport(tpl.id)}
               />
             ))}
@@ -308,11 +338,9 @@ function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDu
                   <button onClick={onExport} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Download className="w-3 h-3" /> Export
                   </button>
-                  {!template.isBuiltIn && (
-                    <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
-                      <Trash2 className="w-3 h-3" /> Delete
-                    </button>
-                  )}
+                  <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </button>
                 </Card>
               )}
             </div>

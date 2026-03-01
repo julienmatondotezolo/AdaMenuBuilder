@@ -245,12 +245,10 @@ export default function TemplateEditor() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!template.isBuiltIn && (
-            <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="text-destructive hover:text-destructive hover:bg-destructive/5">
-              <Trash2 className="w-4 h-4 mr-1.5" />
-              Delete
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="text-destructive hover:text-destructive hover:bg-destructive/5">
+            <Trash2 className="w-4 h-4 mr-1.5" />
+            Delete
+          </Button>
           <Button variant="outline" size="sm" onClick={() => id && downloadTemplate(id)}>
             <Download className="w-4 h-4 mr-1.5" />
             Export
