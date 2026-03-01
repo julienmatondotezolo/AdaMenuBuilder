@@ -293,7 +293,7 @@ interface TemplateCardProps {
 
 function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete, onExport }: TemplateCardProps) {
   return (
-    <Card className="overflow-hidden cursor-pointer transition-shadow hover:shadow-md" onClick={onEdit}>
+    <Card className="cursor-pointer transition-shadow hover:shadow-md" onClick={onEdit}>
       {/* Preview — mini page shapes */}
       <div className="h-36 bg-gradient-to-br from-muted/40 to-muted/60 flex items-center justify-center gap-2 px-6">
         {template.pageVariants.slice(0, 4).map((v) => {
