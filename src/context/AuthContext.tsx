@@ -35,14 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ access_token: accessToken }),
       });
 
-      if (!validateRes.ok) {
-        console.warn("Token validation failed:", validateRes.status);
-        return null;
-      }
-
+      // AdaAuth returns 401 with {valid:false} for expired/invalid tokens —
+      // parse body regardless of HTTP status to get structured response
       const validateData = await validateRes.json();
       if (!validateData.valid || !validateData.user) {
-        console.warn("Token is invalid");
         return null;
       }
 

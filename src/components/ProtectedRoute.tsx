@@ -2,12 +2,8 @@ import { Navigate } from "react-router-dom";
 import { Spinner } from "ada-design-system";
 import { useAuth } from "../context/AuthContext";
 
-const DEV_BYPASS_AUTH = import.meta.env.DEV;
-
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-
-  if (DEV_BYPASS_AUTH) return <>{children}</>;
 
   if (isLoading) {
     return (
