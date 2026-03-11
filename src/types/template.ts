@@ -147,6 +147,7 @@ export interface DecorationGradient {
 export interface DecorationBase {
   id: string;
   kind: DecorationKind;
+  name?: string;            // user-editable display name
   x: number;               // px from left (unscaled, relative to page)
   y: number;               // px from top
   width: number;

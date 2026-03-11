@@ -356,6 +356,22 @@ export default function TemplateEditor() {
 
   const selectedDecoration = activeVariant?.decorations?.find((d) => d.id === selectedDecorationId) ?? null;
 
+  // Delete selected decoration on Delete/Backspace key
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!selectedDecorationId || !activeVariant) return;
+      // Don't trigger when typing in an input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteDecoration(selectedDecorationId);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedDecorationId, activeVariant]);
+
   const handleDeleteTemplate = async () => {
     if (!id) return;
     try {
@@ -847,7 +863,10 @@ export default function TemplateEditor() {
                   {(activeVariant?.decorations ?? []).length > 0 && (
                     <div className="mt-3 space-y-1">
                       <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Elements</Label>
-                      {(activeVariant?.decorations ?? []).map((deco) => (
+                      {(activeVariant?.decorations ?? []).map((deco) => {
+                        const defaultName = deco.kind === "text" ? (deco as TextDecoration).text : deco.kind === "image" ? "Image" : (deco as ShapeDecoration).shape;
+                        const displayName = deco.name || defaultName;
+                        return (
                         <div
                           key={deco.id}
                           className={cn(
@@ -865,8 +884,8 @@ export default function TemplateEditor() {
                           ) : (
                             <TypeOutline className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           )}
-                          <span className="truncate flex-1">
-                            {deco.kind === "text" ? (deco as TextDecoration).text : deco.kind === "image" ? "Image" : (deco as ShapeDecoration).shape}
+                          <span className="truncate flex-1" title={displayName}>
+                            {displayName}
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); duplicateDecoration(deco.id); }}
@@ -883,7 +902,8 @@ export default function TemplateEditor() {
                             <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -891,6 +911,15 @@ export default function TemplateEditor() {
                   {selectedDecoration && (
                     <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
                       <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Properties</Label>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Name</Label>
+                        <Input
+                          value={selectedDecoration.name || ""}
+                          placeholder={selectedDecoration.kind === "text" ? (selectedDecoration as TextDecoration).text : selectedDecoration.kind === "image" ? "Image" : (selectedDecoration as ShapeDecoration).shape}
+                          onChange={(e) => updateDecoration(selectedDecoration.id, { name: e.target.value || undefined })}
+                          className="text-xs h-7 mt-0.5"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <NumberRow label="X" value={selectedDecoration.x} unit="px" compact
                           onChange={(v) => updateDecoration(selectedDecoration.id, { x: v })} />
