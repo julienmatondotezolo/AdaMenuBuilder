@@ -38,6 +38,9 @@ importers:
       dexie-react-hooks:
         specifier: ^4.2.0
         version: 4.2.0(@types/react@19.2.14)(dexie@4.3.0)(react@19.2.4)
+      heic2any:
+        specifier: ^0.0.4
+        version: 0.0.4
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
@@ -1598,6 +1601,9 @@ packages:
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
+
+  heic2any@0.0.4:
+    resolution: {integrity: sha512-3lLnZiDELfabVH87htnRolZ2iehX9zwpRyGNz22GKXIu0fznlblf0/ftppXKNqS26dqFSeqfIBhAmAj/uSp0cA==}
 
   hermes-estree@0.25.1:
     resolution: {integrity: sha512-0wUoCcLp+5Ev5pDW2OriHC2MJCbwLwuRx+gAqMTOkGKJJiBCLjtrvy4PWUGn6MIVefecRpzoOZ/UV6iGdOr+Cw==}
@@ -3642,6 +3648,8 @@ snapshots:
   graceful-fs@4.2.11: {}
 
   has-flag@4.0.0: {}
+
+  heic2any@0.0.4: {}
 
   hermes-estree@0.25.1: {}
 

@@ -71,6 +71,7 @@ import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFo
 import { SHAPE_PRESETS } from "../data/decorationPresets";
 import DecorationRenderer from "../components/Preview/DecorationRenderer";
 import MaskEditor from "../components/Preview/MaskEditor";
+import { readImageFile } from "../utils/imageUpload";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -826,14 +827,17 @@ export default function TemplateEditor() {
                     <input
                       id="deco-image-input"
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.heic,.heif"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () => addImageDecoration(reader.result as string);
-                        reader.readAsDataURL(file);
+                        try {
+                          const dataUri = await readImageFile(file);
+                          addImageDecoration(dataUri);
+                        } catch (err) {
+                          console.error("Failed to load image:", err);
+                        }
                         e.target.value = "";
                       }}
                     />
@@ -1031,14 +1035,17 @@ export default function TemplateEditor() {
                               <Label className="text-[10px] text-muted-foreground">Replace Image</Label>
                               <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.heic,.heif"
                                 className="text-[10px] mt-0.5 w-full"
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
-                                  const reader = new FileReader();
-                                  reader.onload = () => updateDecoration(img.id, { src: reader.result as string });
-                                  reader.readAsDataURL(file);
+                                  try {
+                                    const dataUri = await readImageFile(file);
+                                    updateDecoration(img.id, { src: dataUri });
+                                  } catch (err) {
+                                    console.error("Failed to load image:", err);
+                                  }
                                 }}
                               />
                             </div>
@@ -1389,18 +1396,19 @@ export default function TemplateEditor() {
                                     <Label className="text-[10px]">Or import</Label>
                                     <Input
                                       type="file"
-                                      accept="image/*"
+                                      accept="image/*,.heic,.heif"
                                       className="h-7 text-xs"
-                                      onChange={(e) => {
+                                      onChange={async (e) => {
                                         const file = e.target.files?.[0];
                                         if (!file) return;
-                                        const reader = new FileReader();
-                                        reader.onload = () => {
+                                        try {
+                                          const dataUri = await readImageFile(file);
                                           updateVariant(activeVariant.id, {
-                                            highlight: { ...activeVariant.highlight, imageUrl: reader.result as string }
+                                            highlight: { ...activeVariant.highlight, imageUrl: dataUri }
                                           });
-                                        };
-                                        reader.readAsDataURL(file);
+                                        } catch (err) {
+                                          console.error("Failed to load image:", err);
+                                        }
                                       }}
                                     />
                                   </div>

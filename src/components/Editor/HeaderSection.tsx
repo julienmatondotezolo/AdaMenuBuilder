@@ -3,6 +3,7 @@ import { ChevronDown, Upload, Link, X } from "lucide-react";
 import { Button, Input, Label, Card, CardContent, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuData } from "../../types/menu";
+import { readImageFile } from "../../utils/imageUpload";
 
 const textFields: { key: keyof MenuData; label: string }[] = [
   { key: "restaurantName", label: "Restaurant Name" },
@@ -30,13 +31,9 @@ export default function HeaderSection() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        handleChange("highlightImage", reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    readImageFile(file)
+      .then((dataUri) => handleChange("highlightImage", dataUri))
+      .catch((err) => console.error("Failed to load image:", err));
   };
 
   const clearImage = () => {
@@ -119,7 +116,7 @@ export default function HeaderSection() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
