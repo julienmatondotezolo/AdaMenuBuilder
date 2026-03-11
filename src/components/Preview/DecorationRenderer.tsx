@@ -1,4 +1,4 @@
-import type { Decoration, ShapeDecoration, TextDecoration, DecorationGradient } from "../../types/template";
+import type { Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient } from "../../types/template";
 import { getShapePreset } from "../../data/decorationPresets";
 
 /* ── Gradient helpers ───────────────────────────────────────────────── */
@@ -147,11 +147,32 @@ function TextRenderer({ deco }: { deco: TextDecoration }) {
   return <div style={style}>{deco.text}</div>;
 }
 
+/* ── Image Renderer ─────────────────────────────────────────────────── */
+
+function ImageRenderer({ deco }: { deco: ImageDecoration }) {
+  const style: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: deco.objectFit,
+    display: "block",
+  };
+
+  if (deco.maskDataUri) {
+    style.maskImage = `url(${deco.maskDataUri})`;
+    style.WebkitMaskImage = `url(${deco.maskDataUri})`;
+    style.maskSize = "100% 100%";
+    (style as Record<string, string>).WebkitMaskSize = "100% 100%";
+  }
+
+  return <img src={deco.src} alt="" style={style} draggable={false} />;
+}
+
 /* ── Main Renderer ──────────────────────────────────────────────────── */
 
 export default function DecorationRenderer({ decoration }: { decoration: Decoration }) {
   if (decoration.kind === "shape") return <ShapeRenderer deco={decoration as ShapeDecoration} />;
   if (decoration.kind === "text") return <TextRenderer deco={decoration as TextDecoration} />;
+  if (decoration.kind === "image") return <ImageRenderer deco={decoration as ImageDecoration} />;
   return null;
 }
 

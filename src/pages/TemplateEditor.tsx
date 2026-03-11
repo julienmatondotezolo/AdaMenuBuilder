@@ -26,6 +26,7 @@ import {
   Sparkles,
   Shapes,
   TypeOutline,
+  Paintbrush,
 } from "lucide-react";
 import {
   Button,
@@ -63,12 +64,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
-import type { MenuTemplate, PageVariant, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, DecorationGradient, ShapePreset } from "../types/template";
+import type { MenuTemplate, PageVariant, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient, ShapePreset } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
 import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFont, loadFont, type FontPairing } from "../data/fonts";
 import { SHAPE_PRESETS } from "../data/decorationPresets";
 import DecorationRenderer from "../components/Preview/DecorationRenderer";
+import MaskEditor from "../components/Preview/MaskEditor";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -110,6 +112,7 @@ export default function TemplateEditor() {
 
   // Decoration state
   const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
+  const [maskEditingDecoId, setMaskEditingDecoId] = useState<string | null>(null);
 
   // Drag state (dnd-kit)
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
@@ -331,6 +334,25 @@ export default function TemplateEditor() {
     addDecoration(deco);
   };
 
+  const addImageDecoration = (src: string) => {
+    const pageW = mmToPx(template.format.width);
+    const pageH = mmToPx(template.format.height);
+    const deco: ImageDecoration = {
+      id: `deco-${uid()}`,
+      kind: "image",
+      src,
+      objectFit: "cover",
+      x: 0,
+      y: 0,
+      width: pageW,
+      height: pageH,
+      rotation: 0,
+      opacity: 0.5,
+      zIndex: 0,
+    };
+    addDecoration(deco);
+  };
+
   const selectedDecoration = activeVariant?.decorations?.find((d) => d.id === selectedDecorationId) ?? null;
 
   const handleDeleteTemplate = async () => {
@@ -456,6 +478,35 @@ export default function TemplateEditor() {
       </header>
 
       {/* Delete confirmation dialog */}
+      {/* Mask editor dialog */}
+      {maskEditingDecoId && (() => {
+        const deco = activeVariant?.decorations?.find((d) => d.id === maskEditingDecoId) as ImageDecoration | undefined;
+        if (!deco || deco.kind !== "image") return null;
+        return (
+          <Dialog open onOpenChange={() => setMaskEditingDecoId(null)}>
+            <DialogContent className="sm:max-w-[900px]">
+              <DialogHeader>
+                <DialogTitle>Edit Mask</DialogTitle>
+                <DialogDescription>
+                  Paint to hide areas of the image. Switch to Reveal mode to bring back hidden areas.
+                </DialogDescription>
+              </DialogHeader>
+              <MaskEditor
+                width={deco.width}
+                height={deco.height}
+                imageSrc={deco.src}
+                existingMask={deco.maskDataUri}
+                onSave={(mask) => {
+                  updateDecoration(deco.id, { maskDataUri: mask });
+                  setMaskEditingDecoId(null);
+                }}
+                onCancel={() => setMaskEditingDecoId(null)}
+              />
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -763,6 +814,29 @@ export default function TemplateEditor() {
                       <TypeOutline className="w-3 h-3 mr-1.5" />
                       Add Text
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs h-7"
+                      onClick={() => document.getElementById("deco-image-input")?.click()}
+                    >
+                      <ImageIcon className="w-3 h-3 mr-1.5" />
+                      Add Image
+                    </Button>
+                    <input
+                      id="deco-image-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => addImageDecoration(reader.result as string);
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }}
+                    />
                   </div>
 
                   {/* List of existing decorations */}
@@ -782,11 +856,13 @@ export default function TemplateEditor() {
                         >
                           {deco.kind === "shape" ? (
                             <Shapes className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          ) : deco.kind === "image" ? (
+                            <ImageIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           ) : (
                             <TypeOutline className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           )}
                           <span className="truncate flex-1">
-                            {deco.kind === "text" ? (deco as TextDecoration).text : (deco as ShapeDecoration).shape}
+                            {deco.kind === "text" ? (deco as TextDecoration).text : deco.kind === "image" ? "Image" : (deco as ShapeDecoration).shape}
                           </span>
                           <button
                             onClick={(e) => { e.stopPropagation(); duplicateDecoration(deco.id); }}
@@ -830,37 +906,40 @@ export default function TemplateEditor() {
                       <NumberRow label="Z-Index" value={selectedDecoration.zIndex} unit="" compact
                         onChange={(v) => updateDecoration(selectedDecoration.id, { zIndex: v })} />
 
-                      {/* Fill color */}
+                      {/* Fill color (not for image decorations) */}
+                      {selectedDecoration.kind !== "image" && (
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fill</Label>
-                        {typeof selectedDecoration.fill === "string" ? (
+                        {typeof (selectedDecoration as ShapeDecoration | TextDecoration).fill === "string" ? (
                           <div className="flex items-center gap-2">
-                            <ColorRow label="Color" value={selectedDecoration.fill}
+                            <ColorRow label="Color" value={(selectedDecoration as ShapeDecoration | TextDecoration).fill as string}
                               onChange={(v) => updateDecoration(selectedDecoration.id, { fill: v })} />
                           </div>
                         ) : (
                           <GradientEditor
-                            gradient={selectedDecoration.fill}
+                            gradient={(selectedDecoration as ShapeDecoration | TextDecoration).fill as DecorationGradient}
                             onChange={(g) => updateDecoration(selectedDecoration.id, { fill: g })}
                           />
                         )}
                         <div className="flex gap-1">
                           <button
-                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof selectedDecoration.fill === "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
+                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof (selectedDecoration as ShapeDecoration | TextDecoration).fill === "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
                             onClick={() => {
-                              if (typeof selectedDecoration.fill !== "string") {
-                                updateDecoration(selectedDecoration.id, { fill: selectedDecoration.fill.stops[0]?.color || template.colors.primary });
+                              const fill = (selectedDecoration as ShapeDecoration | TextDecoration).fill;
+                              if (typeof fill !== "string") {
+                                updateDecoration(selectedDecoration.id, { fill: fill.stops[0]?.color || template.colors.primary });
                               }
                             }}
                           >
                             Solid
                           </button>
                           <button
-                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof selectedDecoration.fill !== "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
+                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof (selectedDecoration as ShapeDecoration | TextDecoration).fill !== "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
                             onClick={() => {
-                              if (typeof selectedDecoration.fill === "string") {
+                              const fill = (selectedDecoration as ShapeDecoration | TextDecoration).fill;
+                              if (typeof fill === "string") {
                                 updateDecoration(selectedDecoration.id, {
-                                  fill: { type: "linear", angle: 135, stops: [{ offset: 0, color: selectedDecoration.fill }, { offset: 1, color: template.colors.accent }] },
+                                  fill: { type: "linear", angle: 135, stops: [{ offset: 0, color: fill }, { offset: 1, color: template.colors.accent }] },
                                 });
                               }
                             }}
@@ -869,6 +948,7 @@ export default function TemplateEditor() {
                           </button>
                         </div>
                       </div>
+                      )}
 
                       {/* Shape-specific: stroke */}
                       {selectedDecoration.kind === "shape" && (
@@ -924,6 +1004,77 @@ export default function TemplateEditor() {
                                 onChange={(e) => updateDecoration(td.id, { textShadow: e.target.value || undefined })}
                                 className="text-xs h-7 mt-0.5"
                               />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Image-specific properties */}
+                      {selectedDecoration.kind === "image" && (() => {
+                        const img = selectedDecoration as ImageDecoration;
+                        return (
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Image Source</Label>
+                              {img.src.startsWith("data:") ? (
+                                <p className="text-[9px] text-muted-foreground/60 mt-0.5">Uploaded image</p>
+                              ) : (
+                                <Input
+                                  value={img.src}
+                                  placeholder="https://..."
+                                  onChange={(e) => updateDecoration(img.id, { src: e.target.value })}
+                                  className="text-xs h-7 mt-0.5"
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Replace Image</Label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="text-[10px] mt-0.5 w-full"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const reader = new FileReader();
+                                  reader.onload = () => updateDecoration(img.id, { src: reader.result as string });
+                                  reader.readAsDataURL(file);
+                                }}
+                              />
+                            </div>
+                            <SelectRow label="Fit" value={img.objectFit}
+                              options={[{ v: "cover", l: "Cover" }, { v: "contain", l: "Contain" }, { v: "fill", l: "Fill" }]}
+                              onChange={(v) => updateDecoration(img.id, { objectFit: v as "cover" | "contain" | "fill" })} />
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[10px] text-foreground/80">Lock Position</Label>
+                              <Switch
+                                checked={!!img.locked}
+                                onCheckedChange={(v) => updateDecoration(img.id, { locked: v })}
+                              />
+                            </div>
+                            {/* Mask tool */}
+                            <div className="space-y-1 pt-1 border-t border-border/50">
+                              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mask</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-xs h-7"
+                                onClick={() => setMaskEditingDecoId(img.id)}
+                              >
+                                <Paintbrush className="w-3 h-3 mr-1.5" />
+                                Edit Mask
+                              </Button>
+                              {img.maskDataUri && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full text-xs h-6 text-destructive hover:text-destructive"
+                                  onClick={() => updateDecoration(img.id, { maskDataUri: undefined })}
+                                >
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  Clear Mask
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );

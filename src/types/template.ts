@@ -134,7 +134,7 @@ export interface VariantHighlightConfig {
 
 /* ── Decorative Elements ────────────────────────────────────────────── */
 
-export type DecorationKind = "shape" | "text";
+export type DecorationKind = "shape" | "text" | "image";
 
 export interface GradientStop { offset: number; color: string }
 
@@ -183,7 +183,14 @@ export interface TextDecoration extends DecorationBase {
   textShadow?: string;
 }
 
-export type Decoration = ShapeDecoration | TextDecoration;
+export interface ImageDecoration extends DecorationBase {
+  kind: "image";
+  src: string;              // URL or data URI
+  objectFit: "cover" | "contain" | "fill";
+  maskDataUri?: string;     // painted mask stored as PNG data URI
+}
+
+export type Decoration = ShapeDecoration | TextDecoration | ImageDecoration;
 
 /* ── Page Variant ───────────────────────────────────────────────────── */
 
