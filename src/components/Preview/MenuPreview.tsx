@@ -4,6 +4,7 @@ import type { MenuTemplate, PageVariant } from "../../types/template";
 import type { MenuPage, Category } from "../../types/menu";
 import { mmToPx } from "../../types/template";
 import { loadTemplateFonts, findFont, loadFont } from "../../data/fonts";
+import { DecorationLayer } from "./DecorationRenderer";
 
 interface MenuPreviewProps {
   template?: MenuTemplate;
@@ -32,7 +33,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     }
   }, [template?.fonts.heading, template?.fonts.body]);
 
-  // Load custom fonts (highlight text, custom category)
+  // Load custom fonts (highlight text, custom category, decorations)
   useEffect(() => {
     if (!template) return;
     for (const v of template.pageVariants) {
@@ -42,6 +43,12 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
       if (lf) { const f = findFont(lf); if (f) loadFont(f); }
       if (tf) { const f = findFont(tf); if (f) loadFont(f); }
       if (cf) { const f = findFont(cf); if (f) loadFont(f); }
+      for (const deco of v.decorations ?? []) {
+        if (deco.kind === "text") {
+          const df = findFont((deco as import("../../types/template").TextDecoration).fontFamily);
+          if (df) loadFont(df);
+        }
+      }
     }
   }, [template?.pageVariants]);
 
@@ -500,6 +507,11 @@ function PageContent({
 
       {/* Highlight image — bottom position */}
       {highlightConfig.show && highlightConfig.position !== "top" && effectiveHighlightImage && renderHighlight()}
+
+      {/* Decorative elements layer */}
+      {(variant?.decorations ?? []).map((deco) => (
+        <DecorationLayer key={deco.id} decoration={deco} />
+      ))}
     </>
   );
 

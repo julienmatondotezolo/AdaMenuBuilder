@@ -23,6 +23,9 @@ import {
   Space,
   Download,
   AlertTriangle,
+  Sparkles,
+  Shapes,
+  TypeOutline,
 } from "lucide-react";
 import {
   Button,
@@ -60,10 +63,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
-import type { MenuTemplate, PageVariant, HighlightStyle } from "../types/template";
+import type { MenuTemplate, PageVariant, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, DecorationGradient, ShapePreset } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
 import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFont, loadFont, type FontPairing } from "../data/fonts";
+import { SHAPE_PRESETS } from "../data/decorationPresets";
+import DecorationRenderer from "../components/Preview/DecorationRenderer";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -77,7 +82,7 @@ const SECTION_META: Record<SectionType, { label: string; icon: typeof TypeIcon }
 
 /* ── Panel types ─────────────────────────────────────────────────────── */
 
-type PanelId = SectionType | "format" | "colors" | "fonts" | "spacing";
+type PanelId = SectionType | "format" | "colors" | "fonts" | "spacing" | "decorations";
 
 /* ── Format chips ────────────────────────────────────────────────────── */
 
@@ -102,6 +107,9 @@ export default function TemplateEditor() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // Decoration state
+  const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
 
   // Drag state (dnd-kit)
   const [activeDragSection, setActiveDragSection] = useState<SectionType | null>(null);
@@ -130,7 +138,7 @@ export default function TemplateEditor() {
     if (template) loadTemplateFonts(template.fonts.heading, template.fonts.body);
   }, [template?.fonts.heading, template?.fonts.body]);
 
-  // Load custom fonts (highlight text, custom category)
+  // Load custom fonts (highlight text, custom category, decorations)
   useEffect(() => {
     if (!template) return;
     for (const v of template.pageVariants) {
@@ -140,6 +148,13 @@ export default function TemplateEditor() {
       if (lf) { const f = findFont(lf); if (f) loadFont(f); }
       if (tf) { const f = findFont(tf); if (f) loadFont(f); }
       if (cf) { const f = findFont(cf); if (f) loadFont(f); }
+      // Load decoration text fonts
+      for (const deco of v.decorations ?? []) {
+        if (deco.kind === "text") {
+          const df = findFont((deco as import("../types/template").TextDecoration).fontFamily);
+          if (df) loadFont(df);
+        }
+      }
     }
   }, [template?.pageVariants]);
 
@@ -233,6 +248,90 @@ export default function TemplateEditor() {
   };
 
   const togglePanel = (panelId: PanelId) => setOpenPanel(openPanel === panelId ? null : panelId);
+
+  /* ── Decoration helpers ── */
+
+  const addDecoration = (deco: Decoration) => {
+    if (!activeVariant) return;
+    const existing = activeVariant.decorations ?? [];
+    updateVariant(activeVariant.id, { decorations: [...existing, deco] });
+    setSelectedDecorationId(deco.id);
+  };
+
+  const updateDecoration = (decoId: string, updates: Partial<Decoration>) => {
+    if (!activeVariant) return;
+    const existing = activeVariant.decorations ?? [];
+    updateVariant(activeVariant.id, {
+      decorations: existing.map((d) => (d.id === decoId ? { ...d, ...updates } as Decoration : d)),
+    });
+  };
+
+  const deleteDecoration = (decoId: string) => {
+    if (!activeVariant) return;
+    const existing = activeVariant.decorations ?? [];
+    updateVariant(activeVariant.id, {
+      decorations: existing.filter((d) => d.id !== decoId),
+    });
+    if (selectedDecorationId === decoId) setSelectedDecorationId(null);
+  };
+
+  const duplicateDecoration = (decoId: string) => {
+    if (!activeVariant) return;
+    const existing = activeVariant.decorations ?? [];
+    const src = existing.find((d) => d.id === decoId);
+    if (!src) return;
+    const copy = { ...src, id: `deco-${uid()}`, x: src.x + 20, y: src.y + 20 };
+    updateVariant(activeVariant.id, { decorations: [...existing, copy] });
+    setSelectedDecorationId(copy.id);
+  };
+
+  const addShapeDecoration = (shape: ShapePreset) => {
+    const preset = SHAPE_PRESETS.find((s) => s.id === shape);
+    if (!preset) return;
+    const pageW = mmToPx(template.format.width);
+    const pageH = mmToPx(template.format.height);
+    const deco: ShapeDecoration = {
+      id: `deco-${uid()}`,
+      kind: "shape",
+      shape,
+      x: Math.round((pageW - preset.defaultWidth) / 2),
+      y: Math.round((pageH - preset.defaultHeight) / 2),
+      width: preset.defaultWidth,
+      height: preset.defaultHeight,
+      rotation: 0,
+      opacity: 1,
+      zIndex: 1,
+      fill: template.colors.primary,
+    };
+    addDecoration(deco);
+  };
+
+  const addTextDecoration = () => {
+    const pageW = mmToPx(template.format.width);
+    const pageH = mmToPx(template.format.height);
+    const deco: TextDecoration = {
+      id: `deco-${uid()}`,
+      kind: "text",
+      text: "MENU",
+      fontFamily: template.fonts.heading,
+      fontSize: 48,
+      fontWeight: 700,
+      fontStyle: "normal",
+      letterSpacing: 0.1,
+      textTransform: "uppercase",
+      fill: template.colors.primary,
+      x: Math.round((pageW - 200) / 2),
+      y: Math.round(pageH * 0.05),
+      width: 200,
+      height: 70,
+      rotation: 0,
+      opacity: 1,
+      zIndex: 2,
+    };
+    addDecoration(deco);
+  };
+
+  const selectedDecoration = activeVariant?.decorations?.find((d) => d.id === selectedDecorationId) ?? null;
 
   const handleDeleteTemplate = async () => {
     if (!id) return;
@@ -613,6 +712,224 @@ export default function TemplateEditor() {
                         onChange={(v) => save({ spacing: { ...template.spacing, itemGap: v } })} />
                     </div>
                   </div>
+                </SettingsPanel>
+
+                {/* ── Decorations ── */}
+                <SettingsPanel
+                  icon={<Sparkles className={cn("w-4 h-4", openPanel === "decorations" ? "text-primary" : "text-muted-foreground")} />}
+                  label="Decorations"
+                  isOpen={openPanel === "decorations"}
+                  onToggle={() => togglePanel("decorations")}
+                  isHovered={hoveredPanel === "decorations"}
+                  onMouseEnter={() => setHoveredPanel("decorations")}
+                  onMouseLeave={() => setHoveredPanel(null)}
+                >
+                  {/* Add shape / text buttons */}
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Add Element</Label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {SHAPE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          onClick={() => addShapeDecoration(preset.id)}
+                          className="flex flex-col items-center gap-0.5 p-1.5 rounded-md border border-border/50 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                          title={preset.label}
+                        >
+                          <div className="w-7 h-7 flex items-center justify-center">
+                            <svg viewBox={preset.viewBox} className="w-6 h-6">
+                              {preset.path ? (
+                                <g transform="translate(100,100)">
+                                  <path d={preset.path} fill="currentColor" opacity={0.6} />
+                                </g>
+                              ) : preset.id === "circle" ? (
+                                <circle cx="100" cy="100" r="90" fill="currentColor" opacity={0.6} />
+                              ) : preset.id === "ellipse" ? (
+                                <ellipse cx="100" cy="50" rx="90" ry="45" fill="currentColor" opacity={0.6} />
+                              ) : (
+                                <rect x="10" y="10" width="180" height="180" rx="4" fill="currentColor" opacity={0.6} />
+                              )}
+                            </svg>
+                          </div>
+                          <span className="text-[8px] text-muted-foreground truncate w-full text-center">{preset.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs h-7"
+                      onClick={addTextDecoration}
+                    >
+                      <TypeOutline className="w-3 h-3 mr-1.5" />
+                      Add Text
+                    </Button>
+                  </div>
+
+                  {/* List of existing decorations */}
+                  {(activeVariant?.decorations ?? []).length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Elements</Label>
+                      {(activeVariant?.decorations ?? []).map((deco) => (
+                        <div
+                          key={deco.id}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors",
+                            selectedDecorationId === deco.id
+                              ? "bg-primary/10 ring-1 ring-primary/30"
+                              : "hover:bg-muted/50"
+                          )}
+                          onClick={() => setSelectedDecorationId(deco.id)}
+                        >
+                          {deco.kind === "shape" ? (
+                            <Shapes className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          ) : (
+                            <TypeOutline className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="truncate flex-1">
+                            {deco.kind === "text" ? (deco as TextDecoration).text : (deco as ShapeDecoration).shape}
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); duplicateDecoration(deco.id); }}
+                            className="text-muted-foreground hover:text-foreground p-0.5"
+                            title="Duplicate"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteDecoration(deco.id); }}
+                            className="text-muted-foreground hover:text-destructive p-0.5"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Property editor for selected decoration */}
+                  {selectedDecoration && (
+                    <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                      <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Properties</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumberRow label="X" value={selectedDecoration.x} unit="px" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { x: v })} />
+                        <NumberRow label="Y" value={selectedDecoration.y} unit="px" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { y: v })} />
+                        <NumberRow label="W" value={selectedDecoration.width} unit="px" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { width: v })} />
+                        <NumberRow label="H" value={selectedDecoration.height} unit="px" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { height: v })} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumberRow label="Rotate" value={selectedDecoration.rotation} unit="°" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { rotation: v })} />
+                        <NumberRow label="Opacity" value={Math.round(selectedDecoration.opacity * 100)} unit="%" compact
+                          onChange={(v) => updateDecoration(selectedDecoration.id, { opacity: Math.max(0, Math.min(100, v)) / 100 })} />
+                      </div>
+                      <NumberRow label="Z-Index" value={selectedDecoration.zIndex} unit="" compact
+                        onChange={(v) => updateDecoration(selectedDecoration.id, { zIndex: v })} />
+
+                      {/* Fill color */}
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fill</Label>
+                        {typeof selectedDecoration.fill === "string" ? (
+                          <div className="flex items-center gap-2">
+                            <ColorRow label="Color" value={selectedDecoration.fill}
+                              onChange={(v) => updateDecoration(selectedDecoration.id, { fill: v })} />
+                          </div>
+                        ) : (
+                          <GradientEditor
+                            gradient={selectedDecoration.fill}
+                            onChange={(g) => updateDecoration(selectedDecoration.id, { fill: g })}
+                          />
+                        )}
+                        <div className="flex gap-1">
+                          <button
+                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof selectedDecoration.fill === "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
+                            onClick={() => {
+                              if (typeof selectedDecoration.fill !== "string") {
+                                updateDecoration(selectedDecoration.id, { fill: selectedDecoration.fill.stops[0]?.color || template.colors.primary });
+                              }
+                            }}
+                          >
+                            Solid
+                          </button>
+                          <button
+                            className={cn("text-[9px] px-1.5 py-0.5 rounded border", typeof selectedDecoration.fill !== "string" ? "bg-primary/10 border-primary/30" : "border-border/50")}
+                            onClick={() => {
+                              if (typeof selectedDecoration.fill === "string") {
+                                updateDecoration(selectedDecoration.id, {
+                                  fill: { type: "linear", angle: 135, stops: [{ offset: 0, color: selectedDecoration.fill }, { offset: 1, color: template.colors.accent }] },
+                                });
+                              }
+                            }}
+                          >
+                            Gradient
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Shape-specific: stroke */}
+                      {selectedDecoration.kind === "shape" && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <ColorRow label="Stroke" value={(selectedDecoration as ShapeDecoration).stroke || "transparent"}
+                            onChange={(v) => updateDecoration(selectedDecoration.id, { stroke: v })} />
+                          <NumberRow label="Width" value={(selectedDecoration as ShapeDecoration).strokeWidth || 0} unit="px" compact
+                            onChange={(v) => updateDecoration(selectedDecoration.id, { strokeWidth: v })} />
+                        </div>
+                      )}
+
+                      {/* Text-specific properties */}
+                      {selectedDecoration.kind === "text" && (() => {
+                        const td = selectedDecoration as TextDecoration;
+                        return (
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Text</Label>
+                              <Input
+                                value={td.text}
+                                onChange={(e) => updateDecoration(td.id, { text: e.target.value })}
+                                className="text-xs h-7 mt-0.5"
+                              />
+                            </div>
+                            <SelectRow label="Font" value={td.fontFamily}
+                              options={FONT_CATALOG.map((f) => ({ v: f.family, l: f.name }))}
+                              onChange={(v) => {
+                                const font = findFont(v);
+                                if (font) loadFont(font);
+                                updateDecoration(td.id, { fontFamily: v });
+                              }} />
+                            <div className="grid grid-cols-2 gap-2">
+                              <NumberRow label="Size" value={td.fontSize} unit="px" compact
+                                onChange={(v) => updateDecoration(td.id, { fontSize: v })} />
+                              <NumberRow label="Weight" value={td.fontWeight} unit="" compact
+                                onChange={(v) => updateDecoration(td.id, { fontWeight: v })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <NumberRow label="Spacing" value={td.letterSpacing} unit="em" compact
+                                onChange={(v) => updateDecoration(td.id, { letterSpacing: v })} />
+                              <SelectRow label="Case" value={td.textTransform}
+                                options={[{ v: "none", l: "None" }, { v: "uppercase", l: "ABC" }, { v: "lowercase", l: "abc" }]}
+                                onChange={(v) => updateDecoration(td.id, { textTransform: v as "none" | "uppercase" | "lowercase" })} />
+                            </div>
+                            <SelectRow label="Style" value={td.fontStyle}
+                              options={[{ v: "normal", l: "Normal" }, { v: "italic", l: "Italic" }]}
+                              onChange={(v) => updateDecoration(td.id, { fontStyle: v as "normal" | "italic" })} />
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Shadow</Label>
+                              <Input
+                                value={td.textShadow || ""}
+                                placeholder="e.g. 2px 2px 4px rgba(0,0,0,0.3)"
+                                onChange={(e) => updateDecoration(td.id, { textShadow: e.target.value || undefined })}
+                                className="text-xs h-7 mt-0.5"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </SettingsPanel>
 
                 {/* ── Section separator ── */}
@@ -1057,11 +1374,11 @@ export default function TemplateEditor() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)",
             }}
           >
-            <VariantPreview 
-              template={template} 
-              variant={activeVariant} 
-              sectionOrder={sectionOrder} 
-              scale={scale} 
+            <VariantPreview
+              template={template}
+              variant={activeVariant}
+              sectionOrder={sectionOrder}
+              scale={scale}
               onUpdateVariant={updateVariant}
               highlightedSection={capturingThumbnail ? null : (hoveredSection ?? (openPanel && ["header", "body", "highlight"].includes(openPanel) ? openPanel as SectionType : null))}
               isDraggingCard={!!activeDragSection}
@@ -1069,6 +1386,8 @@ export default function TemplateEditor() {
               onClickSection={(section) => { if (!lockedSections.has(section)) setOpenPanel(openPanel === section ? null : section); }}
               lockedSections={lockedSections}
               capturingThumbnail={capturingThumbnail}
+              selectedDecorationId={selectedDecorationId}
+              onSelectDecoration={setSelectedDecorationId}
             />
           </div>
         </div>
@@ -1297,6 +1616,84 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
+function GradientEditor({ gradient, onChange }: { gradient: DecorationGradient; onChange: (g: DecorationGradient) => void }) {
+  const updateStop = (index: number, updates: Partial<{ offset: number; color: string }>) => {
+    const stops = gradient.stops.map((s, i) => (i === index ? { ...s, ...updates } : s));
+    onChange({ ...gradient, stops });
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Label className="text-[10px] text-muted-foreground shrink-0">Type</Label>
+        <select
+          value={gradient.type}
+          onChange={(e) => onChange({ ...gradient, type: e.target.value as "linear" | "radial" })}
+          className="text-[10px] h-6 rounded border border-border bg-background px-1"
+        >
+          <option value="linear">Linear</option>
+          <option value="radial">Radial</option>
+        </select>
+        {gradient.type === "linear" && (
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              value={gradient.angle ?? 0}
+              onChange={(e) => onChange({ ...gradient, angle: Number(e.target.value) })}
+              className="w-14 h-6 text-[10px] text-right"
+            />
+            <span className="text-[9px] text-muted-foreground">°</span>
+          </div>
+        )}
+      </div>
+      {/* Preview swatch */}
+      <div
+        className="h-5 rounded border border-border"
+        style={{
+          background: gradient.type === "radial"
+            ? `radial-gradient(circle, ${gradient.stops.map((s) => `${s.color} ${s.offset * 100}%`).join(", ")})`
+            : `linear-gradient(${gradient.angle ?? 0}deg, ${gradient.stops.map((s) => `${s.color} ${s.offset * 100}%`).join(", ")})`,
+        }}
+      />
+      {gradient.stops.map((stop, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <input
+            type="color"
+            value={stop.color.startsWith("#") ? stop.color : "#000000"}
+            onChange={(e) => updateStop(i, { color: e.target.value })}
+            className="w-6 h-6 rounded border border-border cursor-pointer p-0.5"
+            style={{ WebkitAppearance: "none" }}
+          />
+          <Input
+            value={stop.color}
+            onChange={(e) => updateStop(i, { color: e.target.value })}
+            className="flex-1 h-6 text-[8px] font-mono px-1"
+          />
+          <Input
+            type="number"
+            value={Math.round(stop.offset * 100)}
+            onChange={(e) => updateStop(i, { offset: Math.max(0, Math.min(100, Number(e.target.value))) / 100 })}
+            className="w-12 h-6 text-[10px] text-right"
+          />
+          <span className="text-[8px] text-muted-foreground">%</span>
+          {gradient.stops.length > 2 && (
+            <button onClick={() => onChange({ ...gradient, stops: gradient.stops.filter((_, j) => j !== i) })}
+              className="text-muted-foreground hover:text-destructive p-0.5">
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        onClick={() => onChange({ ...gradient, stops: [...gradient.stops, { offset: 1, color: "#000000" }] })}
+        className="text-[9px] text-primary hover:underline"
+      >
+        + Add stop
+      </button>
+    </div>
+  );
+}
+
 function NumberRow({ label, value, unit, onChange, compact }: {
   label: string; value: number; unit: string; onChange: (v: number) => void; compact?: boolean;
 }) {
@@ -1318,7 +1715,7 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard: _isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard: _isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail, selectedDecorationId, onSelectDecoration }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
   onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
   highlightedSection?: SectionType | null;
@@ -1327,6 +1724,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   onClickSection?: (section: SectionType) => void;
   lockedSections?: Set<SectionType>;
   capturingThumbnail?: boolean;
+  selectedDecorationId?: string | null;
+  onSelectDecoration?: (id: string | null) => void;
 }) {
   /* ─── Figma-like interaction state ───────────────────────────────── */
   const [selectedSection, setSelectedSection] = useState<SectionType | null>(null);
@@ -1343,6 +1742,15 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const resizeDimsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Decoration drag/resize state
+  const [activeDragDeco, setActiveDragDeco] = useState<string | null>(null);
+  const [resizeDeco, setResizeDeco] = useState<{ id: string; handle: string; w: number; h: number } | null>(null);
+  const [decoOffset, setDecoOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragDecoRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeDecoRef = useRef<{ id: string; handle: string; startX: number; startY: number; origW: number; origH: number; origOX: number; origOY: number } | null>(null);
+  const decoOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const decoDimsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const SNAP_DISTANCE = 8;
   const HANDLE_SIZE = 8;
@@ -1589,6 +1997,92 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [resizeState, scale, onUpdateVariant, variant]);
 
+  /* ─── Decoration drag effect ──────────────────────────────────────── */
+  useEffect(() => {
+    if (!activeDragDeco) return;
+    const onMove = (e: MouseEvent) => {
+      const d = dragDecoRef.current;
+      if (!d) return;
+      const dx = (e.clientX - d.startX) / scale;
+      const dy = (e.clientY - d.startY) / scale;
+      let newX = Math.round(d.origX + dx);
+      let newY = Math.round(d.origY + dy);
+      // Snap
+      const deco = variant?.decorations?.find((dec) => dec.id === d.id);
+      if (deco) {
+        const { snapDx, snapDy, guides } = calculateSnap(newX * scale, newY * scale, deco.width * scale, deco.height * scale);
+        newX += Math.round(snapDx / scale);
+        newY += Math.round(snapDy / scale);
+        setActiveGuides(guides);
+      }
+      decoOffsetRef.current = { x: newX, y: newY };
+      setDecoOffset({ x: newX, y: newY });
+    };
+    const onUp = () => {
+      const d = dragDecoRef.current;
+      if (!d || !onUpdateVariant || !variant) {
+        dragDecoRef.current = null; setActiveDragDeco(null); setActiveGuides([]); return;
+      }
+      const final = decoOffsetRef.current;
+      const decos = (variant.decorations ?? []).map((dec) =>
+        dec.id === d.id ? { ...dec, x: final.x, y: final.y } : dec
+      );
+      onUpdateVariant(variant.id, { decorations: decos });
+      dragDecoRef.current = null;
+      setActiveDragDeco(null);
+      setActiveGuides([]);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [activeDragDeco, scale, onUpdateVariant, variant]);
+
+  /* ─── Decoration resize effect ────────────────────────────────────── */
+  useEffect(() => {
+    if (!resizeDeco) return;
+    const onMove = (e: MouseEvent) => {
+      const r = resizeDecoRef.current;
+      if (!r) return;
+      const dx = (e.clientX - r.startX) / scale;
+      const dy = (e.clientY - r.startY) / scale;
+      let newW = r.origW, newH = r.origH, newOX = r.origOX, newOY = r.origOY;
+      const minSz = 20;
+
+      if (r.handle.includes("r")) newW = Math.max(minSz, r.origW + dx);
+      if (r.handle.includes("l")) { newW = Math.max(minSz, r.origW - dx); newOX = r.origOX + (r.origW - newW); }
+      if (r.handle.includes("b")) newH = Math.max(minSz, r.origH + dy);
+      if (r.handle.includes("t")) { newH = Math.max(minSz, r.origH - dy); newOY = r.origOY + (r.origH - newH); }
+      if (r.handle === "t" || r.handle === "b") newW = r.origW;
+      if (r.handle === "l" || r.handle === "r") newH = r.origH;
+
+      newW = Math.round(newW); newH = Math.round(newH);
+      newOX = Math.round(newOX); newOY = Math.round(newOY);
+
+      decoOffsetRef.current = { x: newOX, y: newOY };
+      decoDimsRef.current = { w: newW, h: newH };
+      setDecoOffset({ x: newOX, y: newOY });
+      setResizeDeco({ id: r.id, handle: r.handle, w: newW, h: newH });
+    };
+    const onUp = () => {
+      const r = resizeDecoRef.current;
+      if (!r || !onUpdateVariant || !variant) {
+        resizeDecoRef.current = null; setResizeDeco(null); setActiveGuides([]); return;
+      }
+      const finalPos = decoOffsetRef.current;
+      const finalDims = decoDimsRef.current;
+      const decos = (variant.decorations ?? []).map((dec) =>
+        dec.id === r.id ? { ...dec, x: finalPos.x, y: finalPos.y, width: finalDims.w, height: finalDims.h } : dec
+      );
+      onUpdateVariant(variant.id, { decorations: decos });
+      resizeDecoRef.current = null;
+      setResizeDeco(null);
+      setActiveGuides([]);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [resizeDeco, scale, onUpdateVariant, variant]);
+
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
   const data = sampleMenuData;
@@ -1640,6 +2134,65 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     setDragOffset({ x: origOX, y: origOY });
     setResizeState({ section, handle, w: origW, h: origH });
     setSelectedSection(section);
+  };
+
+  /* ─── Decoration interaction helpers ─────────────────────────────── */
+
+  const startDecoDrag = (e: React.MouseEvent, deco: Decoration) => {
+    e.preventDefault(); e.stopPropagation();
+    if (deco.locked) return;
+    dragDecoRef.current = { id: deco.id, startX: e.clientX, startY: e.clientY, origX: deco.x, origY: deco.y };
+    decoOffsetRef.current = { x: deco.x, y: deco.y };
+    setDecoOffset({ x: deco.x, y: deco.y });
+    setActiveDragDeco(deco.id);
+    onSelectDecoration?.(deco.id);
+    setSelectedSection(null);
+  };
+
+  const startDecoResize = (e: React.MouseEvent, deco: Decoration, handle: string) => {
+    e.preventDefault(); e.stopPropagation();
+    if (deco.locked) return;
+    resizeDecoRef.current = { id: deco.id, handle, startX: e.clientX, startY: e.clientY, origW: deco.width, origH: deco.height, origOX: deco.x, origOY: deco.y };
+    decoOffsetRef.current = { x: deco.x, y: deco.y };
+    decoDimsRef.current = { w: deco.width, h: deco.height };
+    setDecoOffset({ x: deco.x, y: deco.y });
+    setResizeDeco({ id: deco.id, handle, w: deco.width, h: deco.height });
+    onSelectDecoration?.(deco.id);
+    setSelectedSection(null);
+  };
+
+  const renderDecoHandles = (deco: Decoration) => {
+    const hs = HANDLE_SIZE;
+    const half = -hs / 2;
+    const handles = [
+      { id: "tl", top: half, left: half, cursor: "nwse-resize" },
+      { id: "tr", top: half, right: half, cursor: "nesw-resize" },
+      { id: "bl", bottom: half, left: half, cursor: "nesw-resize" },
+      { id: "br", bottom: half, right: half, cursor: "nwse-resize" },
+      { id: "t", top: half, left: "50%", cursor: "ns-resize", transform: "translateX(-50%)" },
+      { id: "b", bottom: half, left: "50%", cursor: "ns-resize", transform: "translateX(-50%)" },
+      { id: "l", top: "50%", left: half, cursor: "ew-resize", transform: "translateY(-50%)" },
+      { id: "r", top: "50%", right: half, cursor: "ew-resize", transform: "translateY(-50%)" },
+    ];
+    return handles.map((h) => (
+      <div
+        key={h.id}
+        onMouseDown={(e) => startDecoResize(e, deco, h.id)}
+        style={{
+          position: "absolute",
+          width: hs, height: hs,
+          top: h.top, left: h.left, right: h.right, bottom: h.bottom,
+          transform: h.transform,
+          backgroundColor: "white",
+          border: `1.5px solid ${SELECT_COLOR}`,
+          borderRadius: "1px",
+          cursor: h.cursor,
+          zIndex: 20,
+          pointerEvents: "auto",
+          boxShadow: "0 0 0 0.5px rgba(0,0,0,0.1)",
+        } as React.CSSProperties}
+      />
+    ));
   };
 
   /* ─── Section renderers ──────────────────────────────────────────── */
@@ -2029,6 +2582,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         if (e.target === e.currentTarget) {
           setSelectedSection(null);
           onClickSection?.(null as any);
+          onSelectDecoration?.(null);
         }
       }}
       style={{
@@ -2071,6 +2625,66 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         const content = renderSection(section);
         if (!content) return null;
         return wrapSection(section, content);
+      })}
+
+      {/* Render decorations */}
+      {(variant.decorations ?? []).map((deco) => {
+        const isSelected = selectedDecorationId === deco.id;
+        const isDragging = activeDragDeco === deco.id;
+        const isResizing = resizeDeco?.id === deco.id;
+        const isInteracting = isDragging || isResizing;
+
+        const x = isDragging || isResizing ? decoOffset.x : deco.x;
+        const y = isDragging || isResizing ? decoOffset.y : deco.y;
+        const w = isResizing ? resizeDeco!.w : deco.width;
+        const h = isResizing ? resizeDeco!.h : deco.height;
+
+        return (
+          <div
+            key={deco.id}
+            style={{
+              position: "absolute",
+              left: x * scale,
+              top: y * scale,
+              width: w * scale,
+              height: h * scale,
+              transform: deco.rotation ? `rotate(${deco.rotation}deg)` : undefined,
+              opacity: deco.opacity,
+              zIndex: deco.zIndex + (isInteracting ? 100 : 0),
+              cursor: deco.locked ? "default" : "move",
+              outline: isSelected && !capturingThumbnail ? `1.5px solid ${SELECT_COLOR}` : "none",
+              outlineOffset: "1px",
+            }}
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              onSelectDecoration?.(deco.id);
+              setSelectedSection(null);
+              if (!deco.locked) startDecoDrag(e, deco);
+            }}
+          >
+            <div style={{ width: "100%", height: "100%", pointerEvents: "none" }}>
+              <DecorationRenderer decoration={{ ...deco, width: w, height: h }} />
+            </div>
+
+            {/* Resize handles */}
+            {isSelected && !capturingThumbnail && !deco.locked && renderDecoHandles(deco)}
+
+            {/* Position/size tooltip */}
+            {isInteracting && !capturingThumbnail && (
+              <div style={{
+                position: "absolute",
+                top: -22, left: "50%", transform: "translateX(-50%)",
+                fontSize: "9px", fontFamily: "'Inter', monospace", fontWeight: 500,
+                background: "rgba(0,0,0,0.8)", color: "white",
+                padding: "2px 6px", borderRadius: "3px",
+                whiteSpace: "nowrap", pointerEvents: "none", zIndex: 30,
+                letterSpacing: "0.02em",
+              }}>
+                {isResizing ? `${w} × ${h}` : `${x}, ${y}`}
+              </div>
+            )}
+          </div>
+        );
       })}
     </div>
   );

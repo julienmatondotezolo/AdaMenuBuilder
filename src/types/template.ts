@@ -132,6 +132,61 @@ export interface VariantHighlightConfig {
   text?: HighlightTextConfig;  // text overlay controls
 }
 
+/* ── Decorative Elements ────────────────────────────────────────────── */
+
+export type DecorationKind = "shape" | "text";
+
+export interface GradientStop { offset: number; color: string }
+
+export interface DecorationGradient {
+  type: "linear" | "radial";
+  angle?: number;          // degrees, for linear
+  stops: GradientStop[];
+}
+
+export interface DecorationBase {
+  id: string;
+  kind: DecorationKind;
+  x: number;               // px from left (unscaled, relative to page)
+  y: number;               // px from top
+  width: number;
+  height: number;
+  rotation: number;        // degrees
+  opacity: number;         // 0-1
+  zIndex: number;
+  locked?: boolean;
+}
+
+export type ShapePreset = "blob1" | "blob2" | "blob3" | "blob4" | "circle" | "ellipse" | "rectangle";
+
+export interface ShapeDecoration extends DecorationBase {
+  kind: "shape";
+  shape: ShapePreset;
+  fill: string | DecorationGradient;
+  borderRadius?: number;
+  stroke?: string;
+  strokeWidth?: number;
+}
+
+export interface TextDecoration extends DecorationBase {
+  kind: "text";
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  letterSpacing: number;   // em
+  textTransform: "none" | "uppercase" | "lowercase";
+  fill: string | DecorationGradient;
+  stroke?: string;
+  strokeWidth?: number;
+  textShadow?: string;
+}
+
+export type Decoration = ShapeDecoration | TextDecoration;
+
+/* ── Page Variant ───────────────────────────────────────────────────── */
+
 export interface PageVariant {
   id: string;
   name: string;             // "Cover", "Content", "Content + Image", "Back Cover"
@@ -139,6 +194,7 @@ export interface PageVariant {
   body: VariantBodyConfig;
   highlight: VariantHighlightConfig;
   sectionOrder?: SectionType[];  // Order of sections for drag-and-drop
+  decorations?: Decoration[];    // Free-form decorative elements
 }
 
 /* ── Template ────────────────────────────────────────────────────────── */
