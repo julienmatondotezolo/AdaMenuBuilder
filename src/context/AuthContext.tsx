@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const validateRes = await fetch(`${AUTH_URL}/auth/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: accessToken }),
+        body: JSON.stringify({ access_token: accessToken, app_slug: "menu-builder-ai" }),
       });
 
       // AdaAuth returns 401 with {valid:false} for expired/invalid tokens —
