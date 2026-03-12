@@ -87,6 +87,7 @@ export interface MenuContextValue {
   layoutDirection: LayoutDirection;
   setLayoutDirection: (direction: LayoutDirection) => void;
   addCategory: (name: string) => string;
+  duplicateCategory: (categoryId: string) => string | null;
   removeCategory: (categoryId: string) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
   addItem: (categoryId: string, item: Partial<MenuItem>) => void;

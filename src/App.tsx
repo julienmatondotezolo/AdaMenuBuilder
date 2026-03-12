@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState, type ReactNode, type ErrorInfo } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "./context/MenuContext";
 import { seedDefaults } from "./db/dexie";
@@ -7,6 +7,24 @@ import Dashboard from "./pages/Dashboard";
 import TemplateGallery from "./pages/TemplateGallery";
 import TemplateEditor from "./pages/TemplateEditor";
 import MenuEditor from "./pages/MenuEditor";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("ErrorBoundary caught:", error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-8 text-red-600">
+          <h2 className="text-lg font-bold mb-2">Something went wrong</h2>
+          <pre className="text-xs whitespace-pre-wrap bg-red-50 p-4 rounded">{this.state.error.message}{"\n"}{this.state.error.stack}</pre>
+          <button className="mt-4 px-4 py-2 bg-red-100 rounded" onClick={() => this.setState({ error: null })}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -30,7 +48,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/templates" element={<TemplateGallery />} />
-          <Route path="/templates/:id/edit" element={<TemplateEditor />} />
+          <Route path="/templates/:id/edit" element={<ErrorBoundary><TemplateEditor /></ErrorBoundary>} />
           <Route
             path="/menus/:id/edit"
             element={

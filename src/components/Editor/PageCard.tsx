@@ -31,6 +31,7 @@ interface PageCardProps {
   onRemove: () => void;
   onChangeVariant: (variantId: string) => void;
   onAddItem: (categoryId: string) => void;
+  onContentChanged: (categoryId: string) => void;
   searchQuery: string;
   collapseSignal: number;
   expandSignal: number;
@@ -51,15 +52,16 @@ export default function PageCard({
   onRemove,
   onChangeVariant,
   onAddItem: _onAddItem,
+  onContentChanged,
   searchQuery,
   collapseSignal,
   expandSignal,
   dragCollapseSignal,
   dragRestoreSignal,
 }: PageCardProps) {
-  const { menuData, setMenuData } = useMenu();
+  const { menuData, setMenuData, duplicateCategory, setPages } = useMenu();
   const variant = template?.pageVariants.find((v) => v.id === page.variantId);
-  const hasOverflow = overflowPx > 0;
+  const hasOverflow = overflowPx > 0 || overflowPx === -1;
   const primaryColor = template?.colors.primary || "#4d5cc5";
   const categoryIds = page.categoryIds;
 
@@ -114,29 +116,44 @@ export default function PageCard({
     setShowVariantDropdown(false);
   };
 
-  // This page is a drop target for categories
-  const { setNodeRef, isOver } = useDroppable({
+  const handleDuplicateCategory = (categoryId: string) => {
+    const newCatId = duplicateCategory(categoryId);
+    if (!newCatId) return;
+    // Insert new category right after the original in the same page
+    setPages((prev) =>
+      prev.map((p) => {
+        if (p.id !== page.id) return p;
+        const idx = p.categoryIds.indexOf(categoryId);
+        const newIds = [...p.categoryIds];
+        newIds.splice(idx + 1, 0, newCatId);
+        return { ...p, categoryIds: newIds };
+      }),
+    );
+    onContentChanged(newCatId);
+  };
+
+  // Main body drop target for categories
+  const { setNodeRef: setMainBodyRef, isOver: isMainBodyOver } = useDroppable({
     id: `page-drop-${page.id}`,
     data: { type: "page", pageId: page.id },
   });
 
   return (
     <div
-      ref={setNodeRef}
       className={cn(
         "rounded-xl overflow-hidden transition-all duration-200",
         "border bg-card",
       )}
       style={{
-        borderColor: isOver && isDraggingCategory
+        borderColor: isMainBodyOver && isDraggingCategory
           ? `${primaryColor}88`
           : hasOverflow
             ? "#fbbf24"
             : isActive
               ? primaryColor
               : "hsl(220 13% 91%)",
-        borderWidth: isActive && !hasOverflow && !(isOver && isDraggingCategory) ? "2px" : "1px",
-        backgroundColor: isOver && isDraggingCategory
+        borderWidth: isActive && !hasOverflow && !(isMainBodyOver && isDraggingCategory) ? "2px" : "1px",
+        backgroundColor: isMainBodyOver && isDraggingCategory
           ? `${primaryColor}08`
           : undefined,
       }}
@@ -284,7 +301,7 @@ export default function PageCard({
                 }}
               >
                 <AlertTriangle className="w-3 h-3" />
-                {overflowPx}px
+                {overflowPx === -1 ? "overflow" : `${overflowPx}px`}
               </span>
             )}
 
@@ -294,77 +311,102 @@ export default function PageCard({
             <span className="text-xs text-muted-foreground">
               {categories.length} cat{categories.length !== 1 ? "s" : ""}
             </span>
+
+            {/* Delete page button — visible when active */}
+            {isActive && totalPages > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                className="shrink-0 p-0.5 rounded transition-colors text-muted-foreground"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "hsl(0 72% 55%)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "";
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </>
         )}
       </div>
 
       {/* ── Page Body — always visible (no collapse) ─────────────────── */}
       <div className="px-3 pb-3 pt-1">
-        {/* Drop indicator at top of page when dragging */}
-        {isDraggingCategory && categories.length > 0 && isOver && (
-          <div
-            className="mb-2 py-2 text-center rounded-lg text-xs font-semibold"
-            style={{
-              border: `2px dashed ${primaryColor}66`,
-              backgroundColor: `${primaryColor}08`,
-              color: primaryColor,
-            }}
-          >
-            Drop here
-          </div>
-        )}
+        {/* Main body droppable zone */}
+        <div ref={setMainBodyRef}>
+          {/* Drop indicator at top of page when dragging */}
+          {isDraggingCategory && categories.length > 0 && isMainBodyOver && (
+            <div
+              className="mb-2 py-2 text-center rounded-lg text-xs font-semibold"
+              style={{
+                border: `2px dashed ${primaryColor}66`,
+                backgroundColor: `${primaryColor}08`,
+                color: primaryColor,
+              }}
+            >
+              Drop here
+            </div>
+          )}
 
-        <SortableContext
-          items={categoryIds}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-3">
-            {categories.map((category) => (
-              <CategorySection
-                key={category.id}
-                category={category}
-                isDraggingActive={isDraggingCategory}
-                searchQuery={searchQuery}
-                collapseSignal={collapseSignal}
-                expandSignal={expandSignal}
-                dragCollapseSignal={dragCollapseSignal}
-                dragRestoreSignal={dragRestoreSignal}
-              />
-            ))}
-          </div>
-        </SortableContext>
-
-        {/* Empty state / drop zone */}
-        {categories.length === 0 && (
-          <div
-            className="py-8 text-center rounded-lg text-sm"
-            style={{
-              border: isDraggingCategory
-                ? `2px dashed ${primaryColor}66`
-                : "2px dashed hsl(220 13% 88%)",
-              backgroundColor: isDraggingCategory
-                ? `${primaryColor}08`
-                : "transparent",
-              color: isDraggingCategory ? primaryColor : "hsl(220 9% 60%)",
-            }}
+          <SortableContext
+            items={categoryIds}
+            strategy={verticalListSortingStrategy}
           >
-            {isDraggingCategory ? "Drop category here" : "Drag categories here"}
-          </div>
-        )}
+            <div className="space-y-3">
+              {categories.map((category) => (
+                <CategorySection
+                  key={category.id}
+                  category={category}
+                  isDraggingActive={isDraggingCategory}
+                  searchQuery={searchQuery}
+                  collapseSignal={collapseSignal}
+                  expandSignal={expandSignal}
+                  dragCollapseSignal={dragCollapseSignal}
+                  dragRestoreSignal={dragRestoreSignal}
+                  onDuplicate={handleDuplicateCategory}
+                  onContentChanged={onContentChanged}
+                />
+              ))}
+            </div>
+          </SortableContext>
 
-        {/* Drop zone indicator at end of list */}
-        {isDraggingCategory && categories.length > 0 && isOver && (
-          <div
-            className="mt-2 py-3 text-center rounded-lg text-xs font-semibold"
-            style={{
-              border: `2px dashed ${primaryColor}66`,
-              backgroundColor: `${primaryColor}08`,
-              color: primaryColor,
-            }}
-          >
-            Drop here
-          </div>
-        )}
+          {/* Empty state / drop zone */}
+          {categories.length === 0 && (
+            <div
+              className="py-8 text-center rounded-lg text-sm"
+              style={{
+                border: isDraggingCategory
+                  ? `2px dashed ${primaryColor}66`
+                  : "2px dashed hsl(220 13% 88%)",
+                backgroundColor: isDraggingCategory
+                  ? `${primaryColor}08`
+                  : "transparent",
+                color: isDraggingCategory ? primaryColor : "hsl(220 9% 60%)",
+              }}
+            >
+              {isDraggingCategory ? "Drop category here" : "Drag categories here"}
+            </div>
+          )}
+
+          {/* Drop zone indicator at end of list */}
+          {isDraggingCategory && categories.length > 0 && isMainBodyOver && (
+            <div
+              className="mt-2 py-3 text-center rounded-lg text-xs font-semibold"
+              style={{
+                border: `2px dashed ${primaryColor}66`,
+                backgroundColor: `${primaryColor}08`,
+                color: primaryColor,
+              }}
+            >
+              Drop here
+            </div>
+          )}
+        </div>
+
 
         {/* ── Highlight Image — only for variants with highlight.show ── */}
         {hasHighlight && (() => {
@@ -491,3 +533,4 @@ export default function PageCard({
     </div>
   );
 }
+

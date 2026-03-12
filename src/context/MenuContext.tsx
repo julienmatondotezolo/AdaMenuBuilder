@@ -77,6 +77,28 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
     return catId;
   }, []);
 
+  const duplicateCategory = useCallback((categoryId: string): string | null => {
+    const cat = menuData.categories.find((c) => c.id === categoryId);
+    if (!cat) return null;
+    const newCatId = `cat-${uid()}`;
+    const newItems = cat.items.map((item) => ({
+      ...item,
+      id: `item-${uid()}`,
+    }));
+    setMenuData((prev) => {
+      const idx = prev.categories.findIndex((c) => c.id === categoryId);
+      const copy = [...prev.categories];
+      copy.splice(idx + 1, 0, {
+        ...cat,
+        id: newCatId,
+        name: `${cat.name} (copy)`,
+        items: newItems,
+      });
+      return { ...prev, categories: copy };
+    });
+    return newCatId;
+  }, [menuData.categories]);
+
   const removeCategory = useCallback((categoryId: string) => {
     setMenuData((prev) => ({
       ...prev,
@@ -296,6 +318,7 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
     layoutDirection,
     setLayoutDirection,
     addCategory,
+    duplicateCategory,
     removeCategory,
     updateCategory,
     addItem,

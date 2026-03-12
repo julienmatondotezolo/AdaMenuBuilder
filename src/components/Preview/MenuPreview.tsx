@@ -150,47 +150,8 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
               />
             )}
 
-            {/* In-bounds content — full opacity */}
-            <div
-              style={{
-                height: `${pageHeightPx}px`,
-                overflow: "hidden",
-                position: "relative",
-              }}
-            >
-              <PageContent
-              variant={ep.variant}
-              categories={ep.categories}
-              pageIndex={pageIndex}
-              template={template}
-              colors={colors}
-              fonts={fonts}
-              spacing={spacing}
-              menuData={menuData}
-              isActiveDrag={isActiveDrag}
-              hoveredId={hoveredId}
-              setHover={setHover}
-              clearHover={clearHover}
-              dragState={dragState}
-              columnCount={columnCount}
-              layoutDirection={layoutDirection}
-              selectedItemId={selectedItemId}
-              selectItem={selectItem}
-            />
-            </div>
-
-            {/* Overflow content — rendered again with 20% opacity below the page boundary */}
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                clipPath: `inset(${pageHeightPx}px 0 0 0)`,
-                opacity: 0.2,
-                pointerEvents: "none",
-              }}
-            >
+            {/* Page content — rendered once, overflow visible with reduced opacity */}
+            <div style={{ position: "relative" }}>
               <PageContent
                 variant={ep.variant}
                 categories={ep.categories}
@@ -210,6 +171,17 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
                 selectedItemId={selectedItemId}
                 selectItem={selectItem}
               />
+
+              {/* Overlay that fades out overflow content past page boundary */}
+              <div
+                className="absolute left-0 right-0 pointer-events-none"
+                style={{
+                  top: `${pageHeightPx}px`,
+                  bottom: 0,
+                  background: `linear-gradient(to bottom, ${colors.background}00 0%, ${colors.background}cc 100%)`,
+                  zIndex: 20,
+                }}
+              />
             </div>
 
             {/* Page height guide line — shows where the page ends */}
@@ -217,8 +189,8 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
               className="absolute left-0 right-0 pointer-events-none"
               style={{
                 top: `${pageHeightPx}px`,
-                borderTop: "1px dashed hsl(0 80% 55% / 0.4)",
-                zIndex: 5,
+                borderTop: "2px dashed hsl(0 80% 55% / 0.5)",
+                zIndex: 25,
               }}
             />
           </div>
@@ -321,11 +293,6 @@ function PageContent({
     return "";
   };
 
-  const effectiveColumns = bodyConfig.columns > 1 ? bodyConfig.columns : columnCount;
-  const isCenter = bodyConfig.itemAlignment === "center";
-  const isRight = bodyConfig.itemAlignment === "right";
-  const itemFlexJustify = isCenter ? "center" : isRight ? "flex-end" : "flex-start";
-
   // When template has imageLocked + imageUrl, that image takes priority
   const hlImageLocked = highlightConfig.imageLocked && !!highlightConfig.imageUrl;
   const effectiveHighlightImage = hlImageLocked ? highlightConfig.imageUrl! : (highlightConfig.imageUrl || menuData.highlightImage);
@@ -334,19 +301,33 @@ function PageContent({
     <>
       {/* Header section */}
       {headerConfig.show && (() => {
+        const isCustomHeader = headerConfig.style === "custom";
         const hAlign = headerConfig.style === "left" ? "left"
           : headerConfig.style === "right" ? "right"
-          : headerConfig.style === "custom" ? (headerConfig.customAlignment || "center")
+          : isCustomHeader ? (headerConfig.customAlignment || "center")
           : "center";
         const flexJustify = hAlign === "left" ? "flex-start" : hAlign === "right" ? "flex-end" : "center";
         return (
           <div style={{
             textAlign: hAlign,
-            paddingTop: `${spacing.marginTop}px`,
-            paddingBottom: "32px",
-            paddingLeft: `${spacing.marginLeft}px`,
-            paddingRight: `${spacing.marginRight}px`,
-            position: "relative",
+            ...(isCustomHeader
+              ? {
+                  position: "absolute" as const,
+                  left: `${headerConfig.offsetX ?? 0}px`,
+                  top: `${headerConfig.offsetY ?? 0}px`,
+                  width: headerConfig.customWidth ? `${headerConfig.customWidth}px` : undefined,
+                  height: headerConfig.customHeight ? `${headerConfig.customHeight}px` : undefined,
+                  overflow: "hidden" as const,
+                  zIndex: 10,
+                }
+              : {
+                  paddingTop: `${spacing.marginTop}px`,
+                  paddingBottom: "32px",
+                  paddingLeft: `${spacing.marginLeft}px`,
+                  paddingRight: `${spacing.marginRight}px`,
+                  position: "relative" as const,
+                }
+            ),
           }}>
             {/* Background image */}
             {headerConfig.image?.url && (
@@ -418,98 +399,115 @@ function PageContent({
       {/* Highlight image — top position */}
       {highlightConfig.show && highlightConfig.position === "top" && effectiveHighlightImage && renderHighlight()}
 
-      {/* Categories layout */}
-      <div style={{
-        paddingLeft: `${spacing.marginLeft}px`,
-        paddingRight: `${spacing.marginRight}px`,
-        paddingBottom: `${spacing.marginBottom}px`,
-        paddingTop: !headerConfig.show ? `${spacing.marginTop}px` : undefined,
-      }}>
-        {effectiveColumns > 1 ? (
-          layoutDirection === "Z" ? (
-            <div>
-              {Array.from(
-                { length: Math.ceil(categories.length / effectiveColumns) },
-                (_, rowIdx) => {
-                  const rowCats = categories.slice(
-                    rowIdx * effectiveColumns,
-                    rowIdx * effectiveColumns + effectiveColumns,
-                  );
+      {/* Body sections — auto-distribute categories by maxCategories */}
+      {(() => {
+        const allBodies = [bodyConfig, ...(variant?.extraBodies ?? []).filter((eb) => eb.show !== false)];
+        let remaining = [...categories];
+        const bodyElements = allBodies.map((bc, bodyIdx) => {
+          if (remaining.length === 0 && bodyIdx > 0) return null;
+          const max = bc.maxCategories;
+          const sectionCats = max && max > 0 ? remaining.slice(0, max) : remaining;
+          remaining = max && max > 0 ? remaining.slice(max) : [];
+          const cols = bc.columns > 1 ? bc.columns : (bodyIdx === 0 ? columnCount : 1);
+          const isCustom = bc.categoryStyle === "custom";
+          const isFirstBody = bodyIdx === 0;
+
+          return (
+            <div key={bodyIdx} style={{
+              ...(isCustom
+                ? {
+                    position: "absolute" as const,
+                    left: `${bc.offsetX ?? 0}px`,
+                    top: `${bc.offsetY ?? 0}px`,
+                    width: bc.customWidth ? `${bc.customWidth}px` : undefined,
+                    height: bc.customHeight ? `${bc.customHeight}px` : undefined,
+                    overflow: "hidden" as const,
+                    zIndex: 10,
+                  }
+                : {
+                    position: "relative" as const,
+                    zIndex: 10,
+                    paddingLeft: `${spacing.marginLeft}px`,
+                    paddingRight: `${spacing.marginRight}px`,
+                    paddingBottom: `${spacing.marginBottom}px`,
+                    paddingTop: isFirstBody && !headerConfig.show ? `${spacing.marginTop}px` : undefined,
+                  }
+              ),
+            }}>
+              {cols > 1 ? (
+                layoutDirection === "Z" ? (
+                  <div>
+                    {Array.from(
+                      { length: Math.ceil(sectionCats.length / cols) },
+                      (_, rowIdx) => {
+                        const rowCats = sectionCats.slice(rowIdx * cols, rowIdx * cols + cols);
+                        return (
+                          <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap * 0.6}px`, alignItems: "start" }}>
+                            {rowCats.map((category) => renderCategory(category, bc))}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                ) : (() => {
+                  const hasExplicitColumns = sectionCats.some((c) => c.column != null && c.column > 0);
+                  const columnBuckets: Category[][] = Array.from({ length: cols }, () => []);
+                  if (hasExplicitColumns) {
+                    sectionCats.forEach((cat) => {
+                      const col = Math.min(Math.max((cat.column ?? 1) - 1, 0), cols - 1);
+                      columnBuckets[col].push(cat);
+                    });
+                  } else {
+                    sectionCats.forEach((cat, idx) => { columnBuckets[idx % cols].push(cat); });
+                  }
                   return (
-                    <div
-                      key={rowIdx}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: `repeat(${effectiveColumns}, 1fr)`,
-                        gap: `0 ${spacing.categoryGap * 0.6}px`,
-                        alignItems: "start",
-                      }}
-                    >
-                      {rowCats.map((category) => renderCategory(category))}
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap * 0.6}px`, alignItems: "start" }}>
+                      {columnBuckets.map((bucketCats, colIdx) => (
+                        <div key={colIdx}>{bucketCats.map((category) => renderCategory(category, bc))}</div>
+                      ))}
                     </div>
                   );
-                },
+                })()
+              ) : (
+                <div>{sectionCats.map((category) => renderCategory(category, bc))}</div>
+              )}
+
+              {sectionCats.length === 0 && isFirstBody && (
+                <div className="flex items-center justify-center text-center" style={{ minHeight: "120px", color: `${colors.muted}80`, fontStyle: "italic", fontSize: "13px" }}>
+                  No categories on this page
+                </div>
               )}
             </div>
-          ) : (() => {
-            // N-pattern: distribute categories into columns
-            // Use explicit column assignment if set, otherwise auto-distribute round-robin
-            const hasExplicitColumns = categories.some((c) => c.column != null && c.column > 0);
-            const columnBuckets: Category[][] = Array.from({ length: effectiveColumns }, () => []);
-            if (hasExplicitColumns) {
-              categories.forEach((cat) => {
-                const col = Math.min(Math.max((cat.column ?? 1) - 1, 0), effectiveColumns - 1);
-                columnBuckets[col].push(cat);
-              });
-            } else {
-              // Auto-distribute round-robin for even columns
-              categories.forEach((cat, idx) => {
-                columnBuckets[idx % effectiveColumns].push(cat);
-              });
-            }
-            return (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${effectiveColumns}, 1fr)`,
-                  gap: `0 ${spacing.categoryGap * 0.6}px`,
-                  alignItems: "start",
-                }}
-              >
-                {columnBuckets.map((bucketCats, colIdx) => (
-                  <div key={colIdx}>
-                    {bucketCats.map((category) => renderCategory(category))}
-                  </div>
-                ))}
-              </div>
-            );
-          })()
-        ) : (
-          <div>
-            {categories.map((category) => renderCategory(category))}
-          </div>
-        )}
+          );
+        });
 
-        {categories.length === 0 && (
-          <div
-            className="flex items-center justify-center text-center"
-            style={{
-              minHeight: "120px",
-              color: `${colors.muted}80`,
-              fontStyle: "italic",
-              fontSize: "13px",
-            }}
-          >
-            No categories on this page
-          </div>
-        )}
-      </div>
+        // Overflow categories that don't fit in any body section
+        const overflowCats = remaining;
+
+        return (
+          <>
+            {bodyElements}
+            {overflowCats.length > 0 && (
+              <div style={{
+                position: "relative",
+                zIndex: 10,
+                paddingLeft: `${spacing.marginLeft}px`,
+                paddingRight: `${spacing.marginRight}px`,
+                paddingBottom: `${spacing.marginBottom}px`,
+                opacity: 0.35,
+              }}>
+                {overflowCats.map((category) => renderCategory(category, bodyConfig))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Highlight image — bottom position */}
       {highlightConfig.show && highlightConfig.position !== "top" && effectiveHighlightImage && renderHighlight()}
 
       {/* Decorative elements layer */}
-      {(variant?.decorations ?? []).map((deco) => (
+      {(variant?.decorations ?? []).filter((d) => !d.hidden).map((deco) => (
         <DecorationLayer key={deco.id} decoration={deco} />
       ))}
     </>
@@ -536,8 +534,8 @@ function PageContent({
     const containerStyle: React.CSSProperties = isCustom
       ? {
           position: "absolute",
-          left: `${(hl.offsetX ?? 0) + mLeft}px`,
-          top: `${(hl.offsetY ?? 0) + spacing.marginTop}px`,
+          left: `${hl.offsetX ?? 0}px`,
+          top: `${hl.offsetY ?? 0}px`,
           width: hl.customWidth ? `${hl.customWidth}px` : undefined,
           height: hl.customHeight ? `${hl.customHeight}px` : undefined,
           zIndex: 5,
@@ -599,8 +597,13 @@ function PageContent({
     );
   }
 
-  function renderCategory(category: Category) {
+  function renderCategory(category: Category, bc = bodyConfig) {
     const catState = getCategoryHighlight(category.id);
+    const gfs = bc.globalFontScale ?? 1;
+    const scaledFs = (size: number) => `${Math.round(size * gfs)}px`;
+    const isCenterB = bc.itemAlignment === "center";
+    const isRightB = bc.itemAlignment === "right";
+    const flexJustifyB = isCenterB ? "center" : isRightB ? "flex-end" : "flex-start";
     return (
       <div
         key={category.id}
@@ -611,45 +614,47 @@ function PageContent({
         onMouseLeave={() => clearHover(category.id)}
       >
         {/* Category header */}
+        {bc.showCategoryName !== false && (
         <div style={{
-          textAlign: bodyConfig.categoryStyle === "custom"
-            ? (bodyConfig.categoryAlignment || "center")
-            : isCenter ? "center" : isRight ? "right" : "left",
+          textAlign: bc.categoryStyle === "custom"
+            ? (bc.categoryAlignment || "center")
+            : isCenterB ? "center" : isRightB ? "right" : "left",
           marginBottom: `${spacing.itemGap * 0.6}px`,
-          display: bodyConfig.categoryStyle === "lines" && isCenter ? "flex" : "block",
+          display: bc.categoryStyle === "lines" && isCenterB ? "flex" : "block",
           alignItems: "center",
           justifyContent: "center",
           gap: "16px",
         }}>
-          {bodyConfig.categoryStyle === "lines" && isCenter && (
+          {bc.categoryStyle === "lines" && isCenterB && (
             <span style={{ flex: 1, maxWidth: "80px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
           )}
           <h2 style={{
-            fontSize: bodyConfig.categoryStyle === "custom"
-              ? `${bodyConfig.categoryFontSize ?? 11}px`
-              : bodyConfig.categoryStyle === "bold" ? "13px" : "11px",
-            letterSpacing: bodyConfig.categoryStyle === "custom"
-              ? `${bodyConfig.categoryLetterSpacing ?? 0.35}em`
+            fontSize: bc.categoryStyle === "custom"
+              ? `${bc.categoryFontSize ?? 11}px`
+              : bc.categoryStyle === "bold" ? "13px" : "11px",
+            letterSpacing: bc.categoryStyle === "custom"
+              ? `${bc.categoryLetterSpacing ?? 0.35}em`
               : "0.35em",
             color: colors.primary,
             textTransform: "uppercase",
-            fontWeight: bodyConfig.categoryStyle === "bold" || bodyConfig.categoryStyle === "custom" ? 800 : 600,
+            fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
             whiteSpace: "nowrap",
-            fontFamily: bodyConfig.categoryStyle === "custom"
-              ? (bodyConfig.categoryFont || fonts.heading)
-              : bodyConfig.categoryStyle === "bold" ? fonts.heading : fonts.body,
-            borderBottom: (bodyConfig.categoryStyle === "bold" || (bodyConfig.categoryStyle === "custom" && bodyConfig.categoryBorderBottom))
+            fontFamily: bc.categoryStyle === "custom"
+              ? (bc.categoryFont || fonts.heading)
+              : bc.categoryStyle === "bold" ? fonts.heading : fonts.body,
+            borderBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
               ? `2px solid ${colors.primary}` : "none",
-            paddingBottom: (bodyConfig.categoryStyle === "bold" || (bodyConfig.categoryStyle === "custom" && bodyConfig.categoryBorderBottom))
+            paddingBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
               ? "8px" : "0",
             display: "inline-block",
           }}>
             {category.name}
           </h2>
-          {bodyConfig.categoryStyle === "lines" && isCenter && (
+          {bc.categoryStyle === "lines" && isCenterB && (
             <span style={{ flex: 1, maxWidth: "80px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
           )}
         </div>
+        )}
 
         {/* Items */}
         <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap}px` }}>
@@ -660,23 +665,36 @@ function PageContent({
                 key={item.id}
                 data-item-id={item.id}
                 className={`transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)}`}
-                style={{ textAlign: isCenter ? "center" : isRight ? "right" : "left" }}
+                style={{ textAlign: isCenterB ? "center" : isRightB ? "right" : "left" }}
                 onClick={() => selectItem(item.id)}
                 onMouseEnter={() => !isActiveDrag && setHover(item.id, "item")}
                 onMouseLeave={() => clearHover(item.id)}
               >
                 {/* Item name row */}
                 <div style={{
-                  display: bodyConfig.pricePosition === "right" ? "flex" : "block",
-                  justifyContent: bodyConfig.pricePosition === "right"
-                    ? (isRight ? "flex-end" : isCenter ? "center" : "space-between")
+                  display: bc.pricePosition === "right" ? "flex" : "block",
+                  width: "100%",
+                  justifyContent: bc.pricePosition === "right"
+                    ? (bc.priceJustifyRight ? "space-between" : isRightB ? "flex-end" : isCenterB ? "center" : "flex-start")
                     : undefined,
                   alignItems: "baseline",
-                  gap: bodyConfig.pricePosition === "right" ? "6px" : undefined,
+                  gap: bc.pricePosition === "right" ? "6px" : undefined,
                 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: itemFlexJustify }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: flexJustifyB, flexShrink: 0 }}>
+                    {bc.showItemDot && (
+                      <span style={{
+                        display: "inline-block",
+                        width: `${bc.itemDotSize ?? 6}px`,
+                        height: `${bc.itemDotSize ?? 6}px`,
+                        borderRadius: "50%",
+                        backgroundColor: bc.itemDotColor || colors.primary,
+                        flexShrink: 0,
+                        position: "relative",
+                        top: "-1px",
+                      }} />
+                    )}
                     <p style={{
-                      fontSize: "14px",
+                      fontSize: scaledFs(bc.itemFontSize ?? 14),
                       fontFamily: fonts.body,
                       fontWeight: 700,
                       letterSpacing: "0.1em",
@@ -685,41 +703,42 @@ function PageContent({
                     }}>
                       {item.name}
                     </p>
-                    {bodyConfig.pricePosition === "inline" && (
-                      <span style={{ fontSize: "12px", color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
+                    {bc.pricePosition === "inline" && (
+                      <span style={{ fontSize: scaledFs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
                     )}
-                    {item.featured && bodyConfig.showFeaturedBadge && (
-                      <span style={{ fontSize: "10px", color: colors.accent }}>★</span>
+                    {item.featured && bc.showFeaturedBadge && (
+                      <span style={{ fontSize: scaledFs(10), color: colors.accent }}>★</span>
                     )}
                   </div>
-                  {bodyConfig.pricePosition === "right" && (
+                  {bc.pricePosition === "right" && (
                     <div style={{
                       display: "flex", alignItems: "center", gap: "6px",
-                      flex: bodyConfig.itemAlignment === "left" ? 1 : undefined,
-                      marginLeft: bodyConfig.itemAlignment === "left" ? "8px" : undefined,
+                      flex: bc.priceJustifyRight ? 1 : undefined,
+                      marginLeft: bc.priceJustifyRight ? "8px" : undefined,
+                      justifyContent: bc.priceJustifyRight ? "flex-end" : undefined,
                     }}>
-                      {bodyConfig.separatorStyle === "dotted" && bodyConfig.itemAlignment === "left" && (
+                      {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
                         <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "16px" }} />
                       )}
-                      {bodyConfig.separatorStyle === "line" && bodyConfig.itemAlignment === "left" && (
+                      {bc.priceJustifyRight && bc.separatorStyle === "line" && (
                         <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "16px" }} />
                       )}
-                      <span style={{ fontSize: "12px", color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                      <span style={{ fontSize: scaledFs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>€{item.price}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Description */}
-                {bodyConfig.showDescriptions && item.description && (
+                {bc.showDescriptions && item.description && (
                   <p style={{
-                    fontSize: "12px",
+                    fontSize: scaledFs(bc.descriptionFontSize ?? 12),
                     color: colors.muted,
                     fontStyle: "italic",
                     marginTop: "4px",
                     lineHeight: 1.5,
-                    maxWidth: isCenter || isRight ? "320px" : undefined,
-                    marginLeft: isCenter || isRight ? "auto" : undefined,
-                    marginRight: isCenter ? "auto" : undefined,
+                    maxWidth: isCenterB || isRightB ? "320px" : undefined,
+                    marginLeft: isCenterB || isRightB ? "auto" : undefined,
+                    marginRight: isCenterB ? "auto" : undefined,
                     fontFamily: fonts.body,
                   }}>
                     {item.description}
@@ -727,9 +746,9 @@ function PageContent({
                 )}
 
                 {/* Price — below position */}
-                {bodyConfig.pricePosition === "below" && (
+                {bc.pricePosition === "below" && (
                   <p style={{
-                    fontSize: "12px",
+                    fontSize: scaledFs(bc.priceFontSize ?? 12),
                     color: colors.price || colors.primary,
                     fontWeight: 600,
                     marginTop: "6px",

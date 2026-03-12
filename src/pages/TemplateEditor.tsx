@@ -27,6 +27,8 @@ import {
   Shapes,
   TypeOutline,
   Paintbrush,
+  Link2,
+  Link2Off,
 } from "lucide-react";
 import {
   Button,
@@ -64,7 +66,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
-import type { MenuTemplate, PageVariant, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient, ShapePreset } from "../types/template";
+import type { MenuTemplate, PageVariant, VariantBodyConfig, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient, ShapePreset } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
 import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFont, loadFont, type FontPairing } from "../data/fonts";
@@ -76,12 +78,20 @@ import { readImageFile } from "../utils/imageUpload";
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
 import type { SectionType } from "../types/template";
+import { getBodyForSection, isBodySection } from "../types/template";
 
-const SECTION_META: Record<SectionType, { label: string; icon: typeof TypeIcon }> = {
+const BASE_SECTION_META: Record<string, { label: string; icon: typeof TypeIcon }> = {
   header: { label: "Header", icon: TypeIcon },
   body: { label: "Menu Content", icon: Columns3 },
   highlight: { label: "Highlight Image", icon: ImageIcon },
 };
+
+function getSectionMeta(section: SectionType): { label: string; icon: typeof TypeIcon } {
+  if (BASE_SECTION_META[section]) return BASE_SECTION_META[section];
+  const m = section.match(/^body-(\d+)$/);
+  if (m) return { label: `Menu Content ${m[1]}`, icon: Columns3 };
+  return { label: section, icon: Columns3 };
+}
 
 /* ── Panel types ─────────────────────────────────────────────────────── */
 
@@ -109,6 +119,9 @@ export default function TemplateEditor() {
   const [sectionOrder, setSectionOrder] = useState<SectionType[]>(["header", "body", "highlight"]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [loadTimeout, setLoadTimeout] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Decoration state
@@ -179,15 +192,64 @@ export default function TemplateEditor() {
       setSectionOrder(v.sectionOrder);
     } else {
       // Fallback to deriving from highlight position for backward compatibility
+      const extraBodySections: SectionType[] = (v.extraBodies ?? []).map((_, i) => `body-${i + 2}` as SectionType);
       if (v.highlight.show && v.highlight.position === "top") {
-        setSectionOrder(["header", "highlight", "body"]);
+        setSectionOrder(["header", "highlight", "body", ...extraBodySections]);
       } else {
-        setSectionOrder(["header", "body", "highlight"]);
+        setSectionOrder(["header", "body", ...extraBodySections, "highlight"]);
       }
     }
   }, [activeVariantId, template]);
 
+  // useLiveQuery returns undefined while loading AND when not found.
+  // After a short delay, show "not found" instead of infinite loading.
+  useEffect(() => {
+    if (template) { setLoadTimeout(false); return; }
+    const timer = setTimeout(() => setLoadTimeout(true), 2000);
+    return () => clearTimeout(timer);
+  }, [template]);
+
+  // Delete selected decoration on Delete/Backspace key
+  // (must be before early return to maintain consistent hook count)
+  const activeVariantForEffect = template?.pageVariants.find((v) => v.id === activeVariantId);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!selectedDecorationId || !activeVariantForEffect) return;
+      // Don't trigger when typing in an input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        // Delete inline — can't call deleteDecoration since it's defined after early return
+        const existing = activeVariantForEffect.decorations ?? [];
+        if (id) {
+          updateTemplate(id, {
+            pageVariants: (template?.pageVariants ?? []).map((v) =>
+              v.id === activeVariantForEffect.id
+                ? { ...v, decorations: existing.filter((d) => d.id !== selectedDecorationId) }
+                : v
+            ),
+          });
+        }
+        setSelectedDecorationId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedDecorationId, activeVariantForEffect, id, template?.pageVariants]);
+
   if (!template) {
+    if (loadTimeout) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3">
+          <p className="text-muted-foreground text-sm">Template not found</p>
+          <Button variant="outline" size="sm" onClick={() => navigate("/templates")}>
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
+            Back to Templates
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         Loading...
@@ -199,6 +261,8 @@ export default function TemplateEditor() {
 
   const save = (updates: Partial<MenuTemplate>) => {
     if (id) updateTemplate(id, updates);
+    setIsDirty(true);
+    setShowSaved(false);
   };
 
   const updateVariant = (variantId: string, updates: Partial<PageVariant>) => {
@@ -241,6 +305,10 @@ export default function TemplateEditor() {
     if (s === "header") return activeVariant.header.show;
     if (s === "highlight") return activeVariant.highlight.show;
     if (s === "body") return activeVariant.body.show !== false;
+    if (isBodySection(s)) {
+      const b = getBodyForSection(activeVariant, s);
+      return b ? b.show !== false : false;
+    }
     return true;
   };
 
@@ -249,6 +317,74 @@ export default function TemplateEditor() {
     if (s === "header") updateVariant(activeVariant.id, { header: { ...activeVariant.header, show: !activeVariant.header.show } });
     if (s === "body") updateVariant(activeVariant.id, { body: { ...activeVariant.body, show: activeVariant.body.show === false } });
     if (s === "highlight") updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, show: !activeVariant.highlight.show, position: !activeVariant.highlight.show ? "bottom" : "none" } });
+    if (isBodySection(s) && s !== "body") {
+      const bodies = [...(activeVariant.extraBodies ?? [])];
+      const m = s.match(/^body-(\d+)$/);
+      if (m) {
+        const idx = Number(m[1]) - 2;
+        if (bodies[idx]) {
+          bodies[idx] = { ...bodies[idx], show: bodies[idx].show === false };
+          updateVariant(activeVariant.id, { extraBodies: bodies });
+        }
+      }
+    }
+  };
+
+  const addBodySection = () => {
+    if (!activeVariant) return;
+    const bodies = [...(activeVariant.extraBodies ?? [])];
+    const newBody: VariantBodyConfig = {
+      columns: 1,
+      categoryStyle: "bold",
+      itemAlignment: "left",
+      pricePosition: "right",
+      separatorStyle: "none",
+      showDescriptions: true,
+      showFeaturedBadge: false,
+    };
+    bodies.push(newBody);
+    const idx = bodies.length + 1; // "body-2", "body-3", …
+    const newSection = `body-${idx}` as SectionType;
+    const newOrder = [...sectionOrder, newSection];
+    setSectionOrder(newOrder);
+    updateVariant(activeVariant.id, { extraBodies: bodies, sectionOrder: newOrder });
+  };
+
+  const removeBodySection = (section: SectionType) => {
+    if (!activeVariant || section === "body") return;
+    const m = section.match(/^body-(\d+)$/);
+    if (!m) return;
+    const idx = Number(m[1]) - 2;
+    const bodies = [...(activeVariant.extraBodies ?? [])];
+    bodies.splice(idx, 1);
+    // Rebuild section order — remove this section and renumber remaining
+    const newOrder = sectionOrder.filter((s) => s !== section).map((s) => {
+      const bm = s.match(/^body-(\d+)$/);
+      if (!bm) return s;
+      const bIdx = Number(bm[1]);
+      if (bIdx > Number(m[1])) return `body-${bIdx - 1}` as SectionType;
+      return s;
+    });
+    setSectionOrder(newOrder);
+    updateVariant(activeVariant.id, { extraBodies: bodies, sectionOrder: newOrder });
+    if (openPanel === section) setOpenPanel(null);
+  };
+
+  const duplicateBodySection = (section: SectionType) => {
+    if (!activeVariant) return;
+    const src = getBodyForSection(activeVariant, section);
+    if (!src) return;
+    const copy: VariantBodyConfig = { ...src };
+    const bodies = [...(activeVariant.extraBodies ?? [])];
+    bodies.push(copy);
+    const idx = bodies.length + 1;
+    const newSection = `body-${idx}` as SectionType;
+    // Insert the copy right after the source section in the order
+    const srcIdx = sectionOrder.indexOf(section);
+    const newOrder = [...sectionOrder];
+    newOrder.splice(srcIdx + 1, 0, newSection);
+    setSectionOrder(newOrder);
+    updateVariant(activeVariant.id, { extraBodies: bodies, sectionOrder: newOrder });
   };
 
   const togglePanel = (panelId: PanelId) => setOpenPanel(openPanel === panelId ? null : panelId);
@@ -356,22 +492,6 @@ export default function TemplateEditor() {
 
   const selectedDecoration = activeVariant?.decorations?.find((d) => d.id === selectedDecorationId) ?? null;
 
-  // Delete selected decoration on Delete/Backspace key
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!selectedDecorationId || !activeVariant) return;
-      // Don't trigger when typing in an input/textarea
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        deleteDecoration(selectedDecorationId);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedDecorationId, activeVariant]);
-
   const handleDeleteTemplate = async () => {
     if (!id) return;
     try {
@@ -417,9 +537,8 @@ export default function TemplateEditor() {
           setCapturingThumbnail(false);
         }
       }
-      // Brief delay so the user sees "Saving..."
-      await new Promise((r) => setTimeout(r, 300));
-      navigate("/templates");
+      setIsDirty(false);
+      setShowSaved(true);
     } finally {
       setIsSaving(false);
     }
@@ -487,9 +606,14 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || (!isDirty && showSaved)}
+            variant={!isDirty && showSaved ? "outline" : "default"}
+          >
             <Check className="w-4 h-4 mr-1.5" />
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : !isDirty && showSaved ? "Saved" : "Save"}
           </Button>
         </div>
       </header>
@@ -884,9 +1008,23 @@ export default function TemplateEditor() {
                           ) : (
                             <TypeOutline className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           )}
-                          <span className="truncate flex-1" title={displayName}>
+                          <span className={cn("truncate flex-1", deco.hidden && "opacity-40")} title={displayName}>
                             {displayName}
                           </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); updateDecoration(deco.id, { locked: !deco.locked }); }}
+                            className={cn("p-0.5", deco.locked ? "text-primary" : "text-muted-foreground/40 hover:text-foreground")}
+                            title={deco.locked ? "Unlock element" : "Lock element"}
+                          >
+                            {deco.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); updateDecoration(deco.id, { hidden: !deco.hidden }); }}
+                            className={cn("p-0.5", deco.hidden ? "text-muted-foreground/40 hover:text-foreground" : "text-muted-foreground hover:text-foreground")}
+                            title={deco.hidden ? "Show element" : "Hide element"}
+                          >
+                            {deco.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); duplicateDecoration(deco.id); }}
                             className="text-muted-foreground hover:text-foreground p-0.5"
@@ -920,23 +1058,66 @@ export default function TemplateEditor() {
                           className="text-xs h-7 mt-0.5"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <NumberRow label="X" value={selectedDecoration.x} unit="px" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { x: v })} />
-                        <NumberRow label="Y" value={selectedDecoration.y} unit="px" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { y: v })} />
-                        <NumberRow label="W" value={selectedDecoration.width} unit="px" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { width: v })} />
-                        <NumberRow label="H" value={selectedDecoration.height} unit="px" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { height: v })} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <NumberRow label="Rotate" value={selectedDecoration.rotation} unit="°" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { rotation: v })} />
-                        <NumberRow label="Opacity" value={Math.round(selectedDecoration.opacity * 100)} unit="%" compact
-                          onChange={(v) => updateDecoration(selectedDecoration.id, { opacity: Math.max(0, Math.min(100, v)) / 100 })} />
-                      </div>
-                      <NumberRow label="Z-Index" value={selectedDecoration.zIndex} unit="" compact
+                      {(() => {
+                        const pageW = mmToPx(template.format.width);
+                        const pageH = mmToPx(template.format.height);
+                        return (
+                          <div className="space-y-1.5">
+                            <SliderRow label="X" value={selectedDecoration.x} min={-pageW} max={pageW * 2} unit="px"
+                              onChange={(v) => updateDecoration(selectedDecoration.id, { x: v })} />
+                            <SliderRow label="Y" value={selectedDecoration.y} min={-pageH} max={pageH * 2} unit="px"
+                              onChange={(v) => updateDecoration(selectedDecoration.id, { y: v })} />
+                          </div>
+                        );
+                      })()}
+                      {/* W/H with sliders */}
+                      {(() => {
+                        const pageW = mmToPx(template.format.width);
+                        const pageH = mmToPx(template.format.height);
+                        const maxW = pageW * 2;
+                        const maxH = pageH * 2;
+                        const onChangeW = (v: number) => {
+                          const updates: Partial<Decoration> = { width: v };
+                          if (selectedDecoration.aspectRatioLocked && selectedDecoration.width > 0) {
+                            updates.height = Math.round(v * selectedDecoration.height / selectedDecoration.width);
+                          }
+                          updateDecoration(selectedDecoration.id, updates);
+                        };
+                        const onChangeH = (v: number) => {
+                          const updates: Partial<Decoration> = { height: v };
+                          if (selectedDecoration.aspectRatioLocked && selectedDecoration.height > 0) {
+                            updates.width = Math.round(v * selectedDecoration.width / selectedDecoration.height);
+                          }
+                          updateDecoration(selectedDecoration.id, updates);
+                        };
+                        return (
+                          <div className="space-y-1.5">
+                            <SliderRow label="W" value={selectedDecoration.width} min={20} max={maxW} unit="px" onChange={onChangeW} />
+                            <SliderRow label="H" value={selectedDecoration.height} min={20} max={maxH} unit="px" onChange={onChangeH} />
+                          </div>
+                        );
+                      })()}
+                      <button
+                        onClick={() => updateDecoration(selectedDecoration.id, { aspectRatioLocked: !selectedDecoration.aspectRatioLocked })}
+                        className={cn(
+                          "flex items-center gap-1.5 text-[10px] px-2 py-1 rounded transition-colors w-full",
+                          selectedDecoration.aspectRatioLocked
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted"
+                        )}
+                        title={selectedDecoration.aspectRatioLocked ? "Unlock aspect ratio (hold Shift while resizing to toggle)" : "Lock aspect ratio (hold Shift while resizing to toggle)"}
+                      >
+                        {selectedDecoration.aspectRatioLocked
+                          ? <Link2 className="w-3 h-3" />
+                          : <Link2Off className="w-3 h-3" />}
+                        {selectedDecoration.aspectRatioLocked ? "Aspect ratio locked" : "Aspect ratio unlocked"}
+                        <span className="ml-auto text-[9px] text-muted-foreground/60">Shift to toggle</span>
+                      </button>
+                      <SliderRow label="Rotate" value={selectedDecoration.rotation} min={-180} max={180} unit="°"
+                        onChange={(v) => updateDecoration(selectedDecoration.id, { rotation: v })} />
+                      <SliderRow label="Opacity" value={Math.round(selectedDecoration.opacity * 100)} min={0} max={100} unit="%"
+                        onChange={(v) => updateDecoration(selectedDecoration.id, { opacity: Math.max(0, Math.min(100, v)) / 100 })} />
+                      <SliderRow label="Z-Index" value={selectedDecoration.zIndex} min={-10} max={50} unit=""
                         onChange={(v) => updateDecoration(selectedDecoration.id, { zIndex: v })} />
 
                       {/* Fill color (not for image decorations) */}
@@ -985,10 +1166,10 @@ export default function TemplateEditor() {
 
                       {/* Shape-specific: stroke */}
                       {selectedDecoration.kind === "shape" && (
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
                           <ColorRow label="Stroke" value={(selectedDecoration as ShapeDecoration).stroke || "transparent"}
                             onChange={(v) => updateDecoration(selectedDecoration.id, { stroke: v })} />
-                          <NumberRow label="Width" value={(selectedDecoration as ShapeDecoration).strokeWidth || 0} unit="px" compact
+                          <SliderRow label="Stroke W" value={(selectedDecoration as ShapeDecoration).strokeWidth || 0} min={0} max={20} unit="px"
                             onChange={(v) => updateDecoration(selectedDecoration.id, { strokeWidth: v })} />
                         </div>
                       )}
@@ -1013,12 +1194,10 @@ export default function TemplateEditor() {
                                 if (font) loadFont(font);
                                 updateDecoration(td.id, { fontFamily: v });
                               }} />
-                            <div className="grid grid-cols-2 gap-2">
-                              <NumberRow label="Size" value={td.fontSize} unit="px" compact
-                                onChange={(v) => updateDecoration(td.id, { fontSize: v })} />
-                              <NumberRow label="Weight" value={td.fontWeight} unit="" compact
-                                onChange={(v) => updateDecoration(td.id, { fontWeight: v })} />
-                            </div>
+                            <SliderRow label="Size" value={td.fontSize} min={8} max={200} unit="px"
+                              onChange={(v) => updateDecoration(td.id, { fontSize: v })} />
+                            <SliderRow label="Weight" value={td.fontWeight} min={100} max={900} unit=""
+                              onChange={(v) => updateDecoration(td.id, { fontWeight: Math.round(v / 100) * 100 })} />
                             <div className="grid grid-cols-2 gap-2">
                               <NumberRow label="Spacing" value={td.letterSpacing} unit="em" compact
                                 onChange={(v) => updateDecoration(td.id, { letterSpacing: v })} />
@@ -1130,6 +1309,22 @@ export default function TemplateEditor() {
                 <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
                 {sectionOrder.map((section) => {
                   const enabled = isSectionEnabled(section);
+                  // Body helper: get config and updater for any body section
+                  const bodyConfig = isBodySection(section) ? getBodyForSection(activeVariant, section) : undefined;
+                  const updateBody = (updates: Partial<VariantBodyConfig>) => {
+                    if (section === "body") {
+                      updateVariant(activeVariant.id, { body: { ...activeVariant.body, ...updates } });
+                    } else {
+                      const m = section.match(/^body-(\d+)$/);
+                      if (!m) return;
+                      const idx = Number(m[1]) - 2;
+                      const bodies = [...(activeVariant.extraBodies ?? [])];
+                      if (bodies[idx]) {
+                        bodies[idx] = { ...bodies[idx], ...updates };
+                        updateVariant(activeVariant.id, { extraBodies: bodies });
+                      }
+                    }
+                  };
 
                   return (
                     <SortableSectionCard
@@ -1259,58 +1454,93 @@ export default function TemplateEditor() {
                               </div>
                             </>
                           )}
-                          {section === "body" && (
+                          {isBodySection(section) && bodyConfig && (
                             <>
-                              <SelectRow label="Columns" value={String(activeVariant.body.columns)}
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="sm" className="flex-1 text-xs h-6 justify-start"
+                                  onClick={() => duplicateBodySection(section)}>
+                                  <Copy className="w-3 h-3 mr-1" /> Duplicate
+                                </Button>
+                                {section !== "body" && (
+                                  <Button variant="ghost" size="sm" className="flex-1 text-xs h-6 text-destructive hover:text-destructive justify-start"
+                                    onClick={() => removeBodySection(section)}>
+                                    <Trash2 className="w-3 h-3 mr-1" /> Remove
+                                  </Button>
+                                )}
+                              </div>
+                              <SelectRow label="Columns" value={String(bodyConfig.columns)}
                                 options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, columns: Number(v) } })} />
-                              <SelectRow label="Category Style" value={activeVariant.body.categoryStyle}
+                                onChange={(v) => updateBody({ columns: Number(v) })} />
+                              {/* Max categories per body section */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-[11px] text-muted-foreground">Categories limit</Label>
+                                  <div className="flex items-center gap-1.5">
+                                    <Label className="text-[10px] text-muted-foreground">All</Label>
+                                    <Switch
+                                      checked={!bodyConfig.maxCategories}
+                                      onCheckedChange={(checked) => updateBody({ maxCategories: checked ? undefined : 3 })}
+                                      className="scale-75 origin-right"
+                                    />
+                                  </div>
+                                </div>
+                                {bodyConfig.maxCategories != null && bodyConfig.maxCategories > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={50}
+                                      value={bodyConfig.maxCategories}
+                                      onChange={(e) => {
+                                        const v = Math.max(1, Math.min(50, Number(e.target.value) || 1));
+                                        updateBody({ maxCategories: v });
+                                      }}
+                                      className="h-7 w-16 text-xs text-center"
+                                    />
+                                    <span className="text-[10px] text-muted-foreground">
+                                      max categories — overflow goes to next section
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <SelectRow label="Category Style" value={bodyConfig.categoryStyle}
                                 options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "custom", l: "Custom" }]}
                                 onChange={(v) => {
                                   const newStyle = v as "lines" | "bold" | "minimal" | "custom";
-                                  if (newStyle === "custom" && activeVariant.body.categoryStyle !== "custom") {
+                                  if (newStyle === "custom" && bodyConfig.categoryStyle !== "custom") {
                                     const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
                                     const contentH = mmToPx(template.format.height) - template.spacing.marginTop - template.spacing.marginBottom;
-                                    updateVariant(activeVariant.id, {
-                                      body: {
-                                        ...activeVariant.body,
-                                        categoryStyle: newStyle,
-                                        offsetX: activeVariant.body.offsetX ?? 0,
-                                        offsetY: activeVariant.body.offsetY ?? 0,
-                                        customWidth: activeVariant.body.customWidth || contentW,
-                                        customHeight: activeVariant.body.customHeight || Math.round(contentH * 0.6),
-                                      },
+                                    updateBody({
+                                      categoryStyle: newStyle,
+                                      offsetX: bodyConfig.offsetX ?? 0,
+                                      offsetY: bodyConfig.offsetY ?? 0,
+                                      customWidth: bodyConfig.customWidth || contentW,
+                                      customHeight: bodyConfig.customHeight || Math.round(contentH * 0.6),
                                     });
                                   } else {
-                                    updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryStyle: newStyle } });
+                                    updateBody({ categoryStyle: newStyle });
                                   }
                                 }} />
-                              {activeVariant.body.categoryStyle === "custom" && (
+                              {bodyConfig.categoryStyle === "custom" && (
                                 <>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <NumberRow label="X" value={activeVariant.body.offsetX ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, offsetX: v } })} />
-                                    <NumberRow label="Y" value={activeVariant.body.offsetY ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, offsetY: v } })} />
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <NumberRow label="W" value={activeVariant.body.customWidth ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, customWidth: v || undefined } })} />
-                                    <NumberRow label="H" value={activeVariant.body.customHeight ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, customHeight: v || undefined } })} />
-                                  </div>
-                                  <SelectRow label="Cat. Alignment" value={activeVariant.body.categoryAlignment || "center"}
+                                  <SliderRow label="X" value={bodyConfig.offsetX ?? 0} min={-200} max={800} unit="px"
+                                    onChange={(v) => updateBody({ offsetX: v })} />
+                                  <SliderRow label="Y" value={bodyConfig.offsetY ?? 0} min={-200} max={1200} unit="px"
+                                    onChange={(v) => updateBody({ offsetY: v })} />
+                                  <SliderRow label="W" value={bodyConfig.customWidth ?? 0} min={20} max={1200} unit="px"
+                                    onChange={(v) => updateBody({ customWidth: v || undefined })} />
+                                  <SliderRow label="H" value={bodyConfig.customHeight ?? 0} min={20} max={1600} unit="px"
+                                    onChange={(v) => updateBody({ customHeight: v || undefined })} />
+                                  <SelectRow label="Cat. Alignment" value={bodyConfig.categoryAlignment || "center"}
                                     options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
-                                    onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryAlignment: v as "left" | "center" | "right" } })} />
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <NumberRow label="Font Size" value={activeVariant.body.categoryFontSize ?? 9} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryFontSize: v } })} />
-                                    <NumberRow label="Spacing" value={activeVariant.body.categoryLetterSpacing ?? 0.25} unit="em" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryLetterSpacing: v } })} />
-                                  </div>
+                                    onChange={(v) => updateBody({ categoryAlignment: v as "left" | "center" | "right" })} />
+                                  <SliderRow label="Font Size" value={bodyConfig.categoryFontSize ?? 9} min={6} max={48} unit="px"
+                                    onChange={(v) => updateBody({ categoryFontSize: v })} />
+                                  <SliderRow label="Spacing" value={bodyConfig.categoryLetterSpacing ?? 0.25} min={0} max={1} step={0.01} unit="em"
+                                    onChange={(v) => updateBody({ categoryLetterSpacing: v })} />
                                   <div className="space-y-1">
                                     <Label className="text-[10px]">Font</Label>
-                                    <Select value={activeVariant.body.categoryFont || "__default__"} onValueChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryFont: v === "__default__" ? undefined : v } })}>
+                                    <Select value={bodyConfig.categoryFont || "__default__"} onValueChange={(v) => updateBody({ categoryFont: v === "__default__" ? undefined : v })}>
                                       <SelectTrigger className="h-7 text-xs">
                                         <SelectValue placeholder="Template heading font" />
                                       </SelectTrigger>
@@ -1322,23 +1552,52 @@ export default function TemplateEditor() {
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                  <ToggleRow label="Underline" checked={activeVariant.body.categoryBorderBottom ?? false}
-                                    onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, categoryBorderBottom: v } })} />
+                                  <ToggleRow label="Underline" checked={bodyConfig.categoryBorderBottom ?? false}
+                                    onChange={(v) => updateBody({ categoryBorderBottom: v })} />
                                 </>
                               )}
-                              <SelectRow label="Alignment" value={activeVariant.body.itemAlignment}
+                              <SelectRow label="Alignment" value={bodyConfig.itemAlignment}
                                 options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, itemAlignment: v as "center" | "left" | "right" } })} />
-                              <SelectRow label="Price" value={activeVariant.body.pricePosition}
+                                onChange={(v) => updateBody({ itemAlignment: v as "center" | "left" | "right" })} />
+                              <SelectRow label="Price" value={bodyConfig.pricePosition}
                                 options={[{ v: "below", l: "Below Name" }, { v: "right", l: "Right Side" }, { v: "inline", l: "Inline" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, pricePosition: v as "right" | "below" | "inline" } })} />
-                              <SelectRow label="Separator" value={activeVariant.body.separatorStyle}
+                                onChange={(v) => updateBody({ pricePosition: v as "right" | "below" | "inline" })} />
+                              <SelectRow label="Separator" value={bodyConfig.separatorStyle}
                                 options={[{ v: "line", l: "Solid Line" }, { v: "dotted", l: "Dotted" }, { v: "none", l: "None" }]}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, separatorStyle: v as "line" | "dotted" | "none" } })} />
-                              <ToggleRow label="Descriptions" checked={activeVariant.body.showDescriptions}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showDescriptions: v } })} />
-                              <ToggleRow label="Featured Badge" checked={activeVariant.body.showFeaturedBadge}
-                                onChange={(v) => updateVariant(activeVariant.id, { body: { ...activeVariant.body, showFeaturedBadge: v } })} />
+                                onChange={(v) => updateBody({ separatorStyle: v as "line" | "dotted" | "none" })} />
+                              <ToggleRow label="Category Names" checked={bodyConfig.showCategoryName !== false}
+                                onChange={(v) => updateBody({ showCategoryName: v })} />
+                              <ToggleRow label="Descriptions" checked={bodyConfig.showDescriptions}
+                                onChange={(v) => updateBody({ showDescriptions: v })} />
+                              <ToggleRow label="Featured Badge" checked={bodyConfig.showFeaturedBadge}
+                                onChange={(v) => updateBody({ showFeaturedBadge: v })} />
+                              <ToggleRow label="Item Dot" checked={!!bodyConfig.showItemDot}
+                                onChange={(v) => updateBody({ showItemDot: v })} />
+                              {bodyConfig.showItemDot && (
+                                <ColorRow label="Dot Color" value={bodyConfig.itemDotColor || template.colors.primary}
+                                  onChange={(v) => updateBody({ itemDotColor: v })} />
+                              )}
+                              <ToggleRow label="Price Far Right" checked={!!bodyConfig.priceJustifyRight}
+                                onChange={(v) => updateBody({ priceJustifyRight: v })} />
+
+                              {/* ── Font Sizes ── */}
+                              <div className="pt-3 border-t border-border/50">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Font Sizes</Label>
+                                <div className="space-y-1.5 mt-2">
+                                  <SliderRow label="All" value={Math.round((bodyConfig.globalFontScale ?? 1) * 100)} min={50} max={200} unit="%"
+                                    onChange={(v) => updateBody({ globalFontScale: v / 100 })} />
+                                  <SliderRow label="Item" value={bodyConfig.itemFontSize ?? 14} min={8} max={36} unit="px"
+                                    onChange={(v) => updateBody({ itemFontSize: v })} />
+                                  <SliderRow label="Price" value={bodyConfig.priceFontSize ?? 12} min={6} max={30} unit="px"
+                                    onChange={(v) => updateBody({ priceFontSize: v })} />
+                                  <SliderRow label="Desc" value={bodyConfig.descriptionFontSize ?? 12} min={6} max={24} unit="px"
+                                    onChange={(v) => updateBody({ descriptionFontSize: v })} />
+                                  {bodyConfig.showItemDot && (
+                                    <SliderRow label="Dot" value={bodyConfig.itemDotSize ?? 6} min={2} max={16} unit="px"
+                                      onChange={(v) => updateBody({ itemDotSize: v })} />
+                                  )}
+                                </div>
+                              </div>
                             </>
                           )}
                           {section === "highlight" && (
@@ -1372,24 +1631,20 @@ export default function TemplateEditor() {
                               {/* Custom mode: position & size controls */}
                               {activeVariant.highlight.style === "custom" && (
                                 <>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <NumberRow label="X" value={activeVariant.highlight.offsetX ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetX: v } })} />
-                                    <NumberRow label="Y" value={activeVariant.highlight.offsetY ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetY: v } })} />
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <NumberRow label="W" value={activeVariant.highlight.customWidth ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customWidth: v || undefined } })} />
-                                    <NumberRow label="H" value={activeVariant.highlight.customHeight ?? 0} unit="px" compact
-                                      onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customHeight: v || undefined } })} />
-                                  </div>
+                                  <SliderRow label="X" value={activeVariant.highlight.offsetX ?? 0} min={-200} max={800} unit="px"
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetX: v } })} />
+                                  <SliderRow label="Y" value={activeVariant.highlight.offsetY ?? 0} min={-200} max={1200} unit="px"
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, offsetY: v } })} />
+                                  <SliderRow label="W" value={activeVariant.highlight.customWidth ?? 0} min={20} max={1200} unit="px"
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customWidth: v || undefined } })} />
+                                  <SliderRow label="H" value={activeVariant.highlight.customHeight ?? 0} min={20} max={1600} unit="px"
+                                    onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, customHeight: v || undefined } })} />
                                 </>
                               )}
 
                               {/* Non-custom: height control */}
                               {activeVariant.highlight.style !== "custom" && (
-                                <NumberRow label="Height" value={activeVariant.highlight.height ?? 80} unit="px"
+                                <SliderRow label="Height" value={activeVariant.highlight.height ?? 80} min={20} max={400} unit="px"
                                   onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, height: v } })} />
                               )}
 
@@ -1403,7 +1658,7 @@ export default function TemplateEditor() {
                                 onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, imageFit: v as "fit" | "contain" | "cover" } })} />
 
                               {/* Border Radius */}
-                              <NumberRow label="Roundness" value={activeVariant.highlight.borderRadius ?? 4} unit="px"
+                              <SliderRow label="Round" value={activeVariant.highlight.borderRadius ?? 4} min={0} max={50} unit="px"
                                 onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, borderRadius: v } })} />
                               
                               {/* Image Source */}
@@ -1461,14 +1716,14 @@ export default function TemplateEditor() {
                               {activeVariant.highlight.style !== "custom" && (
                                 <div className="pt-1">
                                   <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Margin</Label>
-                                  <div className="grid grid-cols-2 gap-2 mt-1.5">
-                                    <NumberRow label="Top" value={activeVariant.highlight.marginTop ?? 12} unit="px" compact
+                                  <div className="space-y-1.5 mt-1.5">
+                                    <SliderRow label="Top" value={activeVariant.highlight.marginTop ?? 12} min={0} max={100} unit="px"
                                       onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginTop: v } })} />
-                                    <NumberRow label="Bottom" value={activeVariant.highlight.marginBottom ?? 0} unit="px" compact
+                                    <SliderRow label="Bottom" value={activeVariant.highlight.marginBottom ?? 0} min={0} max={100} unit="px"
                                       onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginBottom: v } })} />
-                                    <NumberRow label="Left" value={activeVariant.highlight.marginLeft ?? 0} unit="px" compact
+                                    <SliderRow label="Left" value={activeVariant.highlight.marginLeft ?? 0} min={0} max={100} unit="px"
                                       onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginLeft: v } })} />
-                                    <NumberRow label="Right" value={activeVariant.highlight.marginRight ?? 0} unit="px" compact
+                                    <SliderRow label="Right" value={activeVariant.highlight.marginRight ?? 0} min={0} max={100} unit="px"
                                       onChange={(v) => updateVariant(activeVariant.id, { highlight: { ...activeVariant.highlight, marginRight: v } })} />
                                   </div>
                                 </div>
@@ -1493,12 +1748,10 @@ export default function TemplateEditor() {
                                         <SelectRow label="Alignment" value={hlText().alignment}
                                           options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
                                           onChange={(v) => setHlText({ alignment: v })} />
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <NumberRow label="Label Size" value={hlText().labelSize} unit="px" compact
-                                            onChange={(v) => setHlText({ labelSize: v })} />
-                                          <NumberRow label="Title Size" value={hlText().titleSize} unit="px" compact
-                                            onChange={(v) => setHlText({ titleSize: v })} />
-                                        </div>
+                                        <SliderRow label="Label" value={hlText().labelSize} min={4} max={36} unit="px"
+                                          onChange={(v) => setHlText({ labelSize: v })} />
+                                        <SliderRow label="Title" value={hlText().titleSize} min={6} max={48} unit="px"
+                                          onChange={(v) => setHlText({ titleSize: v })} />
                                         <div className="space-y-1">
                                           <Label className="text-[10px]">Label Font</Label>
                                           <Select value={hlText().labelFont || "__default__"} onValueChange={(v) => setHlText({ labelFont: v === "__default__" ? undefined : v })}>
@@ -1546,6 +1799,11 @@ export default function TemplateEditor() {
                   )}
                 </DragOverlay>
                 </DndContext>
+
+                {/* Add body section button */}
+                <Button variant="outline" size="sm" className="w-full text-xs h-7 mt-2" onClick={addBodySection}>
+                  <Plus className="w-3 h-3 mr-1" /> Add Menu Content
+                </Button>
               </div>
             )}
           </div>
@@ -1568,7 +1826,7 @@ export default function TemplateEditor() {
               sectionOrder={sectionOrder}
               scale={scale}
               onUpdateVariant={updateVariant}
-              highlightedSection={capturingThumbnail ? null : (hoveredSection ?? (openPanel && ["header", "body", "highlight"].includes(openPanel) ? openPanel as SectionType : null))}
+              highlightedSection={capturingThumbnail ? null : (hoveredSection ?? (openPanel && (["header", "body", "highlight"].includes(openPanel) || /^body-\d+$/.test(openPanel)) ? openPanel as SectionType : null))}
               isDraggingCard={!!activeDragSection}
               showMargins={capturingThumbnail ? false : (hoveredPanel === "spacing" || openPanel === "spacing")}
               onClickSection={(section) => { if (!lockedSections.has(section)) setOpenPanel(openPanel === section ? null : section); }}
@@ -1609,7 +1867,7 @@ function SortableSectionCard({ section, enabled, isActivePanel, isDragActive: _i
     isDragging,
   } = useSortable({ id: section });
 
-  const meta = SECTION_META[section];
+  const meta = getSectionMeta(section);
   const Icon = meta.icon;
 
   const style = {
@@ -1685,7 +1943,7 @@ function SortableSectionCard({ section, enabled, isActivePanel, isDragActive: _i
 /* ── Drag Overlay Card (ghost that follows cursor) ───────────────────── */
 
 function SectionCardOverlay({ section, enabled }: { section: SectionType; enabled: boolean }) {
-  const meta = SECTION_META[section];
+  const meta = getSectionMeta(section);
   const Icon = meta.icon;
 
   return (
@@ -1882,6 +2140,34 @@ function GradientEditor({ gradient, onChange }: { gradient: DecorationGradient; 
   );
 }
 
+function SliderRow({ label, value, min, max, unit, step, onChange }: {
+  label: string; value: number; min: number; max: number; unit: string; step?: number; onChange: (v: number) => void;
+}) {
+  const s = step ?? 1;
+  return (
+    <div className="flex items-center gap-2">
+      <Label className="text-[10px] font-normal text-foreground/80 shrink-0 w-8">{label}</Label>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={s}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 h-1 accent-primary"
+      />
+      <Input
+        type="number"
+        step={s}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-16 h-6 text-[10px] text-right"
+      />
+      <span className="text-[9px] text-muted-foreground w-4">{unit}</span>
+    </div>
+  );
+}
+
 function NumberRow({ label, value, unit, onChange, compact }: {
   label: string; value: number; unit: string; onChange: (v: number) => void; compact?: boolean;
 }) {
@@ -1936,7 +2222,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const [resizeDeco, setResizeDeco] = useState<{ id: string; handle: string; w: number; h: number } | null>(null);
   const [decoOffset, setDecoOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragDecoRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const resizeDecoRef = useRef<{ id: string; handle: string; startX: number; startY: number; origW: number; origH: number; origOX: number; origOY: number } | null>(null);
+  const resizeDecoRef = useRef<{ id: string; handle: string; startX: number; startY: number; origW: number; origH: number; origOX: number; origOY: number; aspectRatio: number; lockAspect: boolean } | null>(null);
   const decoOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const decoDimsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
@@ -2049,9 +2335,21 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
         dragRef.current = null; setActiveDragSection(null); setActiveGuides([]); return;
       }
       const final = dragOffsetRef.current;
-      onUpdateVariant(variant.id, {
-        [d.section]: { ...variant[d.section], offsetX: final.x, offsetY: final.y },
-      });
+      if (isBodySection(d.section) && d.section !== "body") {
+        const m = d.section.match(/^body-(\d+)$/);
+        if (m) {
+          const idx = Number(m[1]) - 2;
+          const bodies = [...(variant.extraBodies ?? [])];
+          if (bodies[idx]) {
+            bodies[idx] = { ...bodies[idx], offsetX: final.x, offsetY: final.y };
+            onUpdateVariant(variant.id, { extraBodies: bodies });
+          }
+        }
+      } else {
+        onUpdateVariant(variant.id, {
+          [d.section]: { ...(variant as any)[d.section], offsetX: final.x, offsetY: final.y },
+        });
+      }
       dragRef.current = null;
       setActiveDragSection(null);
       setActiveGuides([]);
@@ -2173,9 +2471,21 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       }
       const finalPos = dragOffsetRef.current;
       const finalDims = resizeDimsRef.current;
-      onUpdateVariant(variant.id, {
-        [r.section]: { ...variant[r.section], offsetX: finalPos.x, offsetY: finalPos.y, customWidth: finalDims.w, customHeight: finalDims.h },
-      });
+      if (isBodySection(r.section) && r.section !== "body") {
+        const m = r.section.match(/^body-(\d+)$/);
+        if (m) {
+          const idx = Number(m[1]) - 2;
+          const bodies = [...(variant.extraBodies ?? [])];
+          if (bodies[idx]) {
+            bodies[idx] = { ...bodies[idx], offsetX: finalPos.x, offsetY: finalPos.y, customWidth: finalDims.w, customHeight: finalDims.h };
+            onUpdateVariant(variant.id, { extraBodies: bodies });
+          }
+        }
+      } else {
+        onUpdateVariant(variant.id, {
+          [r.section]: { ...(variant as any)[r.section], offsetX: finalPos.x, offsetY: finalPos.y, customWidth: finalDims.w, customHeight: finalDims.h },
+        });
+      }
       resizeRef.current = null;
       setResizeState(null);
       setActiveGuides([]);
@@ -2235,6 +2545,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       const dy = (e.clientY - r.startY) / scale;
       let newW = r.origW, newH = r.origH, newOX = r.origOX, newOY = r.origOY;
       const minSz = 20;
+      // Shift key toggles aspect ratio lock behavior
+      const lockAR = e.shiftKey ? !r.lockAspect : r.lockAspect;
+      const isCorner = r.handle.length === 2; // "tl", "tr", "bl", "br"
 
       if (r.handle.includes("r")) newW = Math.max(minSz, r.origW + dx);
       if (r.handle.includes("l")) { newW = Math.max(minSz, r.origW - dx); newOX = r.origOX + (r.origW - newW); }
@@ -2242,6 +2555,20 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       if (r.handle.includes("t")) { newH = Math.max(minSz, r.origH - dy); newOY = r.origOY + (r.origH - newH); }
       if (r.handle === "t" || r.handle === "b") newW = r.origW;
       if (r.handle === "l" || r.handle === "r") newH = r.origH;
+
+      // Enforce aspect ratio on corner handles when locked
+      if (lockAR && isCorner && r.aspectRatio > 0) {
+        const wFromH = newH * r.aspectRatio;
+        const hFromW = newW / r.aspectRatio;
+        // Use whichever dimension changed more as the driver
+        if (Math.abs(newW - r.origW) > Math.abs(newH - r.origH)) {
+          newH = Math.max(minSz, Math.round(hFromW));
+          if (r.handle.includes("t")) newOY = r.origOY + (r.origH - newH);
+        } else {
+          newW = Math.max(minSz, Math.round(wFromH));
+          if (r.handle.includes("l")) newOX = r.origOX + (r.origW - newW);
+        }
+      }
 
       newW = Math.round(newW); newH = Math.round(newH);
       newOX = Math.round(newOX); newOY = Math.round(newOY);
@@ -2275,33 +2602,42 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const data = sampleMenuData;
   const { colors, fonts, spacing } = template;
-  const fs = (size: number) => `${size}px`;
+  const gScale = (v?: PageVariant) => v?.body.globalFontScale ?? 1;
+  const fs = (size: number, v?: PageVariant) => `${Math.round(size * gScale(v))}px`;
 
   /* ─── Helpers ────────────────────────────────────────────────────── */
 
   const isSectionCustom = (section: SectionType): boolean => {
     if (section === "header") return variant.header.style === "custom";
-    if (section === "body") return variant.body.categoryStyle === "custom";
+    if (isBodySection(section)) {
+      const b = getBodyForSection(variant, section);
+      return b ? b.categoryStyle === "custom" : false;
+    }
     if (section === "highlight") return variant.highlight.style === "custom";
     return false;
   };
 
+  const getSectionCfg = (section: SectionType): any => {
+    if (isBodySection(section)) return getBodyForSection(variant, section);
+    return (variant as any)[section];
+  };
+
   const getOffset = (section: SectionType) => {
     if (activeDragSection === section || resizeState?.section === section) return dragOffset;
-    const cfg = variant[section];
-    return { x: cfg.offsetX ?? 0, y: cfg.offsetY ?? 0 };
+    const cfg = getSectionCfg(section);
+    return { x: cfg?.offsetX ?? 0, y: cfg?.offsetY ?? 0 };
   };
 
   const getDimensions = (section: SectionType) => {
     if (resizeState?.section === section) return { w: resizeState.w, h: resizeState.h };
-    const cfg = variant[section] as any;
-    return { w: cfg.customWidth as number | undefined, h: cfg.customHeight as number | undefined };
+    const cfg = getSectionCfg(section);
+    return { w: cfg?.customWidth as number | undefined, h: cfg?.customHeight as number | undefined };
   };
 
   const startDrag = (e: React.MouseEvent, section: SectionType) => {
     e.preventDefault(); e.stopPropagation();
-    const cfg = variant[section];
-    const ox = cfg.offsetX ?? 0, oy = cfg.offsetY ?? 0;
+    const cfg = getSectionCfg(section);
+    const ox = cfg?.offsetX ?? 0, oy = cfg?.offsetY ?? 0;
     dragRef.current = { section, startX: e.clientX, startY: e.clientY, origX: ox, origY: oy };
     dragOffsetRef.current = { x: ox, y: oy };
     setDragOffset({ x: ox, y: oy });
@@ -2311,11 +2647,11 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   const startResize = (e: React.MouseEvent, section: SectionType, handle: string) => {
     e.preventDefault(); e.stopPropagation();
-    const cfg = variant[section] as any;
+    const cfg = getSectionCfg(section);
     const el = sectionRefs.current[section];
-    const origW = cfg.customWidth || (el ? Math.round(el.offsetWidth / scale) : 200);
-    const origH = cfg.customHeight || (el ? Math.round(el.offsetHeight / scale) : 100);
-    const origOX = cfg.offsetX ?? 0, origOY = cfg.offsetY ?? 0;
+    const origW = cfg?.customWidth || (el ? Math.round(el.offsetWidth / scale) : 200);
+    const origH = cfg?.customHeight || (el ? Math.round(el.offsetHeight / scale) : 100);
+    const origOX = cfg?.offsetX ?? 0, origOY = cfg?.offsetY ?? 0;
     resizeRef.current = { section, handle, startX: e.clientX, startY: e.clientY, origW, origH, origOX, origOY };
     dragOffsetRef.current = { x: origOX, y: origOY };
     resizeDimsRef.current = { w: origW, h: origH };
@@ -2340,7 +2676,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   const startDecoResize = (e: React.MouseEvent, deco: Decoration, handle: string) => {
     e.preventDefault(); e.stopPropagation();
     if (deco.locked) return;
-    resizeDecoRef.current = { id: deco.id, handle, startX: e.clientX, startY: e.clientY, origW: deco.width, origH: deco.height, origOX: deco.x, origOY: deco.y };
+    resizeDecoRef.current = { id: deco.id, handle, startX: e.clientX, startY: e.clientY, origW: deco.width, origH: deco.height, origOX: deco.x, origOY: deco.y, aspectRatio: deco.height > 0 ? deco.width / deco.height : 1, lockAspect: !!deco.aspectRatioLocked };
     decoOffsetRef.current = { x: deco.x, y: deco.y };
     decoDimsRef.current = { w: deco.width, h: deco.height };
     setDecoOffset({ x: deco.x, y: deco.y });
@@ -2398,8 +2734,8 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
-  const renderBackgroundImage = (section: "header" | "body") => {
-    const cfg = variant[section];
+  const renderBackgroundImage = (section: "header" | "body" | `body-${number}`) => {
+    const cfg = isBodySection(section) ? getBodyForSection(variant, section) : (variant as any)[section];
     if (!cfg.image?.url) return null;
     return (
       <div style={{
@@ -2447,103 +2783,115 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           </div>
         );
       case "body":
-        if (variant.body.show === false) return null;
+      default: {
+        if (!isBodySection(section)) return null;
+        const bc = getBodyForSection(variant, section);
+        if (!bc || bc.show === false) return null;
         return (
           <div style={{
             position: "relative",
-            display: variant.body.columns > 1 ? "grid" : "block",
-            gridTemplateColumns: variant.body.columns > 1 ? `repeat(${variant.body.columns}, 1fr)` : undefined,
-            gap: variant.body.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
+            display: bc.columns > 1 ? "grid" : "block",
+            gridTemplateColumns: bc.columns > 1 ? `repeat(${bc.columns}, 1fr)` : undefined,
+            gap: bc.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
             flex: 1,
           }}>
             {data.categories.map((cat, catIdx) => (
               <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px`, position: "relative", zIndex: 1 }}>
+                {bc.showCategoryName !== false && (
                 <div style={{
-                  textAlign: variant.body.categoryStyle === "custom" ? (variant.body.categoryAlignment || "center") : variant.body.itemAlignment,
+                  textAlign: bc.categoryStyle === "custom" ? (bc.categoryAlignment || "center") : bc.itemAlignment,
                   marginBottom: `${spacing.itemGap * 0.4}px`,
-                  display: variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" ? "flex" : "block",
+                  display: bc.categoryStyle === "lines" && bc.itemAlignment === "center" ? "flex" : "block",
                   alignItems: "center", justifyContent: "center", gap: "8px",
                 }}>
-                  {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
+                  {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                   <h2 style={{
-                    fontSize: fs(variant.body.categoryStyle === "custom"
-                      ? (variant.body.categoryFontSize ?? 9)
-                      : variant.body.categoryStyle === "bold" ? 9 : 8),
-                    letterSpacing: variant.body.categoryStyle === "custom"
-                      ? `${variant.body.categoryLetterSpacing ?? 0.25}em`
+                    fontSize: fs(bc.categoryStyle === "custom"
+                      ? (bc.categoryFontSize ?? 9)
+                      : bc.categoryStyle === "bold" ? 9 : 8),
+                    letterSpacing: bc.categoryStyle === "custom"
+                      ? `${bc.categoryLetterSpacing ?? 0.25}em`
                       : "0.25em",
                     color: colors.primary, textTransform: "uppercase",
-                    fontWeight: variant.body.categoryStyle === "bold" || variant.body.categoryStyle === "custom" ? 800 : 600,
+                    fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
                     whiteSpace: "nowrap",
-                    fontFamily: variant.body.categoryStyle === "custom"
-                      ? (variant.body.categoryFont || fonts.heading)
-                      : variant.body.categoryStyle === "bold" ? fonts.heading : fonts.body,
-                    borderBottom: (variant.body.categoryStyle === "bold" || (variant.body.categoryStyle === "custom" && variant.body.categoryBorderBottom))
+                    fontFamily: bc.categoryStyle === "custom"
+                      ? (bc.categoryFont || fonts.heading)
+                      : bc.categoryStyle === "bold" ? fonts.heading : fonts.body,
+                    borderBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
                       ? `2px solid ${colors.primary}` : "none",
-                    paddingBottom: (variant.body.categoryStyle === "bold" || (variant.body.categoryStyle === "custom" && variant.body.categoryBorderBottom))
+                    paddingBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
                       ? "4px" : "0",
                   }}>
                     {cat.name}
                   </h2>
-                  {variant.body.categoryStyle === "lines" && variant.body.itemAlignment === "center" && (
+                  {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
                     <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
                   )}
                 </div>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap * 0.3}px` }}>
-                  {cat.items.slice(0, variant.body.columns > 1 ? 2 : 3).map((item) => (
-                    <div key={item.id} style={{ textAlign: variant.body.itemAlignment }}>
+                  {cat.items.slice(0, bc.columns > 1 ? 2 : 3).map((item) => (
+                    <div key={item.id} style={{ textAlign: bc.itemAlignment }}>
                       <div style={{
-                        display: variant.body.pricePosition === "right" ? "flex" : "block",
-                        justifyContent: variant.body.pricePosition === "right"
-                          ? (variant.body.itemAlignment === "right" ? "flex-end" : variant.body.itemAlignment === "center" ? "center" : "space-between")
+                        display: bc.pricePosition === "right" ? "flex" : "block",
+                        justifyContent: bc.pricePosition === "right"
+                          ? (bc.priceJustifyRight ? "space-between" : bc.itemAlignment === "right" ? "flex-end" : bc.itemAlignment === "center" ? "center" : "flex-start")
                           : undefined,
                         alignItems: "baseline",
-                        gap: variant.body.pricePosition === "right" ? "4px" : undefined,
+                        gap: bc.pricePosition === "right" ? "4px" : undefined,
                       }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: variant.body.itemAlignment === "center" ? "center" : variant.body.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
-                          <p style={{ fontSize: fs(8), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: bc.itemAlignment === "center" ? "center" : bc.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
+                          {bc.showItemDot && (
+                            <span style={{ width: (bc.itemDotSize ?? 6) * 0.6, height: (bc.itemDotSize ?? 6) * 0.6, borderRadius: "50%", backgroundColor: bc.itemDotColor || colors.primary, flexShrink: 0, position: "relative", top: "-1px" }} />
+                          )}
+                          <p style={{ fontSize: fs(bc.itemFontSize ?? 8, variant), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
                             {item.name}
                           </p>
-                          {variant.body.pricePosition === "inline" && (
-                            <span style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
+                          {bc.pricePosition === "inline" && (
+                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
                           )}
-                          {item.featured && variant.body.showFeaturedBadge && (
-                            <span style={{ fontSize: fs(5), color: colors.accent, marginLeft: "2px" }}>★</span>
+                          {item.featured && bc.showFeaturedBadge && (
+                            <span style={{ fontSize: fs(5, variant), color: colors.accent, marginLeft: "2px" }}>★</span>
                           )}
                         </div>
-                        {variant.body.pricePosition === "right" && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: variant.body.itemAlignment === "left" ? 1 : undefined, marginLeft: variant.body.itemAlignment === "left" ? "4px" : undefined }}>
-                            {variant.body.separatorStyle === "dotted" && variant.body.itemAlignment === "left" && (
+                        {bc.pricePosition === "right" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: bc.priceJustifyRight ? 1 : undefined, marginLeft: bc.priceJustifyRight ? "4px" : undefined }}>
+                            {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
                               <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
                             )}
-                            <span style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                            {bc.priceJustifyRight && bc.separatorStyle === "line" && (
+                              <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "10px" }} />
+                            )}
+                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
                           </div>
                         )}
                       </div>
-                      {variant.body.showDescriptions && item.description && (
+                      {bc.showDescriptions && item.description && (
                         <p style={{
-                          fontSize: fs(6), color: colors.muted, fontStyle: "italic", marginTop: "2px",
-                          maxWidth: variant.body.columns > 1 ? "140px" : "200px",
-                          marginLeft: variant.body.itemAlignment === "center" || variant.body.itemAlignment === "right" ? "auto" : undefined,
-                          marginRight: variant.body.itemAlignment === "center" ? "auto" : undefined,
+                          fontSize: fs(bc.descriptionFontSize ?? 6, variant), color: colors.muted, fontStyle: "italic", marginTop: "2px",
+                          maxWidth: bc.columns > 1 ? "140px" : "200px",
+                          marginLeft: bc.itemAlignment === "center" || bc.itemAlignment === "right" ? "auto" : undefined,
+                          marginRight: bc.itemAlignment === "center" ? "auto" : undefined,
                           fontFamily: fonts.body,
                         }}>
                           {item.description.slice(0, 60)}…
                         </p>
                       )}
-                      {variant.body.pricePosition === "below" && (
-                        <p style={{ fontSize: fs(7), color: colors.price || colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
+                      {bc.pricePosition === "below" && !bc.priceJustifyRight && (
+                        <p style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
                       )}
                     </div>
                   ))}
                 </div>
-                {catIdx < data.categories.length - 1 && variant.body.separatorStyle !== "dotted" && renderSeparator(variant.body.separatorStyle)}
+                {catIdx < data.categories.length - 1 && bc.separatorStyle !== "dotted" && renderSeparator(bc.separatorStyle)}
               </div>
             ))}
           </div>
         );
+      }
       case "highlight": {
         if (!variant.highlight.show) return null;
         const hl = variant.highlight;
@@ -2816,7 +3164,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       })}
 
       {/* Render decorations */}
-      {(variant.decorations ?? []).map((deco) => {
+      {(variant.decorations ?? []).filter((d) => !d.hidden).map((deco) => {
         const isSelected = selectedDecorationId === deco.id;
         const isDragging = activeDragDeco === deco.id;
         const isResizing = resizeDeco?.id === deco.id;

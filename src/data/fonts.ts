@@ -43,6 +43,8 @@ export const FONT_CATALOG: FontOption[] = [
     googleUrl: "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&display=swap" },
 
   // ── Display (statement headings) ──
+  { name: "Kingred Modern", family: "'Kingred Modern', serif", category: "display", weights: [400],
+    googleUrl: "https://fonts.adasystems.app/kingred-modern/kingred.woff2" },
   { name: "Abril Fatface", family: "'Abril Fatface', serif", category: "display", weights: [400],
     googleUrl: "https://fonts.googleapis.com/css2?family=Abril+Fatface&display=swap" },
   { name: "Cinzel", family: "'Cinzel', serif", category: "display", weights: [400, 500, 600, 700, 800, 900],
@@ -65,6 +67,19 @@ const loadedFonts = new Set<string>();
 export function loadFont(font: FontOption): void {
   if (!font.googleUrl || loadedFonts.has(font.family)) return;
   loadedFonts.add(font.family);
+
+  // Self-hosted font files (woff2/otf/ttf) — inject @font-face
+  if (font.googleUrl.match(/\.(woff2|woff|otf|ttf)$/i)) {
+    const ext = font.googleUrl.split(".").pop()!.toLowerCase();
+    const formatMap: Record<string, string> = { woff2: "woff2", woff: "woff", otf: "opentype", ttf: "truetype" };
+    const fontName = font.family.replace(/^'|'.*$/g, ""); // extract font name from CSS family
+    const style = document.createElement("style");
+    style.textContent = `@font-face { font-family: '${fontName}'; src: url('${font.googleUrl}') format('${formatMap[ext] || ext}'); font-display: swap; }`;
+    document.head.appendChild(style);
+    return;
+  }
+
+  // Google Fonts CSS — inject <link>
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = font.googleUrl;

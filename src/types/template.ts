@@ -54,7 +54,7 @@ export type PricePosition = "right" | "below" | "inline";
 export type HighlightPosition = "bottom" | "top" | "none";
 export type HighlightStyle = "fit" | "full-width" | "custom";
 export type SeparatorStyle = "line" | "dotted" | "none";
-export type SectionType = "header" | "body" | "highlight";
+export type SectionType = "header" | "body" | "highlight" | `body-${number}`;
 
 export interface SectionImageConfig {
   url?: string;           // image URL (optional)
@@ -89,6 +89,10 @@ export interface VariantBodyConfig {
   separatorStyle: SeparatorStyle;
   showDescriptions: boolean;
   showFeaturedBadge: boolean;
+  showCategoryName?: boolean;     // show/hide category headers (default true)
+  priceJustifyRight?: boolean;    // push price to far right edge of container
+  showItemDot?: boolean;          // decorative dot before item name
+  itemDotColor?: string;          // dot color (defaults to primary)
   offsetX?: number;       // px offset for preview drag
   offsetY?: number;       // px offset for preview drag
   customWidth?: number;   // px bounding box width (custom mode)
@@ -100,6 +104,13 @@ export interface VariantBodyConfig {
   categoryAlignment?: "left" | "center" | "right";
   categoryBorderBottom?: boolean;
   image?: SectionImageConfig;
+  // Font size overrides (px) — all optional, defaults in renderer
+  itemFontSize?: number;          // item name size (default 14)
+  priceFontSize?: number;         // price size (default 12)
+  descriptionFontSize?: number;   // description size (default 12)
+  itemDotSize?: number;           // dot diameter (default 6)
+  globalFontScale?: number;       // multiplier 0.5–2.0 (default 1) — scales all sizes at once
+  maxCategories?: number;         // max categories in this body section (overflow goes to next body)
 }
 
 export type HighlightTextAlign = "left" | "center" | "right";
@@ -156,6 +167,8 @@ export interface DecorationBase {
   opacity: number;         // 0-1
   zIndex: number;
   locked?: boolean;
+  hidden?: boolean;
+  aspectRatioLocked?: boolean;
 }
 
 export type ShapePreset = "blob1" | "blob2" | "blob3" | "blob4" | "circle" | "ellipse" | "rectangle";
@@ -201,8 +214,23 @@ export interface PageVariant {
   header: VariantHeaderConfig;
   body: VariantBodyConfig;
   highlight: VariantHighlightConfig;
+  extraBodies?: VariantBodyConfig[];   // Additional body sections (body-2, body-3, …)
   sectionOrder?: SectionType[];  // Order of sections for drag-and-drop
   decorations?: Decoration[];    // Free-form decorative elements
+}
+
+/** Helper: get a body config by section type ("body" → main, "body-2" → extraBodies[0], etc.) */
+export function getBodyForSection(variant: PageVariant, section: SectionType): VariantBodyConfig | undefined {
+  if (section === "body") return variant.body;
+  const m = section.match(/^body-(\d+)$/);
+  if (!m) return undefined;
+  const idx = Number(m[1]) - 2; // "body-2" → index 0
+  return variant.extraBodies?.[idx];
+}
+
+/** Helper: check if a section type is a body section */
+export function isBodySection(section: SectionType): boolean {
+  return section === "body" || /^body-\d+$/.test(section);
 }
 
 /* ── Template ────────────────────────────────────────────────────────── */

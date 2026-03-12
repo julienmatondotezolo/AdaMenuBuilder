@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect } from "react";
 import type { Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient } from "../../types/template";
 import { getShapePreset } from "../../data/decorationPresets";
 
@@ -149,22 +150,101 @@ function TextRenderer({ deco }: { deco: TextDecoration }) {
 
 /* ── Image Renderer ─────────────────────────────────────────────────── */
 
-function ImageRenderer({ deco }: { deco: ImageDecoration }) {
-  const style: React.CSSProperties = {
-    width: "100%",
-    height: "100%",
-    objectFit: deco.objectFit,
-    display: "block",
-  };
+function MaskedImage({ src, maskDataUri, objectFit, width, height }: {
+  src: string; maskDataUri: string; objectFit: string; width: number; height: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [ready, setReady] = useState(false);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    const mask = new Image();
+    let loaded = 0;
+
+    const tryComposite = () => {
+      loaded++;
+      if (loaded < 2) return;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // Step 1: Draw the mask and convert luminance → alpha
+      // The mask is white (visible) / black (hidden), both fully opaque.
+      // We need: white → alpha 255, black → alpha 0.
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(mask, 0, 0, width, height);
+      const maskData = ctx.getImageData(0, 0, width, height);
+      const px = maskData.data;
+      for (let i = 0; i < px.length; i += 4) {
+        // Set alpha = luminance (R channel), make pixel white
+        px[i + 3] = px[i]; // A = R (white=255=visible, black=0=hidden)
+        px[i] = 255;       // R
+        px[i + 1] = 255;   // G
+        px[i + 2] = 255;   // B
+      }
+      ctx.putImageData(maskData, 0, 0);
+
+      // Step 2: Draw the image using source-in (keeps image only where mask alpha > 0)
+      ctx.globalCompositeOperation = "source-in";
+      if (objectFit === "contain") {
+        const s = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+        const dw = img.naturalWidth * s;
+        const dh = img.naturalHeight * s;
+        ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
+      } else if (objectFit === "cover") {
+        const s = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const dw = img.naturalWidth * s;
+        const dh = img.naturalHeight * s;
+        ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
+      } else {
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+      ctx.globalCompositeOperation = "source-over";
+
+      setReady(true);
+    };
+
+    img.onload = tryComposite;
+    img.src = src;
+
+    mask.onload = tryComposite;
+    mask.src = maskDataUri;
+  }, [src, maskDataUri, width, height, objectFit]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ width: "100%", height: "100%", display: "block", opacity: ready ? 1 : 0 }}
+    />
+  );
+}
+
+function ImageRenderer({ deco }: { deco: ImageDecoration }) {
   if (deco.maskDataUri) {
-    style.maskImage = `url(${deco.maskDataUri})`;
-    style.WebkitMaskImage = `url(${deco.maskDataUri})`;
-    style.maskSize = "100% 100%";
-    (style as Record<string, string>).WebkitMaskSize = "100% 100%";
+    return (
+      <MaskedImage
+        src={deco.src}
+        maskDataUri={deco.maskDataUri}
+        objectFit={deco.objectFit}
+        width={deco.width}
+        height={deco.height}
+      />
+    );
   }
 
-  return <img src={deco.src} alt="" style={style} draggable={false} />;
+  return (
+    <img
+      src={deco.src}
+      alt=""
+      style={{ width: "100%", height: "100%", objectFit: deco.objectFit, display: "block" }}
+      draggable={false}
+    />
+  );
 }
 
 /* ── Main Renderer ──────────────────────────────────────────────────── */

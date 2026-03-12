@@ -7,6 +7,7 @@ import {
   Pencil,
   GripVertical,
   Trash2,
+  Copy,
 } from "lucide-react";
 import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -26,6 +27,8 @@ interface CategorySectionProps {
   dragCollapseSignal: number;
   dragRestoreSignal: number;
   forceCollapsed?: boolean;
+  onDuplicate?: (categoryId: string) => void;
+  onContentChanged?: (categoryId: string) => void;
 }
 
 export default function CategorySection({
@@ -38,6 +41,8 @@ export default function CategorySection({
   dragCollapseSignal,
   dragRestoreSignal,
   forceCollapsed,
+  onDuplicate,
+  onContentChanged,
 }: CategorySectionProps) {
   const {
     addItem,
@@ -134,6 +139,7 @@ export default function CategorySection({
       featured: false,
     });
     if (isCollapsed) setIsCollapsed(false);
+    onContentChanged?.(category.id);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -245,6 +251,20 @@ export default function CategorySection({
             >
               <X className="w-4 h-4" />
             </Button>
+            {onDuplicate && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onDuplicate(category.id);
+                  setIsEditingName(false);
+                }}
+                className={effectiveCollapsed ? "text-muted-foreground hover:text-foreground" : "text-white/70 hover:text-white"}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"

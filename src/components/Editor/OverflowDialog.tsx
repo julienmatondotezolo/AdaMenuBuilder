@@ -6,6 +6,7 @@ interface OverflowDialogProps {
   categoryName: string;
   pageIndex: number;
   overflowPx: number;
+  capacityOverflow?: boolean;  // true when category exceeds maxCategories limit
   availablePages: { id: string; index: number; name: string }[];
   onKeep: () => void;
   onMoveToPage: (pageId: string) => void;
@@ -18,6 +19,7 @@ export default function OverflowDialog({
   categoryName,
   pageIndex,
   overflowPx,
+  capacityOverflow,
   availablePages,
   onKeep,
   onMoveToPage,
@@ -46,8 +48,17 @@ export default function OverflowDialog({
           <div className="flex-1">
             <h3 className="font-bold text-foreground">Page Overflow</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              <strong>{categoryName}</strong> on Page {pageIndex + 1} causes
-              content to overflow by <strong>{overflowPx}px</strong>.
+              {capacityOverflow ? (
+                <>
+                  <strong>{categoryName}</strong> on Page {pageIndex + 1} exceeds
+                  the maximum categories allowed by the template layout.
+                </>
+              ) : (
+                <>
+                  <strong>{categoryName}</strong> on Page {pageIndex + 1} causes
+                  content to overflow by <strong>{overflowPx}px</strong>.
+                </>
+              )}
             </p>
           </div>
           <button

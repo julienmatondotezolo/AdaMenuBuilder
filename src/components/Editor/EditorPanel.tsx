@@ -40,9 +40,29 @@ import PageCard from "./PageCard";
 import OverflowDialog from "./OverflowDialog";
 import MenuItemCard from "./MenuItemCard";
 import type { MenuItem, MenuPage, Category } from "../../types/menu";
-import type { MenuTemplate } from "../../types/template";
+import type { MenuTemplate, PageVariant, VariantBodyConfig } from "../../types/template";
 import { mmToPx } from "../../types/template";
 import { uid } from "../../utils/uid";
+
+/** Compute max categories a page variant can display across all its body sections */
+function getVariantCategoryCapacity(variant: PageVariant | undefined): number {
+  if (!variant) return Infinity;
+  const allBodies: VariantBodyConfig[] = [
+    variant.body,
+    ...(variant.extraBodies ?? []).filter((eb) => eb.show !== false),
+  ];
+  let total = 0;
+  let hasUnlimited = false;
+  for (const bc of allBodies) {
+    const max = bc.maxCategories;
+    if (max && max > 0) {
+      total += max;
+    } else {
+      hasUnlimited = true;
+    }
+  }
+  return hasUnlimited ? Infinity : total;
+}
 
 /* ── Overflow measurement helper ─────────────────────────────────────── */
 
@@ -239,6 +259,7 @@ export default function EditorPanel() {
     pageId: string;
     pageIndex: number;
     overflowPx: number;
+    capacityOverflow?: boolean;
   } | null>(null);
 
   /* ── Per-page overflow tracking ────────────────────────────────── */
@@ -246,15 +267,91 @@ export default function EditorPanel() {
     new Map(),
   );
 
+  /**
+   * Ref that stores the last category that was mutated (added, dropped, etc.)
+   * When the overflow check runs and finds overflow on that category's page,
+   * it opens the dialog for this category.
+   */
+  const pendingOverflowCheckRef = useRef<string | null>(null);
+
+  /** Check a single page for overflow — returns { px, capacity } or null */
+  const checkPageOverflow = useCallback(
+    (pageIndex: number): { px: number; capacity: boolean } | null => {
+      if (!currentTemplate || pageIndex < 0 || pageIndex >= pages.length) return null;
+      const page = pages[pageIndex];
+
+      // 1. Capacity-based overflow (maxCategories limits)
+      const variant = currentTemplate.pageVariants.find((v) => v.id === page.variantId);
+      const capacity = getVariantCategoryCapacity(variant);
+      if (page.categoryIds.length > capacity) {
+        return { px: 0, capacity: true };
+      }
+
+      // 2. DOM-based overflow (content taller than page)
+      const px = measurePageOverflow(currentTemplate, pageIndex);
+      if (px > 10) {
+        return { px: Math.round(px), capacity: false };
+      }
+
+      return null;
+    },
+    [currentTemplate, pages],
+  );
+
+  /** Measure all pages for the yellow overflow badge indicators */
   const measureAllOverflows = useCallback(() => {
     const map = new Map<number, number>();
     for (let i = 0; i < pages.length; i++) {
-      const px = measurePageOverflow(currentTemplate, i);
-      if (px > 4) map.set(i, Math.round(px));
+      const result = checkPageOverflow(i);
+      if (result) {
+        map.set(i, result.capacity ? -1 : result.px);
+      }
     }
     setPageOverflows(map);
-  }, [currentTemplate, pages.length]);
+  }, [checkPageOverflow, pages.length]);
 
+  /**
+   * Unified overflow check — runs after any mutation.
+   * If pendingOverflowCheckRef has a category id, checks its page and opens
+   * the dialog if overflow is detected.
+   */
+  const runOverflowCheck = useCallback(() => {
+    const categoryId = pendingOverflowCheckRef.current;
+    pendingOverflowCheckRef.current = null;
+    measureAllOverflows();
+
+    if (!categoryId || !currentTemplate) return;
+
+    // Find which page this category is on
+    const page = pages.find((p) => p.categoryIds.includes(categoryId));
+    if (!page) return;
+    const pageIndex = pages.indexOf(page);
+
+    const result = checkPageOverflow(pageIndex);
+    if (result) {
+      const cat = menuData.categories.find((c) => c.id === categoryId);
+      setOverflowDialog({
+        categoryId,
+        categoryName: cat?.name || "Category",
+        pageId: page.id,
+        pageIndex,
+        overflowPx: result.px,
+        capacityOverflow: result.capacity,
+      });
+    }
+  }, [pages, currentTemplate, menuData.categories, measureAllOverflows, checkPageOverflow]);
+
+  /** Schedule an overflow check for a specific category after React re-renders */
+  const scheduleOverflowCheck = useCallback(
+    (categoryId: string) => {
+      pendingOverflowCheckRef.current = categoryId;
+      // Delay so React has time to render the updated preview DOM
+      setTimeout(runOverflowCheck, 400);
+    },
+    [runOverflowCheck],
+  );
+
+  // Periodic overflow measurement for badges
   useEffect(() => {
     const timer = setTimeout(measureAllOverflows, 400);
     const interval = setInterval(measureAllOverflows, 2000);
@@ -379,7 +476,6 @@ export default function EditorPanel() {
         overType: "category",
       }));
 
-      // Move category to target page if not already there
       if (sourcePage?.id !== targetPageId) {
         setPages((prev) => {
           const cleaned = prev.map((p) => ({
@@ -405,7 +501,6 @@ export default function EditorPanel() {
         overType: "category",
       }));
 
-      // Remove from all pages
       setPages((prev) =>
         prev.map((p) => ({
           ...p,
@@ -571,28 +666,12 @@ export default function EditorPanel() {
     setDragRestoreSignal((s) => s + 1);
   };
 
-  /* ── Overflow check after category drop ────────────────────────── */
+  /* ── Overflow check after category drop — delegates to unified check ─ */
   const checkOverflowAfterDrop = useCallback(
     (categoryId: string) => {
-      const page = findPageForCategory(categoryId);
-      if (!page || !currentTemplate) return;
-      const pageIndex = pages.indexOf(page);
-      if (pageIndex === -1) return;
-
-      const overflow = measurePageOverflow(currentTemplate, pageIndex);
-      if (overflow > 10) {
-        const cat = menuData.categories.find((c) => c.id === categoryId);
-        setOverflowDialog({
-          categoryId,
-          categoryName: cat?.name || "Category",
-          pageId: page.id,
-          pageIndex,
-          overflowPx: Math.round(overflow),
-        });
-      }
-      measureAllOverflows();
+      scheduleOverflowCheck(categoryId);
     },
-    [pages, currentTemplate, menuData.categories, measureAllOverflows],
+    [scheduleOverflowCheck],
   );
 
   /* ── Overflow dialog actions ───────────────────────────────────── */
@@ -720,21 +799,7 @@ export default function EditorPanel() {
           ),
         );
         // Check overflow after adding
-        setTimeout(() => {
-          const overflow = measurePageOverflow(currentTemplate, targetPageIndex);
-          if (overflow > 10) {
-            const cat = menuData.categories.find((c) => c.id === catId) ??
-              { name: newCategoryName.trim() };
-            setOverflowDialog({
-              categoryId: catId,
-              categoryName: cat.name,
-              pageId: pages[targetPageIndex].id,
-              pageIndex: targetPageIndex,
-              overflowPx: Math.round(overflow),
-            });
-          }
-          measureAllOverflows();
-        }, 400);
+        scheduleOverflowCheck(catId);
       }
       setNewCategoryName("");
       setIsAddingCategory(false);
@@ -787,6 +852,13 @@ export default function EditorPanel() {
   };
 
   const isDraggingCategory = dragState.activeType === "category";
+
+  /* ── Active page variant info ─────────────────────────────────── */
+  const activePage = pages[activePageIndex];
+  const activeVariant = activePage
+    ? currentTemplate?.pageVariants.find((v) => v.id === activePage.variantId)
+    : undefined;
+  const activeVariantHeaderVisible = activeVariant?.header?.show !== false;
 
   return (
     <div className="w-full h-full flex flex-col bg-muted/30">
@@ -901,8 +973,8 @@ export default function EditorPanel() {
 
         <div className="h-4" />
 
-        {/* Menu Header Editor */}
-        <EditorCard
+        {/* Menu Header Editor — hidden when active page variant disables header */}
+        {activeVariantHeaderVisible && <EditorCard
           icon={<Type className="w-4 h-4" />}
           title="Menu Header"
           defaultCollapsed
@@ -978,7 +1050,7 @@ export default function EditorPanel() {
               }}
             />
           </div>
-        </EditorCard>
+        </EditorCard>}
 
         <div className="h-4" />
 
@@ -1010,6 +1082,7 @@ export default function EditorPanel() {
                 onAddItem={() => {
                   /* handled by CategorySection */
                 }}
+                onContentChanged={scheduleOverflowCheck}
                 searchQuery={searchQuery}
                 collapseSignal={collapseSignal}
                 expandSignal={expandSignal}
@@ -1144,6 +1217,7 @@ export default function EditorPanel() {
         categoryName={overflowDialog?.categoryName ?? ""}
         pageIndex={overflowDialog?.pageIndex ?? 0}
         overflowPx={overflowDialog?.overflowPx ?? 0}
+        capacityOverflow={overflowDialog?.capacityOverflow}
         availablePages={overflowAvailablePages}
         onKeep={handleOverflowKeep}
         onMoveToPage={handleOverflowMoveToPage}
