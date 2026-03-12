@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Trash2, GripVertical, Pencil } from "lucide-react";
+import { Trash2, GripVertical, Pencil, Copy } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Input, Badge, cn } from "ada-design-system";
@@ -19,7 +19,7 @@ export default function MenuItemCard({
   isDraggingActive,
   isOverlay,
 }: MenuItemCardProps) {
-  const { removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem } =
+  const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
   const isSelected = selectedItemId === item.id;
@@ -202,6 +202,20 @@ export default function MenuItemCard({
                     className="edit-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
                   >
                     <Pencil className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addItem(categoryId, {
+                        name: `${item.name} (copy)`,
+                        price: item.price,
+                        description: item.description,
+                        featured: item.featured,
+                      });
+                    }}
+                    className="edit-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
                   </button>
                   <button
                     onClick={(e) => {

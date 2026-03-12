@@ -111,6 +111,8 @@ export interface VariantBodyConfig {
   itemDotSize?: number;           // dot diameter (default 6)
   globalFontScale?: number;       // multiplier 0.5–2.0 (default 1) — scales all sizes at once
   maxCategories?: number;         // max categories in this body section (overflow goes to next body)
+  itemTextTransform?: "uppercase" | "capitalize" | "none";   // item name casing (default "uppercase")
+  categoryTextTransform?: "uppercase" | "capitalize" | "none"; // category name casing (default "uppercase")
 }
 
 export type HighlightTextAlign = "left" | "center" | "right";

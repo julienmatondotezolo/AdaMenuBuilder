@@ -1598,6 +1598,19 @@ export default function TemplateEditor() {
                                   )}
                                 </div>
                               </div>
+
+                              {/* ── Text Transform ── */}
+                              <div className="pt-3 border-t border-border/50">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Text Casing</Label>
+                                <div className="space-y-1.5 mt-2">
+                                  <SelectRow label="Items" value={bodyConfig.itemTextTransform ?? "uppercase"}
+                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
+                                    onChange={(v) => updateBody({ itemTextTransform: v as "uppercase" | "capitalize" | "none" })} />
+                                  <SelectRow label="Categories" value={bodyConfig.categoryTextTransform ?? "uppercase"}
+                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
+                                    onChange={(v) => updateBody({ categoryTextTransform: v as "uppercase" | "capitalize" | "none" })} />
+                                </div>
+                              </div>
                             </>
                           )}
                           {section === "highlight" && (
@@ -2814,7 +2827,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     letterSpacing: bc.categoryStyle === "custom"
                       ? `${bc.categoryLetterSpacing ?? 0.25}em`
                       : "0.25em",
-                    color: colors.primary, textTransform: "uppercase",
+                    color: colors.primary, textTransform: bc.categoryTextTransform ?? "uppercase",
                     fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
                     whiteSpace: "nowrap",
                     fontFamily: bc.categoryStyle === "custom"
@@ -2837,17 +2850,18 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                     <div key={item.id} style={{ textAlign: bc.itemAlignment }}>
                       <div style={{
                         display: bc.pricePosition === "right" ? "flex" : "block",
+                        width: "100%",
                         justifyContent: bc.pricePosition === "right"
                           ? (bc.priceJustifyRight ? "space-between" : bc.itemAlignment === "right" ? "flex-end" : bc.itemAlignment === "center" ? "center" : "flex-start")
                           : undefined,
                         alignItems: "baseline",
                         gap: bc.pricePosition === "right" ? "4px" : undefined,
                       }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: bc.itemAlignment === "center" ? "center" : bc.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", flexShrink: 0, justifyContent: bc.itemAlignment === "center" ? "center" : bc.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
                           {bc.showItemDot && (
                             <span style={{ width: (bc.itemDotSize ?? 6) * 0.6, height: (bc.itemDotSize ?? 6) * 0.6, borderRadius: "50%", backgroundColor: bc.itemDotColor || colors.primary, flexShrink: 0, position: "relative", top: "-1px" }} />
                           )}
-                          <p style={{ fontSize: fs(bc.itemFontSize ?? 8, variant), fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
+                          <p style={{ fontSize: fs(bc.itemFontSize ?? 8, variant), fontWeight: 700, textTransform: bc.itemTextTransform ?? "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
                             {item.name}
                           </p>
                           {bc.pricePosition === "inline" && (
@@ -2858,14 +2872,14 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                           )}
                         </div>
                         {bc.pricePosition === "right" && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: bc.priceJustifyRight ? 1 : undefined, marginLeft: bc.priceJustifyRight ? "4px" : undefined }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: bc.priceJustifyRight ? 1 : undefined, marginLeft: bc.priceJustifyRight ? "4px" : undefined, justifyContent: bc.priceJustifyRight ? "flex-end" : undefined }}>
                             {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
                               <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
                             )}
                             {bc.priceJustifyRight && bc.separatorStyle === "line" && (
                               <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "10px" }} />
                             )}
-                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap" }}>€{item.price}</span>
+                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>€{item.price}</span>
                           </div>
                         )}
                       </div>

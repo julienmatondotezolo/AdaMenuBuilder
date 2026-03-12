@@ -43,6 +43,10 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
       if (lf) { const f = findFont(lf); if (f) loadFont(f); }
       if (tf) { const f = findFont(tf); if (f) loadFont(f); }
       if (cf) { const f = findFont(cf); if (f) loadFont(f); }
+      // Load fonts from extra body sections
+      for (const eb of v.extraBodies ?? []) {
+        if (eb.categoryFont) { const f = findFont(eb.categoryFont); if (f) loadFont(f); }
+      }
       for (const deco of v.decorations ?? []) {
         if (deco.kind === "text") {
           const df = findFont((deco as import("../../types/template").TextDecoration).fontFamily);
@@ -636,7 +640,7 @@ function PageContent({
               ? `${bc.categoryLetterSpacing ?? 0.35}em`
               : "0.35em",
             color: colors.primary,
-            textTransform: "uppercase",
+            textTransform: bc.categoryTextTransform ?? "uppercase",
             fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
             whiteSpace: "nowrap",
             fontFamily: bc.categoryStyle === "custom"
@@ -699,7 +703,7 @@ function PageContent({
                       fontWeight: 700,
                       letterSpacing: "0.1em",
                       color: colors.text,
-                      textTransform: "uppercase",
+                      textTransform: bc.itemTextTransform ?? "uppercase",
                     }}>
                       {item.name}
                     </p>
