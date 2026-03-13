@@ -78,7 +78,16 @@ import DecorationRenderer from "../components/Preview/DecorationRenderer";
 import MaskEditor from "../components/Preview/MaskEditor";
 import { readImageFile } from "../utils/imageUpload";
 import { useAuth } from "../context/AuthContext";
-import { fetchRestaurants, publishTemplate } from "../services/templateApi";
+import {
+  fetchRestaurants,
+  fetchPublishStatus,
+  publishTemplate,
+  updatePublishedTemplate,
+  unpublishTemplate,
+  setTemplateDefault,
+  type Restaurant,
+  type PublishStatus,
+} from "../services/templateApi";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -143,9 +152,9 @@ export default function TemplateEditor() {
   // Auth & publish state
   const { user, token } = useAuth();
   const [showPublishDialog, setShowPublishDialog] = useState(false);
-  const [restaurants, setRestaurants] = useState<{ id: string; name: string }[]>([]);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
-  const [isDefault, setIsDefault] = useState(false);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [publishStatus, setPublishStatus] = useState<PublishStatus>({});
+  const [publishLoading, setPublishLoading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
 
@@ -266,12 +275,22 @@ export default function TemplateEditor() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedDecorationId, activeVariantForEffect, id, template?.pageVariants]);
 
-  // Fetch restaurants when publish dialog opens
+  // Fetch restaurants + publish status when dialog opens
   useEffect(() => {
-    if (showPublishDialog && token) {
-      fetchRestaurants(token).then(setRestaurants).catch(() => setRestaurants([]));
-    }
-  }, [showPublishDialog, token]);
+    if (!showPublishDialog || !token || !template) return;
+    setPublishLoading(true);
+    setPublishError(null);
+    Promise.all([
+      fetchRestaurants(token),
+      fetchPublishStatus(token, template.name),
+    ]).then(([r, s]) => {
+      setRestaurants(r);
+      setPublishStatus(s);
+    }).catch(() => {
+      setRestaurants([]);
+      setPublishStatus({});
+    }).finally(() => setPublishLoading(false));
+  }, [showPublishDialog, token, template?.name]);
 
   if (!template) {
     if (loadTimeout) {
@@ -579,46 +598,140 @@ export default function TemplateEditor() {
     }
   };
 
-  const handlePublish = async () => {
-    if (!token || !selectedRestaurant || !template) return;
+  const buildProjectJson = () => {
+    if (!template) return {};
+    return {
+      _format: 'ada-menu-template',
+      _version: 2,
+      format: template.format,
+      orientation: template.orientation,
+      colors: template.colors,
+      fonts: template.fonts,
+      spacing: template.spacing,
+      previewMenuId: template.previewMenuId,
+      pageVariants: template.pageVariants.map(v => ({
+        name: v.name,
+        header: v.header,
+        body: v.body,
+        highlight: v.highlight,
+        extraBodies: v.extraBodies,
+        sectionOrder: v.sectionOrder,
+        decorations: v.decorations,
+      })),
+    };
+  };
+
+  const handlePublishTo = async (restaurantId: string) => {
+    if (!token || !template) return;
     setIsPublishing(true);
     setPublishError(null);
     try {
-      const projectJson = {
-        _format: 'ada-menu-template',
-        _version: 2,
-        format: template.format,
-        orientation: template.orientation,
-        colors: template.colors,
-        fonts: template.fonts,
-        spacing: template.spacing,
-        previewMenuId: template.previewMenuId,
-        pageVariants: template.pageVariants.map(v => ({
-          name: v.name,
-          header: v.header,
-          body: v.body,
-          highlight: v.highlight,
-          extraBodies: v.extraBodies,
-          sectionOrder: v.sectionOrder,
-          decorations: v.decorations,
-        })),
-      };
-      await publishTemplate(token, selectedRestaurant, {
-        name: template.name,
-        description: template.description,
-        thumbnail: template.thumbnail,
-        project_json: projectJson,
-        is_default: isDefault,
-        published_by: user?.id,
-      });
-      // Mark template as published locally
+      const existing = publishStatus[restaurantId];
+      if (existing) {
+        // Update existing published template
+        await updatePublishedTemplate(token, restaurantId, existing.id, {
+          name: template.name,
+          description: template.description,
+          thumbnail: template.thumbnail,
+          project_json: buildProjectJson(),
+          published_by: user?.id,
+        });
+      } else {
+        // Publish new
+        await publishTemplate(token, restaurantId, {
+          name: template.name,
+          description: template.description,
+          thumbnail: template.thumbnail,
+          project_json: buildProjectJson(),
+          is_default: false,
+          published_by: user?.id,
+        });
+      }
+      // Refresh status
+      const s = await fetchPublishStatus(token, template.name);
+      setPublishStatus(s);
+      // Update local publish tracking
       if (id) {
         await updateTemplate(id, {
           publishedAt: new Date().toISOString(),
           publishedHash: getTemplateHash(template),
         });
       }
-      setShowPublishDialog(false);
+    } catch (err: any) {
+      setPublishError(err.message || 'Failed to publish');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublishFrom = async (restaurantId: string) => {
+    if (!token || !template) return;
+    const existing = publishStatus[restaurantId];
+    if (!existing) return;
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      await unpublishTemplate(token, restaurantId, existing.id);
+      const s = await fetchPublishStatus(token, template.name);
+      setPublishStatus(s);
+    } catch (err: any) {
+      setPublishError(err.message || 'Failed to unpublish');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleToggleDefault = async (restaurantId: string, value: boolean) => {
+    if (!token) return;
+    const existing = publishStatus[restaurantId];
+    if (!existing) return;
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      await setTemplateDefault(token, restaurantId, existing.id, value);
+      const s = await fetchPublishStatus(token, template!.name);
+      setPublishStatus(s);
+    } catch (err: any) {
+      setPublishError(err.message || 'Failed to update default');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishToAll = async () => {
+    if (!token || !template) return;
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      for (const r of restaurants) {
+        const existing = publishStatus[r.id];
+        if (existing) {
+          await updatePublishedTemplate(token, r.id, existing.id, {
+            name: template.name,
+            description: template.description,
+            thumbnail: template.thumbnail,
+            project_json: buildProjectJson(),
+            published_by: user?.id,
+          });
+        } else {
+          await publishTemplate(token, r.id, {
+            name: template.name,
+            description: template.description,
+            thumbnail: template.thumbnail,
+            project_json: buildProjectJson(),
+            is_default: false,
+            published_by: user?.id,
+          });
+        }
+      }
+      const s = await fetchPublishStatus(token, template.name);
+      setPublishStatus(s);
+      if (id) {
+        await updateTemplate(id, {
+          publishedAt: new Date().toISOString(),
+          publishedHash: getTemplateHash(template),
+        });
+      }
     } catch (err: any) {
       setPublishError(err.message || 'Failed to publish');
     } finally {
@@ -688,15 +801,12 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
-          {(user?.role === 'admin' || user?.role === 'owner') && (() => {
-            const isUpToDate = !!template.publishedHash && template.publishedHash === getTemplateHash(template);
-            return (
-              <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)} disabled={isUpToDate}>
-                <Rocket className="w-4 h-4 mr-1.5" />
-                {isUpToDate ? "Published" : "Publish"}
-              </Button>
-            );
-          })()}
+          {(user?.role === 'admin' || user?.role === 'owner') && (
+            <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)}>
+              <Rocket className="w-4 h-4 mr-1.5" />
+              Publish
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={handleSave}
@@ -763,51 +873,94 @@ export default function TemplateEditor() {
       {/* Publish dialog */}
       {showPublishDialog && (
         <Dialog open onOpenChange={(open) => !open && setShowPublishDialog(false)}>
-          <DialogContent className="sm:max-w-[420px]">
+          <DialogContent className="sm:max-w-[520px]">
             <DialogHeader>
-              <DialogTitle>Publish Template</DialogTitle>
+              <DialogTitle>Publish Settings</DialogTitle>
               <DialogDescription>
-                Select a restaurant to publish this template to.
+                Manage where this template is published. Toggle per restaurant, set defaults, or publish to all.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Restaurant</Label>
-                <select
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  value={selectedRestaurant}
-                  onChange={(e) => setSelectedRestaurant(e.target.value)}
-                >
-                  <option value="">Select a restaurant...</option>
-                  {restaurants.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
+            {publishLoading ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">Loading restaurants...</div>
+            ) : restaurants.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">No restaurants found.</div>
+            ) : (
+              <div className="space-y-1 max-h-[340px] overflow-y-auto py-2">
+                {restaurants.map((r) => {
+                  const pub = publishStatus[r.id];
+                  const isPublished = !!pub;
+                  return (
+                    <div key={r.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
+                        {isPublished && (
+                          <p className="text-[11px] text-muted-foreground">
+                            Published {new Date(pub.updated_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isPublished && (
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <span className="text-[11px] text-muted-foreground">Default</span>
+                            <Switch
+                              checked={pub.is_default}
+                              onCheckedChange={(v) => handleToggleDefault(r.id, v)}
+                              disabled={isPublishing}
+                            />
+                          </label>
+                        )}
+                        {isPublished ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => handlePublishTo(r.id)}
+                              disabled={isPublishing}
+                            >
+                              Update
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs text-destructive hover:text-destructive"
+                              onClick={() => handleUnpublishFrom(r.id)}
+                              disabled={isPublishing}
+                            >
+                              Unpublish
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => handlePublishTo(r.id)}
+                            disabled={isPublishing}
+                          >
+                            Publish
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is-default"
-                  checked={isDefault}
-                  onChange={(e) => setIsDefault(e.target.checked)}
-                  className="rounded border-input"
-                />
-                <Label htmlFor="is-default" className="text-sm">Set as default template for this restaurant</Label>
-              </div>
-              {publishError && (
-                <p className="text-sm text-destructive">{publishError}</p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(false)}>
-                Cancel
-              </Button>
+            )}
+            {publishError && (
+              <p className="text-sm text-destructive px-1">{publishError}</p>
+            )}
+            <div className="flex justify-between pt-2 border-t border-border">
               <Button
+                variant="outline"
                 size="sm"
-                onClick={handlePublish}
-                disabled={!selectedRestaurant || isPublishing}
+                onClick={handlePublishToAll}
+                disabled={isPublishing || restaurants.length === 0}
               >
-                {isPublishing ? 'Publishing...' : 'Publish'}
+                {isPublishing ? 'Publishing...' : 'Publish to All'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowPublishDialog(false)}>
+                Close
               </Button>
             </div>
           </DialogContent>
