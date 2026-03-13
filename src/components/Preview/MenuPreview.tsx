@@ -528,8 +528,6 @@ function PageContent({
     const hlFit = hl.imageFit || "cover";
     const isFullWidth = hlStyle === "full-width";
     const isCustom = hlStyle === "custom";
-    const mLeft = spacing.marginLeft;
-    const mRight = spacing.marginRight;
     const borderRadius = hl.borderRadius ?? 4;
     const txt = hl.text;
     const textAlign = txt?.alignment || "left";

@@ -72,7 +72,7 @@ export default function TemplateGallery() {
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState<string>("A4");
   const [deleteTarget, setDeleteTarget] = useState<MenuTemplate | null>(null);
-  const [syncing, setSyncing] = useState(false);
+  const [, setSyncing] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // Sync templates from backend on mount

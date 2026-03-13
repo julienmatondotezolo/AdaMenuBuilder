@@ -272,7 +272,7 @@ export default function MaskEditor({ width, height, imageSrc, existingMask, onSa
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={(e) => { handleMouseUp(); setCursorPos(null); }}
+        onMouseLeave={() => { handleMouseUp(); setCursorPos(null); }}
         onMouseEnter={(e) => setCursorPos({ x: e.clientX, y: e.clientY })}
       >
         {/* Background image — shown at low opacity as reference for hidden areas */}

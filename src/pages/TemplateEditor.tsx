@@ -3107,7 +3107,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
-  const renderItems = (items: { id: string; name: string; price: number; description: string; featured?: boolean }[], bc: import("../../types/template").VariantBodyConfig, key: string) => (
+  const renderItems = (items: { id: string; name: string; price: number; description: string; featured?: boolean }[], bc: import("../types/template").VariantBodyConfig, _key: string) => (
     <div style={{ display: "flex", flexDirection: "column", gap: `${(bc.itemSpacingV ?? spacing.itemGap) * scale}px` }}>
       {items.slice(0, bc.columns > 1 ? 6 : 9).map((item) => (
         <div key={item.id} style={{
