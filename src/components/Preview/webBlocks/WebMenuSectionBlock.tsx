@@ -9,6 +9,7 @@ interface Props {
   fonts: FontScheme;
   contentPaddingX: number;
   borderRadius: number;
+  searchQuery?: string;
 }
 
 function CompactItem({ item, colors, fonts, block }: { item: MenuItem; colors: ColorScheme; fonts: FontScheme; block: WebMenuSectionBlockType }) {
@@ -99,7 +100,33 @@ function CategoryBlock({ category, block, colors, fonts, borderRadius }: { categ
   );
 }
 
-export default function WebMenuSectionBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius }: Props) {
+export default function WebMenuSectionBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius, searchQuery }: Props) {
+  const q = (searchQuery || "").toLowerCase().trim();
+
+  // Filter categories and items by search query
+  const filteredCategories = q
+    ? menuData.categories
+        .map((cat) => ({
+          ...cat,
+          items: cat.items.filter(
+            (item) =>
+              item.name.toLowerCase().includes(q) ||
+              item.description.toLowerCase().includes(q)
+          ),
+        }))
+        .filter((cat) => cat.items.length > 0)
+    : menuData.categories;
+
+  if (q && filteredCategories.length === 0) {
+    return (
+      <div style={{ padding: `16px ${contentPaddingX}px`, textAlign: "center" }}>
+        <span style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>
+          No items found for "{searchQuery}"
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: `0 ${contentPaddingX}px` }}>
       <div
@@ -109,7 +136,7 @@ export default function WebMenuSectionBlock({ block, menuData, colors, fonts, co
           gap: 32,
         }}
       >
-        {menuData.categories.map((cat) => (
+        {filteredCategories.map((cat) => (
           <CategoryBlock key={cat.id} category={cat} block={block} colors={colors} fonts={fonts} borderRadius={borderRadius} />
         ))}
       </div>

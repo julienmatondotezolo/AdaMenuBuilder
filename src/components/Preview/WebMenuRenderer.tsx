@@ -30,6 +30,8 @@ function RenderBlock({
   borderRadius,
   scrollContainer,
   templateName,
+  searchQuery,
+  onSearchChange,
 }: {
   block: WebBlock;
   menuData: MenuData;
@@ -39,6 +41,8 @@ function RenderBlock({
   borderRadius: number;
   scrollContainer: HTMLDivElement | null;
   templateName?: string;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
 }) {
   switch (block.type) {
     case "hero":
@@ -46,7 +50,7 @@ function RenderBlock({
     case "category-nav":
       return <WebCategoryNavBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} scrollContainer={scrollContainer} />;
     case "menu-section":
-      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} />;
+      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} />;
     case "featured-spotlight":
       return <WebFeaturedSpotlightBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} />;
     case "image-banner":
@@ -54,7 +58,7 @@ function RenderBlock({
     case "info-bar":
       return <WebInfoBarBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} />;
     case "search":
-      return <WebSearchBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} />;
+      return <WebSearchBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} onSearchChange={onSearchChange} />;
     case "footer":
       return <WebFooterBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} />;
     default:
@@ -66,6 +70,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -133,6 +138,8 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               borderRadius={borderRadius}
               scrollContainer={scrollRef.current}
               templateName={templateName}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
           </div>
           );
