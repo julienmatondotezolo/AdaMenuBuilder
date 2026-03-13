@@ -20,12 +20,15 @@ class AdaMenuDB extends Dexie {
 
 export const db = new AdaMenuDB();
 
-/** Seed built-in templates on first load (fallback — backend sync overwrites these) */
+/** Seed/refresh built-in templates on every load (fallback — backend sync can override) */
 export async function seedDefaults() {
   for (const tpl of BUILT_IN_TEMPLATES) {
     const existing = await db.templates.get(tpl.id);
     if (!existing) {
       await db.templates.add({ ...tpl, builtInVersion: 1 });
+    } else if (existing.isBuiltIn && !existing.hasLocalChanges) {
+      // Keep built-in templates fresh, but don't overwrite local edits
+      await db.templates.put({ ...tpl, builtInVersion: existing.builtInVersion || 1, updatedAt: new Date().toISOString() });
     }
   }
 
