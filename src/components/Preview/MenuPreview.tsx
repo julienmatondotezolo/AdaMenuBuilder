@@ -326,7 +326,7 @@ function PageContent({
                 }
               : {
                   paddingTop: `${spacing.marginTop}px`,
-                  paddingBottom: "32px",
+                  paddingBottom: "16px",
                   paddingLeft: `${spacing.marginLeft}px`,
                   paddingRight: `${spacing.marginRight}px`,
                   position: "relative" as const,
@@ -347,12 +347,12 @@ function PageContent({
             {headerConfig.showSubtitle && (
               <p style={{
                 fontSize: "10px",
-                letterSpacing: "0.4em",
+                letterSpacing: "0.3em",
                 color: colors.primary,
                 textTransform: "uppercase",
                 fontWeight: 600,
                 fontFamily: fonts.body,
-                marginBottom: "16px",
+                marginBottom: "8px",
                 position: "relative", zIndex: 1,
               }}>
                 {menuData.subtitle || "DINNER SELECTION"}
@@ -361,11 +361,10 @@ function PageContent({
 
             <h1 style={{
               fontFamily: fonts.heading,
-              fontSize: "2.25rem",
-              fontWeight: 300,
+              fontSize: "36px",
+              fontWeight: 400,
               fontStyle: "italic",
               letterSpacing: "0.05em",
-              lineHeight: 1.2,
               color: colors.text,
               position: "relative", zIndex: 1,
             }}>
@@ -375,11 +374,11 @@ function PageContent({
             {headerConfig.showEstablished && menuData.established && (
               <p style={{
                 fontSize: "10px",
-                letterSpacing: "0.3em",
+                letterSpacing: "0.2em",
                 color: colors.muted,
                 textTransform: "uppercase",
                 fontFamily: fonts.body,
-                marginTop: "8px",
+                marginTop: "6px",
                 position: "relative", zIndex: 1,
               }}>
                 EST. {menuData.established}
@@ -390,10 +389,10 @@ function PageContent({
               <div style={{
                 display: "flex",
                 justifyContent: flexJustify,
-                marginTop: "20px",
+                marginTop: "12px",
                 position: "relative", zIndex: 1,
               }}>
-                <span style={{ width: "64px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
+                <span style={{ width: "40px", height: "1px", backgroundColor: colors.muted, opacity: 0.3 }} />
               </div>
             )}
           </div>
@@ -446,7 +445,7 @@ function PageContent({
                       (_, rowIdx) => {
                         const rowCats = sectionCats.slice(rowIdx * cols, rowIdx * cols + cols);
                         return (
-                          <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap * 0.6}px`, alignItems: "start" }}>
+                          <div key={rowIdx} style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap}px`, alignItems: "start" }}>
                             {rowCats.map((category) => renderCategory(category, bc))}
                           </div>
                         );
@@ -465,7 +464,7 @@ function PageContent({
                     sectionCats.forEach((cat, idx) => { columnBuckets[idx % cols].push(cat); });
                   }
                   return (
-                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap * 0.6}px`, alignItems: "start" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: `0 ${spacing.categoryGap}px`, alignItems: "start" }}>
                       {columnBuckets.map((bucketCats, colIdx) => (
                         <div key={colIdx}>{bucketCats.map((category) => renderCategory(category, bc))}</div>
                       ))}
@@ -473,7 +472,12 @@ function PageContent({
                   );
                 })()
               ) : (
-                <div>{sectionCats.map((category) => renderCategory(category, bc))}</div>
+                <div>{sectionCats.map((category, catIdx) => (
+                  <div key={category.id}>
+                    {renderCategory(category, bc)}
+                    {catIdx < sectionCats.length - 1 && bc.separatorStyle !== "dotted" && renderCategorySeparator(bc.separatorStyle)}
+                  </div>
+                ))}</div>
               )}
 
               {sectionCats.length === 0 && isFirstBody && (
@@ -529,8 +533,8 @@ function PageContent({
     const borderRadius = hl.borderRadius ?? 4;
     const txt = hl.text;
     const textAlign = txt?.alignment || "left";
-    const labelSize = txt?.labelSize ?? 8;
-    const titleSize = txt?.titleSize ?? 16;
+    const labelSize = txt?.labelSize ?? 5;
+    const titleSize = txt?.titleSize ?? 8;
     const labelFont = txt?.labelFont || fonts.body;
     const titleFont = txt?.titleFont || fonts.heading;
     const imgObjectFit = hlFit === "fit" ? ("fill" as const) : hlFit;
@@ -554,11 +558,11 @@ function PageContent({
         : {
             marginTop: `${hl.marginTop ?? 12}px`,
             marginBottom: `${hl.marginBottom ?? 0}px`,
-            marginLeft: `${(hl.marginLeft ?? 0) + mLeft}px`,
-            marginRight: `${(hl.marginRight ?? 0) + mRight}px`,
+            marginLeft: `${hl.marginLeft ?? 0}px`,
+            marginRight: `${hl.marginRight ?? 0}px`,
           };
 
-    const imgHeight = isCustom ? "100%" : `${hl.height ?? 200}px`;
+    const imgHeight = isCustom ? "100%" : `${hl.height ?? 80}px`;
 
     return (
       <div style={containerStyle}>
@@ -580,24 +584,37 @@ function PageContent({
           )}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
-            padding: "12px 16px",
-            background: "linear-gradient(transparent, rgba(0,0,0,0.7))",
+            padding: "6px 8px",
+            background: "linear-gradient(transparent, rgba(0,0,0,0.6))",
             textAlign,
           }}>
             <p style={{
-              fontSize: `${labelSize}px`, letterSpacing: "0.25em", color: "rgba(255,255,255,0.7)",
-              textTransform: "uppercase", fontFamily: labelFont, fontWeight: 600, marginBottom: "2px",
+              fontSize: `${labelSize}px`, letterSpacing: "0.15em", color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase", fontFamily: labelFont,
             }}>
               {menuData.highlightLabel}
             </p>
             <p style={{
-              fontSize: `${titleSize}px`, color: "white", fontStyle: "italic", fontFamily: titleFont, fontWeight: 300,
+              fontSize: `${titleSize}px`, color: "white", fontStyle: "italic", fontFamily: titleFont,
             }}>
               {menuData.highlightTitle}
             </p>
           </div>
         </div>
       </div>
+    );
+  }
+
+  function renderCategorySeparator(style: string) {
+    if (style === "none") return null;
+    return (
+      <div style={{
+        width: "100%",
+        height: style === "dotted" ? "0" : "1px",
+        backgroundColor: style === "dotted" ? "transparent" : `${colors.muted}33`,
+        borderBottom: style === "dotted" ? `1px dotted ${colors.muted}66` : "none",
+        margin: "6px 0",
+      }} />
     );
   }
 
@@ -622,22 +639,22 @@ function PageContent({
           textAlign: bc.categoryStyle === "custom"
             ? (bc.categoryAlignment || "center")
             : isCenterB ? "center" : isRightB ? "right" : "left",
-          marginBottom: `${spacing.itemGap * 0.6}px`,
+          marginBottom: `${bc.itemSpacingV ?? spacing.itemGap}px`,
           display: bc.categoryStyle === "lines" && isCenterB ? "flex" : "block",
           alignItems: "center",
           justifyContent: "center",
-          gap: "16px",
+          gap: "8px",
         }}>
           {bc.categoryStyle === "lines" && isCenterB && (
-            <span style={{ flex: 1, maxWidth: "80px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
+            <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
           )}
           <h2 style={{
             fontSize: bc.categoryStyle === "custom"
               ? scaledFs(bc.categoryFontSize ?? 11)
               : bc.categoryStyle === "bold" ? scaledFs(13) : scaledFs(11),
             letterSpacing: bc.categoryStyle === "custom"
-              ? `${bc.categoryLetterSpacing ?? 0.35}em`
-              : "0.35em",
+              ? `${bc.categoryLetterSpacing ?? 0.25}em`
+              : "0.25em",
             color: colors.primary,
             textTransform: bc.categoryTextTransform ?? "uppercase",
             fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
@@ -648,13 +665,12 @@ function PageContent({
             borderBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
               ? `2px solid ${colors.primary}` : "none",
             paddingBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
-              ? "8px" : "0",
-            display: "inline-block",
+              ? "4px" : "0",
           }}>
             {category.name}
           </h2>
           {bc.categoryStyle === "lines" && isCenterB && (
-            <span style={{ flex: 1, maxWidth: "80px", height: "1px", backgroundColor: colors.primary, opacity: 0.3 }} />
+            <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
           )}
         </div>
         )}
@@ -685,7 +701,7 @@ function PageContent({
                     ? (bc.priceJustifyRight ? "space-between" : isRightB ? "flex-end" : isCenterB ? "center" : "flex-start")
                     : undefined,
                   alignItems: "baseline",
-                  gap: bc.pricePosition === "right" ? "6px" : undefined,
+                  gap: bc.pricePosition === "right" ? "4px" : undefined,
                 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: "4px", justifyContent: flexJustifyB, flexShrink: 0 }}>
                     {bc.showItemDot && (
@@ -704,7 +720,7 @@ function PageContent({
                       fontSize: scaledFs(bc.itemFontSize ?? 14),
                       fontFamily: fonts.body,
                       fontWeight: 700,
-                      letterSpacing: "0.1em",
+                      letterSpacing: "0.05em",
                       color: colors.text,
                       textTransform: bc.itemTextTransform ?? "uppercase",
                     }}>
@@ -714,21 +730,21 @@ function PageContent({
                       <span style={{ fontSize: scaledFs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
                     )}
                     {item.featured && bc.showFeaturedBadge && (
-                      <span style={{ fontSize: scaledFs(10), color: colors.accent }}>★</span>
+                      <span style={{ fontSize: scaledFs(10), color: colors.accent, marginLeft: "2px" }}>★</span>
                     )}
                   </div>
                   {bc.pricePosition === "right" && (
                     <div style={{
-                      display: "flex", alignItems: "center", gap: "6px",
+                      display: "flex", alignItems: "center", gap: "4px",
                       flex: bc.priceJustifyRight ? 1 : undefined,
-                      marginLeft: bc.priceJustifyRight ? "8px" : undefined,
+                      marginLeft: bc.priceJustifyRight ? "4px" : undefined,
                       justifyContent: bc.priceJustifyRight ? "flex-end" : undefined,
                     }}>
                       {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
-                        <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "16px" }} />
+                        <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
                       )}
                       {bc.priceJustifyRight && bc.separatorStyle === "line" && (
-                        <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "16px" }} />
+                        <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "10px" }} />
                       )}
                       <span style={{ fontSize: scaledFs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>€{item.price}</span>
                     </div>
@@ -741,9 +757,8 @@ function PageContent({
                     fontSize: scaledFs(bc.descriptionFontSize ?? 12),
                     color: colors.muted,
                     fontStyle: "italic",
-                    marginTop: "4px",
-                    lineHeight: 1.5,
-                    maxWidth: isCenterB || isRightB ? "320px" : undefined,
+                    marginTop: "2px",
+                    maxWidth: bc.columns > 1 ? "140px" : "200px",
                     marginLeft: isCenterB || isRightB ? "auto" : undefined,
                     marginRight: isCenterB ? "auto" : undefined,
                     fontFamily: fonts.body,
@@ -753,12 +768,12 @@ function PageContent({
                 )}
 
                 {/* Price — below position */}
-                {bc.pricePosition === "below" && (
+                {bc.pricePosition === "below" && !bc.priceJustifyRight && (
                   <p style={{
                     fontSize: scaledFs(bc.priceFontSize ?? 12),
                     color: colors.price || colors.primary,
                     fontWeight: 600,
-                    marginTop: "6px",
+                    marginTop: "3px",
                   }}>
                     €{item.price}
                   </p>
