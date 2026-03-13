@@ -674,6 +674,10 @@ export default function TemplateEditor() {
       await unpublishTemplate(token, restaurantId, existing.id);
       const s = await fetchPublishStatus(token, template.name);
       setPublishStatus(s);
+      // If no longer published anywhere, clear local publish status
+      if (id && Object.keys(s).length === 0) {
+        await updateTemplate(id, { publishedAt: undefined, publishedHash: undefined });
+      }
     } catch (err: any) {
       setPublishError(err.message || 'Failed to unpublish');
     } finally {
