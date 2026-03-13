@@ -2,10 +2,19 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Spinner } from "ada-design-system";
 import { db } from "../db/dexie";
-import type { Menu } from "../types/menu";
-import type { MenuTemplate } from "../types/template";
+import type { MenuData } from "../types/menu";
+import type { WebLayout, ColorScheme, FontScheme, QrOrderConfig } from "../types/template";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import { API_URL } from "../config/api";
+
+interface QrMenuData {
+  menuData: MenuData;
+  webLayout: WebLayout;
+  colors: ColorScheme;
+  fonts: FontScheme;
+  templateName: string;
+  qrOrderConfig?: QrOrderConfig;
+}
 
 /**
  * Public QR menu viewer — no auth required.
@@ -14,8 +23,7 @@ import { API_URL } from "../config/api";
  */
 export default function QrMenuViewer() {
   const { menuId } = useParams<{ menuId: string }>();
-  const [menu, setMenu] = useState<Menu | null>(null);
-  const [template, setTemplate] = useState<MenuTemplate | null>(null);
+  const [data, setData] = useState<QrMenuData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,12 +39,21 @@ export default function QrMenuViewer() {
         // Try local IndexedDB first
         const localMenu = await db.menus.get(menuId!);
         if (localMenu) {
-          setMenu(localMenu);
           const localTemplate = await db.templates.get(localMenu.templateId);
           if (localTemplate) {
-            setTemplate(localTemplate);
-            setLoading(false);
-            return;
+            const webLayout = localTemplate.webLayoutQr || localTemplate.webLayoutMobile;
+            if (webLayout) {
+              setData({
+                menuData: localMenu.data,
+                webLayout,
+                colors: localTemplate.colors,
+                fonts: localTemplate.fonts,
+                templateName: localTemplate.name,
+                qrOrderConfig: localTemplate.qrOrderConfig,
+              });
+              setLoading(false);
+              return;
+            }
           }
         }
 
@@ -47,10 +64,31 @@ export default function QrMenuViewer() {
           setLoading(false);
           return;
         }
-        const { data } = await res.json();
-        if (data?.menu) setMenu(data.menu);
-        if (data?.template) setTemplate(data.template);
-        if (!data?.menu) setError("Menu not found.");
+        const json = await res.json();
+        const menu = json.data?.menu;
+        const tpl = json.data?.template;
+
+        if (!menu || !tpl) {
+          setError("Menu not found.");
+          setLoading(false);
+          return;
+        }
+
+        const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile;
+        if (!webLayout) {
+          setError("This menu doesn't have a web layout configured.");
+          setLoading(false);
+          return;
+        }
+
+        setData({
+          menuData: menu.data,
+          webLayout,
+          colors: tpl.colors,
+          fonts: tpl.fonts,
+          templateName: tpl.name || menu.title || "Menu",
+          qrOrderConfig: tpl.qrOrderConfig,
+        });
       } catch {
         setError("Failed to load menu.");
       } finally {
@@ -69,7 +107,7 @@ export default function QrMenuViewer() {
     );
   }
 
-  if (error || !menu || !template) {
+  if (error || !data) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", backgroundColor: "#fafafa", padding: 24 }}>
         <div style={{ textAlign: "center" }}>
@@ -84,32 +122,16 @@ export default function QrMenuViewer() {
     );
   }
 
-  const webLayout = template.webLayoutQr || template.webLayoutMobile;
-  const qrOrderConfig = template.qrOrderConfig;
-
-  if (!webLayout) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", backgroundColor: "#fafafa", padding: 24 }}>
-        <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Menu Preview</h2>
-          <p style={{ fontSize: 14, color: "#888" }}>
-            This menu doesn't have a web layout configured yet.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
       <WebMenuRenderer
-        webLayout={webLayout}
-        menuData={menu.data}
-        colors={template.colors}
-        fonts={template.fonts}
-        templateName={template.name}
+        webLayout={data.webLayout}
+        menuData={data.menuData}
+        colors={data.colors}
+        fonts={data.fonts}
+        templateName={data.templateName}
         mode="mobile"
-        qrOrderConfig={qrOrderConfig}
+        qrOrderConfig={data.qrOrderConfig}
       />
     </div>
   );
