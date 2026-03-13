@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import App from "./App";
 import AuthCallback from "./pages/AuthCallback";
 import LoginRedirect from "./pages/LoginRedirect";
+import QrMenuViewer from "./pages/QrMenuViewer";
 import { pdfjs } from "react-pdf";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "ada-design-system/styles.css";
@@ -18,9 +19,10 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Auth routes — public */}
+          {/* Public routes */}
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/login" element={<LoginRedirect />} />
+          <Route path="/qr/:menuId" element={<QrMenuViewer />} />
 
           {/* Protected app */}
           <Route

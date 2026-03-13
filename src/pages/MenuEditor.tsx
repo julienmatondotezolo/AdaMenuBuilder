@@ -76,7 +76,7 @@ export default function MenuEditor() {
 
         {/* Preview */}
         <div className="flex-1 min-w-0 relative">
-          <PreviewPanel template={template} />
+          <PreviewPanel template={template} menuId={id} previewData={menuData} />
         </div>
       </main>
     </div>
