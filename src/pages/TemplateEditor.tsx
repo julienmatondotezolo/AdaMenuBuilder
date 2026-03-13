@@ -2225,33 +2225,17 @@ export default function TemplateEditor() {
         {/* ═══ RIGHT: Live Preview ═══ */}
         <div className="flex-1 relative flex items-center justify-center bg-muted/30 overflow-auto p-6">
           {isWebMode && template.webLayout ? (
-            previewMode === "desktop" ? (
-              /* Desktop: full-screen preview */
-              <div style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)" }}>
-                <WebMenuRenderer
-                  webLayout={template.webLayout}
-                  menuData={previewData}
-                  colors={template.colors}
-                  fonts={template.fonts}
-                  templateName={template.name}
-                  selectedBlockId={selectedWebBlockId}
-                  onSelectBlock={setSelectedWebBlockId}
-                />
-              </div>
-            ) : (
-              /* Mobile: phone mockup */
-              <DeviceMockup mode="mobile">
-                <WebMenuRenderer
-                  webLayout={template.webLayout}
-                  menuData={previewData}
-                  colors={template.colors}
-                  fonts={template.fonts}
-                  templateName={template.name}
-                  selectedBlockId={selectedWebBlockId}
-                  onSelectBlock={setSelectedWebBlockId}
-                />
-              </DeviceMockup>
-            )
+            <DeviceMockup mode={previewMode as "mobile" | "desktop"}>
+              <WebMenuRenderer
+                webLayout={template.webLayout}
+                menuData={previewData}
+                colors={template.colors}
+                fonts={template.fonts}
+                templateName={template.name}
+                selectedBlockId={selectedWebBlockId}
+                onSelectBlock={setSelectedWebBlockId}
+              />
+            </DeviceMockup>
           ) : (
           <div
             ref={previewRef}

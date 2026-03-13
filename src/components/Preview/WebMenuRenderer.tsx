@@ -102,7 +102,9 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           gap: spacing.sectionGap,
         }}
       >
-        {blocks.map((block) => (
+        {blocks.map((block) => {
+          const isSticky = block.type === "category-nav" && block.sticky;
+          return (
           <div
             key={block.id}
             onClick={(e) => {
@@ -110,7 +112,10 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               onSelectBlock?.(block.id);
             }}
             style={{
-              position: "relative",
+              position: isSticky ? "sticky" : "relative",
+              top: isSticky ? 0 : undefined,
+              zIndex: isSticky ? 10 : undefined,
+              backgroundColor: isSticky ? colors.background : undefined,
               cursor: onSelectBlock ? "pointer" : "default",
               outline: selectedBlockId === block.id ? `2px solid ${colors.primary}` : "none",
               outlineOffset: -2,
@@ -129,7 +134,8 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               templateName={templateName}
             />
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Scroll to top button */}

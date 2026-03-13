@@ -7,43 +7,39 @@ interface Props {
 
 const PHONE_W = 375;
 const PHONE_H = 812;
-const LAPTOP_W = 1024;
-const LAPTOP_H = 640;
 
 export default function DeviceMockup({ mode, children }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
 
-  const deviceW = mode === "mobile" ? PHONE_W : LAPTOP_W;
-  const deviceH = mode === "mobile" ? PHONE_H : LAPTOP_H;
-
-  // Bezel adds padding around the viewport
-  const bezelX = mode === "mobile" ? 16 : 20;
-  const bezelTop = mode === "mobile" ? 40 : 24;
-  const bezelBottom = mode === "mobile" ? 24 : 24;
-  const totalW = deviceW + bezelX * 2;
-  const totalH = deviceH + bezelTop + bezelBottom + (mode === "desktop" ? 40 : 0); // 40 for laptop base
+  // Phone dimensions for scaling
+  const bezelX = 16;
+  const bezelTop = 40;
+  const bezelBottom = 24;
+  const phoneTotalW = PHONE_W + bezelX * 2;
+  const phoneTotalH = PHONE_H + bezelTop + bezelBottom;
 
   useEffect(() => {
+    if (mode !== "mobile") return;
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
       const pad = 32;
-      const sx = (el.clientWidth - pad) / totalW;
-      const sy = (el.clientHeight - pad) / totalH;
+      const sx = (el.clientWidth - pad) / phoneTotalW;
+      const sy = (el.clientHeight - pad) / phoneTotalH;
       setScale(Math.min(sx, sy, 1));
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [totalW, totalH]);
+  }, [mode, phoneTotalW, phoneTotalH]);
 
   if (mode === "mobile") {
     return (
       <div ref={containerRef} style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div
           style={{
-            width: totalW,
-            height: totalH,
+            width: phoneTotalW,
+            height: phoneTotalH,
             transform: `scale(${scale})`,
             transformOrigin: "center center",
             background: "#1a1a1a",
@@ -69,8 +65,8 @@ export default function DeviceMockup({ mode, children }: Props) {
           {/* Screen */}
           <div
             style={{
-              width: deviceW,
-              height: deviceH,
+              width: PHONE_W,
+              height: PHONE_H,
               borderRadius: 28,
               overflow: "hidden",
               backgroundColor: "#fff",
@@ -83,59 +79,61 @@ export default function DeviceMockup({ mode, children }: Props) {
     );
   }
 
-  // Desktop / laptop
+  // Desktop — browser-like frame that fills available space
+  const titleBarH = 36;
+
   return (
-    <div ref={containerRef} style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: 10,
+        overflow: "hidden",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.08)",
+        border: "1px solid rgba(0,0,0,0.12)",
+      }}
+    >
+      {/* Browser title bar */}
       <div
         style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "center center",
+          height: titleBarH,
+          background: "#e8e8e8",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
+          padding: "0 12px",
+          gap: 8,
+          flexShrink: 0,
         }}
       >
-        {/* Screen bezel */}
+        {/* Traffic lights */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ff5f57" }} />
+          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#febc2e" }} />
+          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#28c840" }} />
+        </div>
+        {/* Address bar */}
         <div
           style={{
-            width: totalW,
-            height: deviceH + bezelTop + bezelBottom,
-            background: "#1a1a1a",
-            borderRadius: "16px 16px 0 0",
-            padding: `${bezelTop}px ${bezelX}px ${bezelBottom}px`,
-            boxShadow: "0 -2px 20px rgba(0,0,0,0.15)",
+            flex: 1,
+            height: 22,
+            borderRadius: 6,
+            backgroundColor: "#fff",
+            display: "flex",
+            alignItems: "center",
+            padding: "0 10px",
+            fontSize: 11,
+            color: "#999",
+            fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
           }}
         >
-          <div
-            style={{
-              width: deviceW,
-              height: deviceH,
-              borderRadius: 4,
-              overflow: "hidden",
-              backgroundColor: "#fff",
-            }}
-          >
-            {children}
-          </div>
+          menu.restaurant.com
         </div>
-        {/* Laptop base / hinge */}
-        <div
-          style={{
-            width: totalW + 60,
-            height: 14,
-            background: "linear-gradient(to bottom, #2a2a2a, #333)",
-            borderRadius: "0 0 2px 2px",
-          }}
-        />
-        <div
-          style={{
-            width: totalW + 120,
-            height: 8,
-            background: "#e0e0e0",
-            borderRadius: "0 0 8px 8px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-        />
+      </div>
+      {/* Content area — fills remaining space */}
+      <div style={{ flex: 1, overflow: "hidden", backgroundColor: "#fff" }}>
+        {children}
       </div>
     </div>
   );

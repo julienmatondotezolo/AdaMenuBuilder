@@ -57,7 +57,7 @@ export default function WebCategoryNavBlock({ block, menuData, colors, fonts, co
     fontSize: 13,
     fontWeight: 500,
     scrollbarWidth: "none",
-    ...(block.sticky ? { position: "sticky" as const, top: 0, zIndex: 10, backgroundColor: colors.background } : {}),
+    backgroundColor: colors.background,
   };
 
   const itemStyle = (active: boolean): React.CSSProperties => {
