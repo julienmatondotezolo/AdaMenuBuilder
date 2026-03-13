@@ -29,6 +29,7 @@ import {
   Paintbrush,
   Link2,
   Link2Off,
+  Rocket,
 } from "lucide-react";
 import {
   Button,
@@ -76,6 +77,8 @@ import { SHAPE_PRESETS } from "../data/decorationPresets";
 import DecorationRenderer from "../components/Preview/DecorationRenderer";
 import MaskEditor from "../components/Preview/MaskEditor";
 import { readImageFile } from "../utils/imageUpload";
+import { useAuth } from "../context/AuthContext";
+import { fetchRestaurants, publishTemplate } from "../services/templateApi";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -136,6 +139,15 @@ export default function TemplateEditor() {
   const [hoveredPanel, setHoveredPanel] = useState<PanelId | null>(null);
   const [lockedSections, setLockedSections] = useState<Set<SectionType>>(new Set());
   const [capturingThumbnail, setCapturingThumbnail] = useState(false);
+
+  // Auth & publish state
+  const { user, token } = useAuth();
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [restaurants, setRestaurants] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
+  const [isDefault, setIsDefault] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   // Preview data source — "sample" or a menu ID (persisted in template)
   const [previewDataSource, setPreviewDataSource] = useState<string>("sample");
@@ -560,6 +572,53 @@ export default function TemplateEditor() {
     }
   };
 
+  // Fetch restaurants when publish dialog opens
+  useEffect(() => {
+    if (showPublishDialog && token) {
+      fetchRestaurants(token).then(setRestaurants).catch(() => setRestaurants([]));
+    }
+  }, [showPublishDialog, token]);
+
+  const handlePublish = async () => {
+    if (!token || !selectedRestaurant || !template) return;
+    setIsPublishing(true);
+    setPublishError(null);
+    try {
+      const projectJson = {
+        _format: 'ada-menu-template',
+        _version: 2,
+        format: template.format,
+        orientation: template.orientation,
+        colors: template.colors,
+        fonts: template.fonts,
+        spacing: template.spacing,
+        previewMenuId: template.previewMenuId,
+        pageVariants: template.pageVariants.map(v => ({
+          name: v.name,
+          header: v.header,
+          body: v.body,
+          highlight: v.highlight,
+          extraBodies: v.extraBodies,
+          sectionOrder: v.sectionOrder,
+          decorations: v.decorations,
+        })),
+      };
+      await publishTemplate(token, selectedRestaurant, {
+        name: template.name,
+        description: template.description,
+        thumbnail: template.thumbnail,
+        project_json: projectJson,
+        is_default: isDefault,
+        published_by: user?.id,
+      });
+      setShowPublishDialog(false);
+    } catch (err: any) {
+      setPublishError(err.message || 'Failed to publish');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   /* ── Drag handlers (dnd-kit) ── */
 
   const handleSectionDragStart = (event: DragStartEvent) => {
@@ -622,6 +681,12 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
+          {user?.role === 'admin' && (
+            <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)}>
+              <Rocket className="w-4 h-4 mr-1.5" />
+              Publish
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={handleSave}
@@ -684,6 +749,60 @@ export default function TemplateEditor() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Publish dialog */}
+      {showPublishDialog && (
+        <Dialog open onOpenChange={(open) => !open && setShowPublishDialog(false)}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Publish Template</DialogTitle>
+              <DialogDescription>
+                Select a restaurant to publish this template to.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Restaurant</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value={selectedRestaurant}
+                  onChange={(e) => setSelectedRestaurant(e.target.value)}
+                >
+                  <option value="">Select a restaurant...</option>
+                  {restaurants.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is-default"
+                  checked={isDefault}
+                  onChange={(e) => setIsDefault(e.target.checked)}
+                  className="rounded border-input"
+                />
+                <Label htmlFor="is-default" className="text-sm">Set as default template for this restaurant</Label>
+              </div>
+              {publishError && (
+                <p className="text-sm text-destructive">{publishError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                disabled={!selectedRestaurant || isPublishing}
+              >
+                {isPublishing ? 'Publishing...' : 'Publish'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         {/* ═══ LEFT PANEL ═══ */}
