@@ -10,6 +10,7 @@ import WebInfoBarBlock from "./webBlocks/WebInfoBarBlock";
 import WebSearchBlock from "./webBlocks/WebSearchBlock";
 import WebFooterBlock from "./webBlocks/WebFooterBlock";
 import WebCartBar, { type CartItem } from "./webBlocks/WebCartBar";
+import WebCartView from "./webBlocks/WebCartView";
 
 interface Props {
   webLayout: WebLayout;
@@ -82,6 +83,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCart, setShowCart] = useState(false);
 
   const orderingEnabled = qrOrderConfig?.enabled ?? false;
   const currency = qrOrderConfig?.currency ?? "€";
@@ -119,7 +121,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
   }, []);
 
   const handleViewCart = useCallback(() => {
-    // In the editor preview this is a no-op. In the actual widget, this would open the cart/checkout.
+    setShowCart(true);
   }, []);
 
   return (
@@ -128,13 +130,26 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
       style={{
         width: "100%",
         height: "100%",
-        overflowY: "auto",
+        overflowY: showCart ? "hidden" : "auto",
         overflowX: "hidden",
         backgroundColor: colors.background,
         position: "relative",
         ...(webLayout.showScrollbar ? {} : { scrollbarWidth: "none" as const }),
       }}
     >
+      {/* Cart view overlay */}
+      {showCart && orderingEnabled && qrOrderConfig && (
+        <WebCartView
+          cart={cart}
+          colors={colors}
+          fonts={fonts}
+          qrOrderConfig={qrOrderConfig}
+          borderRadius={borderRadius}
+          contentPaddingX={spacing.contentPaddingX}
+          onUpdateQuantity={handleUpdateQuantity}
+          onClose={() => setShowCart(false)}
+        />
+      )}
       <div
         style={{
           maxWidth: mode === "desktop" ? "100%" : spacing.contentMaxWidth,
