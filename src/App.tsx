@@ -1,6 +1,7 @@
 import { Component, useEffect, useState, type ReactNode, type ErrorInfo } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "./context/MenuContext";
+import { useAuth } from "./context/AuthContext";
 import { seedDefaults } from "./db/dexie";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
@@ -27,6 +28,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 function App() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,8 +50,8 @@ function App() {
       <div className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/templates" element={<TemplateGallery />} />
-          <Route path="/templates/:id/edit" element={<ErrorBoundary><TemplateEditor /></ErrorBoundary>} />
+          {isAdmin && <Route path="/templates" element={<TemplateGallery />} />}
+          {isAdmin && <Route path="/templates/:id/edit" element={<ErrorBoundary><TemplateEditor /></ErrorBoundary>} />}
           <Route
             path="/menus/:id/edit"
             element={

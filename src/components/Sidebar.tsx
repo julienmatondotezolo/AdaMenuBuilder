@@ -67,10 +67,10 @@ function Tooltip({
 /* ── Nav items config ────────────────────────────────────────────────────── */
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: Home, path: "/" },
-  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/templates" },
-  { id: "analytics", label: "Analytics", icon: BarChart3, path: "#" },
-  { id: "settings", label: "Settings", icon: Settings, path: "#" },
+  { id: "dashboard", label: "Dashboard", icon: Home, path: "/", adminOnly: false },
+  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/templates", adminOnly: true },
+  { id: "analytics", label: "Analytics", icon: BarChart3, path: "#", adminOnly: false },
+  { id: "settings", label: "Settings", icon: Settings, path: "#", adminOnly: false },
 ];
 
 /* ── Sidebar width constants ─────────────────────────────────────────────── */
@@ -236,7 +236,7 @@ export default function Sidebar() {
         {/* ═══ Navigation ════════════════════════════════════════════════ */}
         <nav className="flex-1 py-2 px-2">
           <div className="space-y-0.5">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => {
               const active = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
               return (
                 <Tooltip key={item.id} label={item.label} show={collapsed}>
