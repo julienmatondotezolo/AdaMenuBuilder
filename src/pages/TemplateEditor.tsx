@@ -80,6 +80,11 @@ import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFo
 import { SHAPE_PRESETS } from "../data/decorationPresets";
 import DecorationRenderer from "../components/Preview/DecorationRenderer";
 import MaskEditor from "../components/Preview/MaskEditor";
+import DeviceMockup from "../components/Preview/DeviceMockup";
+import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
+import WebLayoutPanel from "../components/Editor/WebLayoutPanel";
+import { createDefaultWebLayout } from "../data/defaultWebLayout";
+import type { WebLayout } from "../types/template";
 import { readImageFile } from "../utils/imageUpload";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -142,6 +147,17 @@ export default function TemplateEditor() {
   const [loadTimeout, setLoadTimeout] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewMode, setPreviewMode] = useState("paper");
+  const [selectedWebBlockId, setSelectedWebBlockId] = useState<string | null>(null);
+
+  const isWebMode = previewMode === "mobile" || previewMode === "desktop";
+
+  // Auto-init web layout on first switch to web mode
+  const handlePreviewModeChange = (mode: string) => {
+    setPreviewMode(mode);
+    if ((mode === "mobile" || mode === "desktop") && template && !template.webLayout) {
+      save({ webLayout: createDefaultWebLayout() });
+    }
+  };
 
   // Decoration state
   const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
@@ -990,6 +1006,23 @@ export default function TemplateEditor() {
       <div className="flex-1 flex overflow-hidden">
         {/* ═══ LEFT PANEL ═══ */}
         <div className="w-[360px] shrink-0 border-r border-border bg-background flex flex-col overflow-hidden">
+          {isWebMode ? (
+            /* ── Web mode left panel ── */
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="mb-3">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Web Layout</span>
+              </div>
+              {template.webLayout && (
+                <WebLayoutPanel
+                  webLayout={template.webLayout}
+                  onChange={(layout) => save({ webLayout: layout })}
+                  selectedBlockId={selectedWebBlockId}
+                  onSelectBlock={setSelectedWebBlockId}
+                />
+              )}
+            </div>
+          ) : (
+          <>
           {/* Variant tabs */}
           <div className="px-3 pt-3 pb-2 border-b border-border shrink-0">
             <div className="flex items-center justify-between mb-2">
@@ -2184,10 +2217,24 @@ export default function TemplateEditor() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* ═══ RIGHT: Live Preview ═══ */}
         <div className="flex-1 relative flex items-center justify-center bg-muted/30 overflow-auto p-6">
+          {isWebMode && template.webLayout ? (
+            <DeviceMockup mode={previewMode as "mobile" | "desktop"}>
+              <WebMenuRenderer
+                webLayout={template.webLayout}
+                menuData={previewData}
+                colors={template.colors}
+                fonts={template.fonts}
+                selectedBlockId={selectedWebBlockId}
+                onSelectBlock={setSelectedWebBlockId}
+              />
+            </DeviceMockup>
+          ) : (
           <div
             ref={previewRef}
             className="bg-white rounded-sm overflow-hidden"
@@ -2214,6 +2261,7 @@ export default function TemplateEditor() {
               previewData={previewData}
             />
           </div>
+          )}
 
           {/* ── Preview icons — vertically centered, fixed right ──────── */}
           <div className="absolute inset-y-0 right-3 z-30 flex flex-col items-center justify-center gap-2">
@@ -2225,7 +2273,7 @@ export default function TemplateEditor() {
             ] as const).map(({ id, label, icon: Icon }) => (
               <div
                 key={id}
-                onClick={() => setPreviewMode(id)}
+                onClick={() => handlePreviewModeChange(id)}
                 title={label}
                 className={cn(
                   "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm cursor-pointer",

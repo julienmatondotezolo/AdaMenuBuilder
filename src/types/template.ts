@@ -239,6 +239,91 @@ export function isBodySection(section: SectionType): boolean {
   return section === "body" || /^body-\d+$/.test(section);
 }
 
+/* ── Web Layout Blocks ───────────────────────────────────────────────── */
+
+export type WebBlockType =
+  | "hero"
+  | "category-nav"
+  | "menu-section"
+  | "featured-spotlight"
+  | "image-banner"
+  | "info-bar"
+  | "footer";
+
+interface WebBlockBase {
+  id: string;
+  type: WebBlockType;
+}
+
+export interface WebHeroBlock extends WebBlockBase {
+  type: "hero";
+  height: number;               // px
+  textAlign: "left" | "center" | "right";
+  backgroundImageUrl?: string;
+  backgroundOverlayOpacity: number; // 0-1
+}
+
+export interface WebCategoryNavBlock extends WebBlockBase {
+  type: "category-nav";
+  style: "tabs" | "pills" | "anchors";
+  sticky: boolean;
+}
+
+export interface WebMenuSectionBlock extends WebBlockBase {
+  type: "menu-section";
+  columns: 1 | 2;
+  itemStyle: "compact" | "card" | "detailed";
+  pricePosition: "right" | "below" | "inline";
+}
+
+export interface WebFeaturedSpotlightBlock extends WebBlockBase {
+  type: "featured-spotlight";
+  layout: "horizontal" | "grid";
+  maxItems: number;
+}
+
+export interface WebImageBannerBlock extends WebBlockBase {
+  type: "image-banner";
+  imageUrl?: string;
+  height: number;               // px
+  objectFit: "cover" | "contain" | "fill";
+}
+
+export interface WebInfoBarBlock extends WebBlockBase {
+  type: "info-bar";
+  items: { icon: string; text: string }[];
+  layout: "row" | "column";
+}
+
+export interface WebFooterBlock extends WebBlockBase {
+  type: "footer";
+  showAddress: boolean;
+  showPhone: boolean;
+  customText: string;
+}
+
+export type WebBlock =
+  | WebHeroBlock
+  | WebCategoryNavBlock
+  | WebMenuSectionBlock
+  | WebFeaturedSpotlightBlock
+  | WebImageBannerBlock
+  | WebInfoBarBlock
+  | WebFooterBlock;
+
+export interface WebLayoutSpacing {
+  sectionGap: number;       // px between blocks
+  contentPaddingX: number;  // px horizontal padding
+  contentMaxWidth: number;  // px max content width
+}
+
+export interface WebLayout {
+  blocks: WebBlock[];
+  spacing: WebLayoutSpacing;
+  borderRadius: number;
+  showScrollbar: boolean;
+}
+
 /* ── Template ────────────────────────────────────────────────────────── */
 
 export interface MenuTemplate {
@@ -259,6 +344,7 @@ export interface MenuTemplate {
   remoteIds?: Record<string, string>; // map of restaurantId → remote template ID in Supabase
   builtInVersion?: number;        // version counter from backend built_in_templates table
   hasLocalChanges?: boolean;      // true when saved locally but not yet published/synced to backend
+  webLayout?: WebLayout;
   createdAt: string;
   updatedAt: string;
 }
