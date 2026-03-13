@@ -220,7 +220,6 @@ function CategoryBlock({ category, block, colors, fonts, borderRadius, orderingE
       <div style={{ display: "flex", flexDirection: "column", gap: block.itemStyle === "card" ? 10 : 0 }}>
         {category.items.map((item) => {
           const itemProps = {
-            key: item.id,
             item,
             colors,
             fonts,
@@ -231,9 +230,9 @@ function CategoryBlock({ category, block, colors, fonts, borderRadius, orderingE
             onAdd: () => onAddToCart?.(item),
             onUpdate: (delta: number) => onUpdateQuantity?.(item.id, delta),
           };
-          if (block.itemStyle === "card") return <CardItem {...itemProps} />;
-          if (block.itemStyle === "detailed") return <DetailedItem {...itemProps} />;
-          return <CompactItem {...itemProps} />;
+          if (block.itemStyle === "card") return <CardItem key={item.id} {...itemProps} />;
+          if (block.itemStyle === "detailed") return <DetailedItem key={item.id} {...itemProps} />;
+          return <CompactItem key={item.id} {...itemProps} />;
         })}
       </div>
     </div>
