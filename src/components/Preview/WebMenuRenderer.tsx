@@ -16,6 +16,7 @@ interface Props {
   colors: ColorScheme;
   fonts: FontScheme;
   templateName?: string;
+  mode?: "mobile" | "desktop";
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string | null) => void;
 }
@@ -61,7 +62,7 @@ function RenderBlock({
   }
 }
 
-export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, selectedBlockId, onSelectBlock }: Props) {
+export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, selectedBlockId, onSelectBlock }: Props) {
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -95,7 +96,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
     >
       <div
         style={{
-          maxWidth: spacing.contentMaxWidth,
+          maxWidth: mode === "desktop" ? "100%" : spacing.contentMaxWidth,
           margin: "0 auto",
           display: "flex",
           flexDirection: "column",

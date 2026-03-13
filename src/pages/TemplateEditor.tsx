@@ -2232,6 +2232,7 @@ export default function TemplateEditor() {
                 colors={template.colors}
                 fonts={template.fonts}
                 templateName={template.name}
+                mode={previewMode as "mobile" | "desktop"}
                 selectedBlockId={selectedWebBlockId}
                 onSelectBlock={setSelectedWebBlockId}
               />
