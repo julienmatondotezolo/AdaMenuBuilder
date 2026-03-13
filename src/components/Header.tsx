@@ -20,7 +20,7 @@ interface HeaderProps {
 }
 
 export default function Header({ template: _template, lastSaved }: HeaderProps) {
-  const { menuData, setMenuData, orientation, columnCount, layoutDirection } = useMenu();
+  const { menuData, setMenuData, selectItem } = useMenu();
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(menuData.title || "");
@@ -34,15 +34,16 @@ export default function Header({ template: _template, lastSaved }: HeaderProps) 
   }, [isEditing]);
 
   const handleDownload = async () => {
+    // Deselect everything before capturing
+    selectItem(null);
+
+    // Small delay to let React re-render without selections
+    await new Promise((r) => setTimeout(r, 100));
+
     setDownloading(true);
     try {
-      await downloadMenuPdf(
-        menuData.restaurantName,
-        menuData,
-        orientation,
-        columnCount,
-        layoutDirection,
-      );
+      const fileName = menuData.title || menuData.restaurantName || "Menu";
+      await downloadMenuPdf(fileName);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
     } finally {
