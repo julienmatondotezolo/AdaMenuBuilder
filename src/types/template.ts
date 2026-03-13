@@ -351,7 +351,8 @@ export interface MenuTemplate {
   remoteIds?: Record<string, string>; // map of restaurantId → remote template ID in Supabase
   builtInVersion?: number;        // version counter from backend built_in_templates table
   hasLocalChanges?: boolean;      // true when saved locally but not yet published/synced to backend
-  webLayout?: WebLayout;
+  webLayoutMobile?: WebLayout;
+  webLayoutDesktop?: WebLayout;
   createdAt: string;
   updatedAt: string;
 }

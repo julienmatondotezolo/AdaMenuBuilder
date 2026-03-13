@@ -29,7 +29,8 @@ interface RemoteBuiltIn {
   fonts: MenuTemplate["fonts"];
   spacing: MenuTemplate["spacing"];
   page_variants: MenuTemplate["pageVariants"];
-  web_layout?: MenuTemplate["webLayout"];
+  web_layout_mobile?: MenuTemplate["webLayoutMobile"];
+  web_layout_desktop?: MenuTemplate["webLayoutDesktop"];
   version: number;
   created_at: string;
   updated_at: string;
@@ -64,7 +65,8 @@ export async function syncBuiltInTemplates(token: string): Promise<void> {
         fonts: remote.fonts,
         spacing: remote.spacing,
         pageVariants: remote.page_variants,
-        webLayout: remote.web_layout,
+        webLayoutMobile: remote.web_layout_mobile,
+        webLayoutDesktop: remote.web_layout_desktop,
         builtInVersion: remote.version,
         createdAt: remote.created_at,
         updatedAt: now,
@@ -163,7 +165,8 @@ export async function syncTemplatesFromBackend(token: string): Promise<void> {
             sectionOrder: v.sectionOrder as MenuTemplate["pageVariants"][0]["sectionOrder"],
             decorations: v.decorations as MenuTemplate["pageVariants"][0]["decorations"],
           })),
-          webLayout: pj.webLayout as MenuTemplate["webLayout"],
+          webLayoutMobile: (pj.webLayoutMobile ?? pj.webLayout) as MenuTemplate["webLayoutMobile"],
+          webLayoutDesktop: (pj.webLayoutDesktop ?? pj.webLayout) as MenuTemplate["webLayoutDesktop"],
           publishedAt: remote.template.updated_at,
           remoteIds,
           hasLocalChanges: false,
@@ -212,7 +215,8 @@ export async function syncTemplatesFromBackend(token: string): Promise<void> {
           sectionOrder: v.sectionOrder as MenuTemplate["pageVariants"][0]["sectionOrder"],
           decorations: v.decorations as MenuTemplate["pageVariants"][0]["decorations"],
         })),
-        webLayout: pj.webLayout as MenuTemplate["webLayout"],
+        webLayoutMobile: (pj.webLayoutMobile ?? pj.webLayout) as MenuTemplate["webLayoutMobile"],
+        webLayoutDesktop: (pj.webLayoutDesktop ?? pj.webLayout) as MenuTemplate["webLayoutDesktop"],
         publishedAt: remote.template.updated_at,
         remoteIds,
         createdAt: remote.template.created_at,

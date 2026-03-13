@@ -1,13 +1,13 @@
 import { uid } from "../utils/uid";
 import type { WebLayout } from "../types/template";
 
-export function createDefaultWebLayout(): WebLayout {
+export function createDefaultWebLayout(mode: "mobile" | "desktop"): WebLayout {
   return {
     blocks: [
       {
         id: `wb-${uid()}`,
         type: "hero",
-        height: 200,
+        height: mode === "desktop" ? 260 : 200,
         textAlign: "center",
         backgroundOverlayOpacity: 0.4,
       },
@@ -20,8 +20,8 @@ export function createDefaultWebLayout(): WebLayout {
       {
         id: `wb-${uid()}`,
         type: "menu-section",
-        columns: 1,
-        itemStyle: "compact",
+        columns: mode === "desktop" ? 2 : 1,
+        itemStyle: mode === "desktop" ? "card" : "compact",
         pricePosition: "right",
       },
       {
@@ -33,9 +33,9 @@ export function createDefaultWebLayout(): WebLayout {
       },
     ],
     spacing: {
-      sectionGap: 24,
-      contentPaddingX: 16,
-      contentMaxWidth: 640,
+      sectionGap: mode === "desktop" ? 32 : 24,
+      contentPaddingX: mode === "desktop" ? 32 : 16,
+      contentMaxWidth: mode === "desktop" ? 1024 : 640,
     },
     borderRadius: 8,
     showScrollbar: false,

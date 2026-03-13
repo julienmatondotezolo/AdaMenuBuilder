@@ -126,7 +126,8 @@ export function getTemplateHash(tpl: MenuTemplate): string {
     fonts: tpl.fonts,
     spacing: tpl.spacing,
     pageVariants: tpl.pageVariants,
-    webLayout: tpl.webLayout,
+    webLayoutMobile: tpl.webLayoutMobile,
+    webLayoutDesktop: tpl.webLayoutDesktop,
   });
   // Simple djb2 hash
   let hash = 5381;
@@ -165,7 +166,8 @@ export async function exportTemplate(id: string): Promise<string | undefined> {
       sectionOrder: v.sectionOrder,
       decorations: v.decorations,
     })),
-    webLayout: tpl.webLayout,
+    webLayoutMobile: tpl.webLayoutMobile,
+    webLayoutDesktop: tpl.webLayoutDesktop,
   };
 
   return JSON.stringify(exportData, null, 2);
@@ -218,7 +220,8 @@ export async function importTemplate(jsonString: string): Promise<MenuTemplate> 
     fonts: data.fonts as MenuTemplate["fonts"],
     spacing: data.spacing as MenuTemplate["spacing"],
     previewMenuId: data.previewMenuId as string | undefined,
-    webLayout: data.webLayout as MenuTemplate["webLayout"],
+    webLayoutMobile: (data.webLayoutMobile ?? data.webLayout) as MenuTemplate["webLayoutMobile"],
+    webLayoutDesktop: (data.webLayoutDesktop ?? data.webLayout) as MenuTemplate["webLayoutDesktop"],
     pageVariants: ((data.pageVariants as Array<Record<string, unknown>>) || []).map((v) => ({
       id: `var-${uid()}`,
       name: (v.name as string) || "Page",

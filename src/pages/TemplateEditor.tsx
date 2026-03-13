@@ -84,7 +84,6 @@ import DeviceMockup from "../components/Preview/DeviceMockup";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import WebLayoutPanel from "../components/Editor/WebLayoutPanel";
 import { createDefaultWebLayout } from "../data/defaultWebLayout";
-import type { WebLayout } from "../types/template";
 import { readImageFile } from "../utils/imageUpload";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -151,11 +150,19 @@ export default function TemplateEditor() {
 
   const isWebMode = previewMode === "mobile" || previewMode === "desktop";
 
+  // The active web layout for the current mode
+  const activeWebLayout = previewMode === "desktop" ? template?.webLayoutDesktop : template?.webLayoutMobile;
+  const activeWebLayoutKey = previewMode === "desktop" ? "webLayoutDesktop" as const : "webLayoutMobile" as const;
+
   // Auto-init web layout on first switch to web mode
   const handlePreviewModeChange = (mode: string) => {
     setPreviewMode(mode);
-    if ((mode === "mobile" || mode === "desktop") && template && !template.webLayout) {
-      save({ webLayout: createDefaultWebLayout() });
+    setSelectedWebBlockId(null);
+    if (template && (mode === "mobile" || mode === "desktop")) {
+      const key = mode === "desktop" ? "webLayoutDesktop" : "webLayoutMobile";
+      if (!template[key]) {
+        save({ [key]: createDefaultWebLayout(mode) });
+      }
     }
   };
 
@@ -639,7 +646,8 @@ export default function TemplateEditor() {
         sectionOrder: v.sectionOrder,
         decorations: v.decorations,
       })),
-      webLayout: template.webLayout,
+      webLayoutMobile: template.webLayoutMobile,
+      webLayoutDesktop: template.webLayoutDesktop,
     };
   };
 
@@ -1011,12 +1019,14 @@ export default function TemplateEditor() {
             /* ── Web mode left panel ── */
             <div className="flex-1 overflow-y-auto p-3">
               <div className="mb-3">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Web Layout</span>
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  {previewMode === "desktop" ? "Desktop" : "Mobile"} Layout
+                </span>
               </div>
-              {template.webLayout && (
+              {activeWebLayout && (
                 <WebLayoutPanel
-                  webLayout={template.webLayout}
-                  onChange={(layout) => save({ webLayout: layout })}
+                  webLayout={activeWebLayout}
+                  onChange={(layout) => save({ [activeWebLayoutKey]: layout })}
                   selectedBlockId={selectedWebBlockId}
                   onSelectBlock={setSelectedWebBlockId}
                 />
@@ -2224,10 +2234,10 @@ export default function TemplateEditor() {
 
         {/* ═══ RIGHT: Live Preview ═══ */}
         <div className="flex-1 relative flex items-center justify-center bg-muted/30 overflow-auto p-6">
-          {isWebMode && template.webLayout ? (
+          {isWebMode && activeWebLayout ? (
             <DeviceMockup mode={previewMode as "mobile" | "desktop"}>
               <WebMenuRenderer
-                webLayout={template.webLayout}
+                webLayout={activeWebLayout}
                 menuData={previewData}
                 colors={template.colors}
                 fonts={template.fonts}
