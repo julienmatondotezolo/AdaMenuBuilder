@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function WebHeroBlock({ block, menuData, colors, fonts, templateName }: Props) {
-  const displayName = menuData.restaurantName || templateName || "Menu";
+  const displayName = menuData.title || menuData.restaurantName || templateName || "Menu";
 
   return (
     <div

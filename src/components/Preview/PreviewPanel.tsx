@@ -5,18 +5,21 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Volume2, ArrowRight, Copy, Check } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Volume2, ArrowRight, Copy, Check, Loader2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn, Button, Input } from "ada-design-system";
+import { cn, Button, Input, Switch, Label } from "ada-design-system";
 import { QRCodeSVG } from "qrcode.react";
 import MenuPreview from "./MenuPreview";
 import DeviceMockup from "./DeviceMockup";
 import WebMenuRenderer from "./WebMenuRenderer";
 import { useMenu } from "../../context/MenuContext";
+import { useAuth } from "../../context/AuthContext";
 import type { MenuTemplate } from "../../types/template";
 import { mmToPx } from "../../types/template";
 import type { MenuData } from "../../types/menu";
 import { API_URL } from "../../config/api";
+import { publishMenu, unpublishMenu, getPublishStatus } from "../../services/menuPublishApi";
+import { fetchRestaurants } from "../../services/templateApi";
 
 /* ── Preview sidebar icons ────────────────────────────────────────────── */
 
@@ -44,9 +47,42 @@ interface PreviewPanelProps {
 
 /* ── QR Code View ────────────────────────────────────────────────────── */
 
-function QrCodeView({ menuId, colors }: { menuId?: string; colors?: MenuTemplate["colors"] }) {
+interface QrCodeViewProps {
+  menuId?: string;
+  menuTitle?: string;
+  colors?: MenuTemplate["colors"];
+  menuData?: MenuData;
+  template?: MenuTemplate;
+}
+
+function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeViewProps) {
+  const { token } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
   const qrUrl = menuId ? `${window.location.origin}/qr/${menuId}` : "";
+
+  // Fetch restaurant ID + publish status on mount
+  useEffect(() => {
+    if (!token) return;
+    fetchRestaurants(token)
+      .then((restaurants) => {
+        if (restaurants.length > 0) setRestaurantId(restaurants[0].id);
+      })
+      .catch(() => {});
+
+    if (!menuId) return;
+    getPublishStatus(token, menuId)
+      .then(({ published, updatedAt }) => {
+        setIsPublished(published);
+        setPublishedAt(updatedAt || null);
+      })
+      .catch(() => {});
+  }, [menuId, token]);
 
   const handleCopy = () => {
     if (!qrUrl) return;
@@ -54,6 +90,48 @@ function QrCodeView({ menuId, colors }: { menuId?: string; colors?: MenuTemplate
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const handleTogglePublish = async (publish: boolean) => {
+    if (!menuId || !token) {
+      setPublishError("Not authenticated");
+      return;
+    }
+    setToggling(true);
+    setPublishError(null);
+    try {
+      if (publish) {
+        if (!restaurantId || !menuData || !template) {
+          setPublishError("Missing menu data or restaurant info");
+          setToggling(false);
+          return;
+        }
+        await publishMenu(token, {
+          menu_id: menuId,
+          restaurant_id: restaurantId,
+          title: menuTitle || menuData.title || "Menu",
+          menu_data: menuData as unknown as Record<string, unknown>,
+          template_data: {
+            colors: template.colors,
+            fonts: template.fonts,
+            webLayoutQr: template.webLayoutQr,
+            webLayoutMobile: template.webLayoutMobile,
+            qrOrderConfig: template.qrOrderConfig,
+            name: template.name,
+          },
+        });
+        setIsPublished(true);
+        setPublishedAt(new Date().toISOString());
+      } else {
+        await unpublishMenu(token, menuId);
+        setIsPublished(false);
+        setPublishedAt(null);
+      }
+    } catch (err: any) {
+      setPublishError(err.message || (publish ? "Failed to publish" : "Failed to unpublish"));
+    } finally {
+      setToggling(false);
+    }
   };
 
   if (!menuId) {
@@ -68,7 +146,7 @@ function QrCodeView({ menuId, colors }: { menuId?: string; colors?: MenuTemplate
 
   return (
     <div className="flex items-center justify-center h-full">
-      <div className="flex flex-col items-center gap-8 max-w-md">
+      <div className="flex flex-col items-center gap-6 max-w-md">
         {/* QR Code */}
         <div
           className="bg-white rounded-2xl shadow-lg p-8"
@@ -97,19 +175,50 @@ function QrCodeView({ menuId, colors }: { menuId?: string; colors?: MenuTemplate
           </p>
         </div>
 
-        {/* URL + Copy */}
-        <div className="w-full flex items-center gap-2 bg-muted/30 rounded-lg border border-border px-3 py-2.5">
-          <span className="flex-1 text-xs text-muted-foreground truncate font-mono">
-            {qrUrl}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="h-7 w-7 shrink-0"
-            onClick={handleCopy}
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-          </Button>
+        {/* URL + Copy — only when published */}
+        {isPublished && (
+          <div className="w-full flex items-center gap-2 bg-muted/30 rounded-lg border border-border px-3 py-2.5">
+            <span className="flex-1 text-xs text-muted-foreground truncate font-mono">
+              {qrUrl}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-7 w-7 shrink-0"
+              onClick={handleCopy}
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
+        )}
+
+        {/* Publish toggle */}
+        <div className="w-full flex flex-col gap-2">
+          <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+            <div className="flex flex-col gap-0.5">
+              <Label className="text-sm font-medium">Publicly accessible</Label>
+              <span className="text-xs text-muted-foreground">
+                {isPublished
+                  ? `Live${publishedAt ? ` since ${new Date(publishedAt).toLocaleDateString()}` : ""}`
+                  : "Enable to let customers scan and order"}
+              </span>
+            </div>
+            {toggling ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : (
+              <Switch
+                checked={isPublished}
+                onCheckedChange={handleTogglePublish}
+                disabled={!token}
+              />
+            )}
+          </div>
+          {publishError && (
+            <p className="text-xs text-destructive text-center">{publishError}</p>
+          )}
+          {!token && (
+            <p className="text-xs text-muted-foreground text-center">Sign in to publish this menu</p>
+          )}
         </div>
       </div>
     </div>
@@ -476,7 +585,13 @@ export default function PreviewPanel({ template, menuId, previewData }: PreviewP
       {/* ── QR Code ──────────────────────────────────────────────────── */}
       {isQr && (
         <div className="absolute inset-0">
-          <QrCodeView menuId={menuId} colors={template?.colors} />
+          <QrCodeView
+            menuId={menuId}
+            menuTitle={data.title}
+            colors={template?.colors}
+            menuData={data}
+            template={template}
+          />
         </div>
       )}
 
