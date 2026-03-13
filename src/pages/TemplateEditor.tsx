@@ -83,6 +83,7 @@ import MaskEditor from "../components/Preview/MaskEditor";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import WebLayoutPanel from "../components/Editor/WebLayoutPanel";
+import QrOrderSettings from "../components/Editor/QrOrderSettings";
 import { createDefaultWebLayout } from "../data/defaultWebLayout";
 import { readImageFile } from "../utils/imageUpload";
 import { useAuth } from "../context/AuthContext";
@@ -648,6 +649,7 @@ export default function TemplateEditor() {
       })),
       webLayoutMobile: template.webLayoutMobile,
       webLayoutDesktop: template.webLayoutDesktop,
+      qrOrderConfig: template.qrOrderConfig,
     };
   };
 
@@ -1031,6 +1033,19 @@ export default function TemplateEditor() {
                   onSelectBlock={setSelectedWebBlockId}
                 />
               )}
+
+              {/* QR Order Config */}
+              <div className="mt-4 pt-3 border-t border-border/50">
+                <div className="mb-2">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    QR Code Ordering
+                  </span>
+                </div>
+                <QrOrderSettings
+                  config={template.qrOrderConfig ?? { enabled: false, modes: { takeaway: true, "send-to-kds": true, delivery: false }, currency: "€", showItemImages: false }}
+                  onChange={(qrOrderConfig) => save({ qrOrderConfig })}
+                />
+              </div>
             </div>
           ) : (
           <>
@@ -2243,6 +2258,7 @@ export default function TemplateEditor() {
                 fonts={template.fonts}
                 templateName={template.name}
                 mode={previewMode as "mobile" | "desktop"}
+                qrOrderConfig={template.qrOrderConfig}
                 selectedBlockId={selectedWebBlockId}
                 onSelectBlock={setSelectedWebBlockId}
               />

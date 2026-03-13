@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect } from "react";
-import type { WebLayout, WebBlock, ColorScheme, FontScheme } from "../../types/template";
-import type { MenuData } from "../../types/menu";
+import { useRef, useState, useEffect, useCallback } from "react";
+import type { WebLayout, WebBlock, ColorScheme, FontScheme, QrOrderConfig } from "../../types/template";
+import type { MenuData, MenuItem } from "../../types/menu";
 import WebHeroBlock from "./webBlocks/WebHeroBlock";
 import WebCategoryNavBlock from "./webBlocks/WebCategoryNavBlock";
 import WebMenuSectionBlock from "./webBlocks/WebMenuSectionBlock";
@@ -9,6 +9,7 @@ import WebImageBannerBlock from "./webBlocks/WebImageBannerBlock";
 import WebInfoBarBlock from "./webBlocks/WebInfoBarBlock";
 import WebSearchBlock from "./webBlocks/WebSearchBlock";
 import WebFooterBlock from "./webBlocks/WebFooterBlock";
+import WebCartBar, { type CartItem } from "./webBlocks/WebCartBar";
 
 interface Props {
   webLayout: WebLayout;
@@ -17,6 +18,7 @@ interface Props {
   fonts: FontScheme;
   templateName?: string;
   mode?: "mobile" | "desktop";
+  qrOrderConfig?: QrOrderConfig;
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string | null) => void;
 }
@@ -32,6 +34,10 @@ function RenderBlock({
   templateName,
   searchQuery,
   onSearchChange,
+  orderingEnabled,
+  cart,
+  onAddToCart,
+  onUpdateQuantity,
 }: {
   block: WebBlock;
   menuData: MenuData;
@@ -43,6 +49,10 @@ function RenderBlock({
   templateName?: string;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  orderingEnabled: boolean;
+  cart: CartItem[];
+  onAddToCart: (item: MenuItem) => void;
+  onUpdateQuantity: (itemId: string, delta: number) => void;
 }) {
   switch (block.type) {
     case "hero":
@@ -50,9 +60,9 @@ function RenderBlock({
     case "category-nav":
       return <WebCategoryNavBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} scrollContainer={scrollContainer} />;
     case "menu-section":
-      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} />;
+      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} orderingEnabled={orderingEnabled} cart={cart} onAddToCart={onAddToCart} onUpdateQuantity={onUpdateQuantity} />;
     case "featured-spotlight":
-      return <WebFeaturedSpotlightBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} />;
+      return <WebFeaturedSpotlightBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} orderingEnabled={orderingEnabled} cart={cart} onAddToCart={onAddToCart} onUpdateQuantity={onUpdateQuantity} />;
     case "image-banner":
       return <WebImageBannerBlock block={block} colors={colors} />;
     case "info-bar":
@@ -66,11 +76,15 @@ function RenderBlock({
   }
 }
 
-export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, selectedBlockId, onSelectBlock }: Props) {
+export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock }: Props) {
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  const orderingEnabled = qrOrderConfig?.enabled ?? false;
+  const currency = qrOrderConfig?.currency ?? "€";
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -85,6 +99,28 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
   const scrollToTop = () => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const handleAddToCart = useCallback((item: MenuItem) => {
+    setCart((prev) => {
+      const existing = prev.find((c) => c.id === item.id);
+      if (existing) {
+        return prev.map((c) => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+      }
+      return [...prev, { id: item.id, name: item.name, price: item.price, quantity: 1 }];
+    });
+  }, []);
+
+  const handleUpdateQuantity = useCallback((itemId: string, delta: number) => {
+    setCart((prev) => {
+      return prev
+        .map((c) => c.id === itemId ? { ...c, quantity: c.quantity + delta } : c)
+        .filter((c) => c.quantity > 0);
+    });
+  }, []);
+
+  const handleViewCart = useCallback(() => {
+    // In the editor preview this is a no-op. In the actual widget, this would open the cart/checkout.
+  }, []);
 
   return (
     <div
@@ -106,6 +142,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           display: "flex",
           flexDirection: "column",
           gap: spacing.sectionGap,
+          paddingBottom: orderingEnabled && cart.length > 0 ? 0 : undefined,
         }}
       >
         {blocks.map((block) => {
@@ -140,11 +177,28 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               templateName={templateName}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              orderingEnabled={orderingEnabled}
+              cart={cart}
+              onAddToCart={handleAddToCart}
+              onUpdateQuantity={handleUpdateQuantity}
             />
           </div>
           );
         })}
       </div>
+
+      {/* Cart bottom bar */}
+      {orderingEnabled && (
+        <WebCartBar
+          cart={cart}
+          colors={colors}
+          fonts={fonts}
+          currency={currency}
+          borderRadius={borderRadius}
+          contentPaddingX={spacing.contentPaddingX}
+          onViewCart={handleViewCart}
+        />
+      )}
 
       {/* Scroll to top button */}
       {showScrollTop && (
@@ -152,7 +206,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           onClick={(e) => { e.stopPropagation(); scrollToTop(); }}
           style={{
             position: "sticky",
-            bottom: 16,
+            bottom: orderingEnabled && cart.length > 0 ? 80 : 16,
             float: "right",
             marginRight: 16,
             width: 36,

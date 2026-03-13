@@ -331,6 +331,17 @@ export interface WebLayout {
   showScrollbar: boolean;
 }
 
+/* ── QR Order Config ─────────────────────────────────────────────────── */
+
+export type OrderMode = "takeaway" | "send-to-kds" | "delivery";
+
+export interface QrOrderConfig {
+  enabled: boolean;
+  modes: Record<OrderMode, boolean>;
+  currency: string;                // e.g. "€", "$", "£"
+  showItemImages: boolean;         // show thumbnails next to items
+}
+
 /* ── Template ────────────────────────────────────────────────────────── */
 
 export interface MenuTemplate {
@@ -353,6 +364,7 @@ export interface MenuTemplate {
   hasLocalChanges?: boolean;      // true when saved locally but not yet published/synced to backend
   webLayoutMobile?: WebLayout;
   webLayoutDesktop?: WebLayout;
+  qrOrderConfig?: QrOrderConfig;
   createdAt: string;
   updatedAt: string;
 }
