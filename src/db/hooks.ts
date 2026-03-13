@@ -62,7 +62,10 @@ export async function createTemplate(template: MenuTemplate) {
 
 export async function updateTemplate(id: string, updates: Partial<MenuTemplate>) {
   const now = new Date().toISOString();
-  await db.templates.update(id, { ...updates, updatedAt: now });
+  // Mark as having local changes unless explicitly setting publish fields
+  const isPublishUpdate = "publishedAt" in updates || "publishedHash" in updates || "remoteIds" in updates;
+  const hasLocalChanges = isPublishUpdate ? updates.hasLocalChanges : true;
+  await db.templates.update(id, { ...updates, hasLocalChanges, updatedAt: now });
 
   // Propagate to all menus using this template
   const menusUsingTemplate = await db.menus.where("templateId").equals(id).toArray();

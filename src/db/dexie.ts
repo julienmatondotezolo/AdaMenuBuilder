@@ -20,16 +20,12 @@ class AdaMenuDB extends Dexie {
 
 export const db = new AdaMenuDB();
 
-/** Seed built-in templates on first load */
+/** Seed built-in templates on first load (fallback — backend sync overwrites these) */
 export async function seedDefaults() {
-  // Upsert all built-in templates (always keep them fresh)
   for (const tpl of BUILT_IN_TEMPLATES) {
     const existing = await db.templates.get(tpl.id);
     if (!existing) {
-      await db.templates.add(tpl);
-    } else if (existing.isBuiltIn) {
-      // Update built-in templates to latest version
-      await db.templates.put({ ...tpl, updatedAt: new Date().toISOString() });
+      await db.templates.add({ ...tpl, builtInVersion: 1 });
     }
   }
 

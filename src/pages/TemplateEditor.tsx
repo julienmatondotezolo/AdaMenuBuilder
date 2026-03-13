@@ -655,6 +655,7 @@ export default function TemplateEditor() {
         await updateTemplate(id, {
           publishedAt: new Date().toISOString(),
           publishedHash: getTemplateHash(template),
+          hasLocalChanges: false,
         });
       }
     } catch (err: any) {
@@ -676,7 +677,7 @@ export default function TemplateEditor() {
       setPublishStatus(s);
       // If no longer published anywhere, clear local publish status
       if (id && Object.keys(s).length === 0) {
-        await updateTemplate(id, { publishedAt: undefined, publishedHash: undefined });
+        await updateTemplate(id, { publishedAt: undefined, publishedHash: undefined, hasLocalChanges: false });
       }
     } catch (err: any) {
       setPublishError(err.message || 'Failed to unpublish');
@@ -734,6 +735,7 @@ export default function TemplateEditor() {
         await updateTemplate(id, {
           publishedAt: new Date().toISOString(),
           publishedHash: getTemplateHash(template),
+          hasLocalChanges: false,
         });
       }
     } catch (err: any) {
@@ -794,6 +796,15 @@ export default function TemplateEditor() {
             <Badge variant="secondary" className="text-[10px]">
               {template.format.width} × {template.format.height} mm
             </Badge>
+            {template.hasLocalChanges && (
+              <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600">Unpublished changes</Badge>
+            )}
+            {template.publishedAt && !template.hasLocalChanges && (
+              <Badge variant="default" className="text-[10px]">Published</Badge>
+            )}
+            {!template.publishedAt && !template.isBuiltIn && !template.hasLocalChanges && (
+              <Badge variant="outline" className="text-[10px]">Draft</Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { uid } from "../utils/uid";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { syncTemplatesFromBackend } from "../services/templateSync";
 import {
   Plus,
   ArrowLeft,
@@ -64,12 +66,23 @@ const FORMAT_PREVIEWS: Record<string, { w: number; h: number }> = {
 export default function TemplateGallery() {
   const templates = useTemplates();
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newFormat, setNewFormat] = useState<string>("A4");
   const [deleteTarget, setDeleteTarget] = useState<MenuTemplate | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync templates from backend on mount
+  useEffect(() => {
+    if (!token) return;
+    setSyncing(true);
+    syncTemplatesFromBackend(token)
+      .catch((err) => console.warn("Template sync failed:", err))
+      .finally(() => setSyncing(false));
+  }, [token]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -331,10 +344,13 @@ function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDu
             </p>
           </div>
           <div className="flex items-center gap-1.5 ml-2 shrink-0">
+            {template.hasLocalChanges && (
+              <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600">Unpublished changes</Badge>
+            )}
             {template.publishedAt ? (
-              <Badge variant="default" className="text-[10px]">Published</Badge>
+              !template.hasLocalChanges && <Badge variant="default" className="text-[10px]">Published</Badge>
             ) : (
-              !template.isBuiltIn && <Badge variant="outline" className="text-[10px]">Draft</Badge>
+              !template.isBuiltIn && !template.hasLocalChanges && <Badge variant="outline" className="text-[10px]">Draft</Badge>
             )}
             <Badge variant="secondary">{template.format.type}</Badge>
             <div className="relative">

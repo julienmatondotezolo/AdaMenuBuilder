@@ -256,6 +256,9 @@ export interface MenuTemplate {
   previewMenuId?: string;         // menu ID used for preview data ("sample" or a real menu ID)
   publishedAt?: string;           // ISO timestamp of last publish
   publishedHash?: string;         // hash of template content at publish time
+  remoteIds?: Record<string, string>; // map of restaurantId → remote template ID in Supabase
+  builtInVersion?: number;        // version counter from backend built_in_templates table
+  hasLocalChanges?: boolean;      // true when saved locally but not yet published/synced to backend
   createdAt: string;
   updatedAt: string;
 }
