@@ -1,7 +1,53 @@
 import { uid } from "../utils/uid";
 import type { WebLayout } from "../types/template";
 
-export function createDefaultWebLayout(mode: "mobile" | "desktop"): WebLayout {
+export function createDefaultWebLayout(mode: "mobile" | "desktop" | "qr"): WebLayout {
+  if (mode === "qr") {
+    // QR ordering: compact, no hero, focused on browsing + ordering
+    return {
+      blocks: [
+        {
+          id: `wb-${uid()}`,
+          type: "search",
+          placeholder: "Search by title",
+        },
+        {
+          id: `wb-${uid()}`,
+          type: "featured-spotlight",
+          layout: "horizontal",
+          maxItems: 6,
+        },
+        {
+          id: `wb-${uid()}`,
+          type: "category-nav",
+          style: "pills",
+          sticky: true,
+        },
+        {
+          id: `wb-${uid()}`,
+          type: "menu-section",
+          columns: 1,
+          itemStyle: "compact",
+          pricePosition: "right",
+        },
+        {
+          id: `wb-${uid()}`,
+          type: "footer",
+          showAddress: false,
+          showPhone: true,
+          customText: "",
+        },
+      ],
+      spacing: {
+        sectionGap: 16,
+        contentPaddingX: 16,
+        contentMaxWidth: 640,
+      },
+      borderRadius: 10,
+      showScrollbar: false,
+    };
+  }
+
   return {
     blocks: [
       {

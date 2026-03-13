@@ -150,19 +150,33 @@ export default function TemplateEditor() {
   const [selectedWebBlockId, setSelectedWebBlockId] = useState<string | null>(null);
 
   const isWebMode = previewMode === "mobile" || previewMode === "desktop";
+  const isQrMode = previewMode === "qr";
 
   // The active web layout for the current mode
-  const activeWebLayout = previewMode === "desktop" ? template?.webLayoutDesktop : template?.webLayoutMobile;
-  const activeWebLayoutKey = previewMode === "desktop" ? "webLayoutDesktop" as const : "webLayoutMobile" as const;
+  const activeWebLayout = previewMode === "qr"
+    ? template?.webLayoutQr
+    : previewMode === "desktop"
+      ? template?.webLayoutDesktop
+      : template?.webLayoutMobile;
+  const activeWebLayoutKey = previewMode === "qr"
+    ? "webLayoutQr" as const
+    : previewMode === "desktop"
+      ? "webLayoutDesktop" as const
+      : "webLayoutMobile" as const;
 
-  // Auto-init web layout on first switch to web mode
+  // Auto-init web layout on first switch to web/qr mode
   const handlePreviewModeChange = (mode: string) => {
     setPreviewMode(mode);
     setSelectedWebBlockId(null);
-    if (template && (mode === "mobile" || mode === "desktop")) {
-      const key = mode === "desktop" ? "webLayoutDesktop" : "webLayoutMobile";
+    if (template && (mode === "mobile" || mode === "desktop" || mode === "qr")) {
+      const key = mode === "qr" ? "webLayoutQr" : mode === "desktop" ? "webLayoutDesktop" : "webLayoutMobile";
       if (!template[key]) {
-        save({ [key]: createDefaultWebLayout(mode) });
+        const defaults: Record<string, unknown> = { [key]: createDefaultWebLayout(mode as "mobile" | "desktop" | "qr") };
+        // Auto-enable ordering when first switching to QR mode
+        if (mode === "qr" && !template.qrOrderConfig) {
+          defaults.qrOrderConfig = { enabled: true, modes: { takeaway: true, "send-to-kds": true, delivery: false }, currency: "€", showItemImages: false };
+        }
+        save(defaults);
       }
     }
   };
@@ -649,6 +663,7 @@ export default function TemplateEditor() {
       })),
       webLayoutMobile: template.webLayoutMobile,
       webLayoutDesktop: template.webLayoutDesktop,
+      webLayoutQr: template.webLayoutQr,
       qrOrderConfig: template.qrOrderConfig,
     };
   };
@@ -1017,7 +1032,39 @@ export default function TemplateEditor() {
       <div className="flex-1 flex overflow-hidden">
         {/* ═══ LEFT PANEL ═══ */}
         <div className="w-[360px] shrink-0 border-r border-border bg-background flex flex-col overflow-hidden">
-          {isWebMode ? (
+          {isQrMode ? (
+            /* ── QR ordering mode left panel ── */
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="mb-3">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  QR Code Ordering
+                </span>
+              </div>
+
+              {/* Order config */}
+              <QrOrderSettings
+                config={template.qrOrderConfig ?? { enabled: true, modes: { takeaway: true, "send-to-kds": true, delivery: false }, currency: "€", showItemImages: false }}
+                onChange={(qrOrderConfig) => save({ qrOrderConfig })}
+              />
+
+              {/* Layout blocks */}
+              <div className="mt-4 pt-3 border-t border-border/50">
+                <div className="mb-2">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Layout Blocks
+                  </span>
+                </div>
+                {activeWebLayout && (
+                  <WebLayoutPanel
+                    webLayout={activeWebLayout}
+                    onChange={(layout) => save({ [activeWebLayoutKey]: layout })}
+                    selectedBlockId={selectedWebBlockId}
+                    onSelectBlock={setSelectedWebBlockId}
+                  />
+                )}
+              </div>
+            </div>
+          ) : isWebMode ? (
             /* ── Web mode left panel ── */
             <div className="flex-1 overflow-y-auto p-3">
               <div className="mb-3">
@@ -1033,19 +1080,6 @@ export default function TemplateEditor() {
                   onSelectBlock={setSelectedWebBlockId}
                 />
               )}
-
-              {/* QR Order Config */}
-              <div className="mt-4 pt-3 border-t border-border/50">
-                <div className="mb-2">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    QR Code Ordering
-                  </span>
-                </div>
-                <QrOrderSettings
-                  config={template.qrOrderConfig ?? { enabled: false, modes: { takeaway: true, "send-to-kds": true, delivery: false }, currency: "€", showItemImages: false }}
-                  onChange={(qrOrderConfig) => save({ qrOrderConfig })}
-                />
-              </div>
             </div>
           ) : (
           <>
@@ -2249,7 +2283,21 @@ export default function TemplateEditor() {
 
         {/* ═══ RIGHT: Live Preview ═══ */}
         <div className="flex-1 relative flex items-center justify-center bg-muted/30 overflow-auto p-6">
-          {isWebMode && activeWebLayout ? (
+          {isQrMode && activeWebLayout ? (
+            <DeviceMockup mode="mobile">
+              <WebMenuRenderer
+                webLayout={activeWebLayout}
+                menuData={previewData}
+                colors={template.colors}
+                fonts={template.fonts}
+                templateName={template.name}
+                mode="mobile"
+                qrOrderConfig={template.qrOrderConfig}
+                selectedBlockId={selectedWebBlockId}
+                onSelectBlock={setSelectedWebBlockId}
+              />
+            </DeviceMockup>
+          ) : isWebMode && activeWebLayout ? (
             <DeviceMockup mode={previewMode as "mobile" | "desktop"}>
               <WebMenuRenderer
                 webLayout={activeWebLayout}
@@ -2258,7 +2306,6 @@ export default function TemplateEditor() {
                 fonts={template.fonts}
                 templateName={template.name}
                 mode={previewMode as "mobile" | "desktop"}
-                qrOrderConfig={template.qrOrderConfig}
                 selectedBlockId={selectedWebBlockId}
                 onSelectBlock={setSelectedWebBlockId}
               />

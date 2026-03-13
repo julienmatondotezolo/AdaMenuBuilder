@@ -31,6 +31,7 @@ interface RemoteBuiltIn {
   page_variants: MenuTemplate["pageVariants"];
   web_layout_mobile?: MenuTemplate["webLayoutMobile"];
   web_layout_desktop?: MenuTemplate["webLayoutDesktop"];
+  web_layout_qr?: MenuTemplate["webLayoutQr"];
   qr_order_config?: MenuTemplate["qrOrderConfig"];
   version: number;
   created_at: string;
@@ -68,6 +69,7 @@ export async function syncBuiltInTemplates(token: string): Promise<void> {
         pageVariants: remote.page_variants,
         webLayoutMobile: remote.web_layout_mobile,
         webLayoutDesktop: remote.web_layout_desktop,
+        webLayoutQr: remote.web_layout_qr,
         qrOrderConfig: remote.qr_order_config,
         builtInVersion: remote.version,
         createdAt: remote.created_at,
@@ -169,6 +171,7 @@ export async function syncTemplatesFromBackend(token: string): Promise<void> {
           })),
           webLayoutMobile: (pj.webLayoutMobile ?? pj.webLayout) as MenuTemplate["webLayoutMobile"],
           webLayoutDesktop: (pj.webLayoutDesktop ?? pj.webLayout) as MenuTemplate["webLayoutDesktop"],
+          webLayoutQr: pj.webLayoutQr as MenuTemplate["webLayoutQr"],
           qrOrderConfig: pj.qrOrderConfig as MenuTemplate["qrOrderConfig"],
           publishedAt: remote.template.updated_at,
           remoteIds,
@@ -220,6 +223,7 @@ export async function syncTemplatesFromBackend(token: string): Promise<void> {
         })),
         webLayoutMobile: (pj.webLayoutMobile ?? pj.webLayout) as MenuTemplate["webLayoutMobile"],
         webLayoutDesktop: (pj.webLayoutDesktop ?? pj.webLayout) as MenuTemplate["webLayoutDesktop"],
+        webLayoutQr: pj.webLayoutQr as MenuTemplate["webLayoutQr"],
         qrOrderConfig: pj.qrOrderConfig as MenuTemplate["qrOrderConfig"],
         publishedAt: remote.template.updated_at,
         remoteIds,

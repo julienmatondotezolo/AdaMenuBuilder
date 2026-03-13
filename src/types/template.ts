@@ -364,6 +364,7 @@ export interface MenuTemplate {
   hasLocalChanges?: boolean;      // true when saved locally but not yet published/synced to backend
   webLayoutMobile?: WebLayout;
   webLayoutDesktop?: WebLayout;
+  webLayoutQr?: WebLayout;
   qrOrderConfig?: QrOrderConfig;
   createdAt: string;
   updatedAt: string;
