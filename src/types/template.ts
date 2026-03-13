@@ -113,6 +113,10 @@ export interface VariantBodyConfig {
   maxCategories?: number;         // max categories in this body section (overflow goes to next body)
   itemTextTransform?: "uppercase" | "capitalize" | "none";   // item name casing (default "uppercase")
   categoryTextTransform?: "uppercase" | "capitalize" | "none"; // category name casing (default "uppercase")
+  // Per-section spacing overrides (px) — override global spacing when set
+  itemSpacingV?: number;          // vertical gap between items (overrides spacing.itemGap)
+  itemSpacingH?: number;          // horizontal padding on items
+  categorySpacingV?: number;      // vertical gap between categories (overrides spacing.categoryGap)
 }
 
 export type HighlightTextAlign = "left" | "center" | "right";
@@ -249,6 +253,7 @@ export interface MenuTemplate {
   fonts: FontScheme;
   spacing: SpacingConfig;
   pageVariants: PageVariant[];
+  previewMenuId?: string;         // menu ID used for preview data ("sample" or a real menu ID)
   createdAt: string;
   updatedAt: string;
 }

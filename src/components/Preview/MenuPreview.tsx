@@ -603,8 +603,7 @@ function PageContent({
 
   function renderCategory(category: Category, bc = bodyConfig) {
     const catState = getCategoryHighlight(category.id);
-    const gfs = bc.globalFontScale ?? 1;
-    const scaledFs = (size: number) => `${Math.round(size * gfs)}px`;
+    const scaledFs = (size: number) => `${size}px`;
     const isCenterB = bc.itemAlignment === "center";
     const isRightB = bc.itemAlignment === "right";
     const flexJustifyB = isCenterB ? "center" : isRightB ? "flex-end" : "flex-start";
@@ -613,7 +612,7 @@ function PageContent({
         key={category.id}
         data-category-id={category.id}
         className={`transition-all duration-200 ${categoryHighlightClass(catState)}`}
-        style={{ marginBottom: `${spacing.categoryGap}px` }}
+        style={{ marginBottom: `${bc.categorySpacingV ?? spacing.categoryGap}px` }}
         onMouseEnter={() => !isActiveDrag && setHover(category.id, "category")}
         onMouseLeave={() => clearHover(category.id)}
       >
@@ -634,8 +633,8 @@ function PageContent({
           )}
           <h2 style={{
             fontSize: bc.categoryStyle === "custom"
-              ? `${bc.categoryFontSize ?? 11}px`
-              : bc.categoryStyle === "bold" ? "13px" : "11px",
+              ? scaledFs(bc.categoryFontSize ?? 11)
+              : bc.categoryStyle === "bold" ? scaledFs(13) : scaledFs(11),
             letterSpacing: bc.categoryStyle === "custom"
               ? `${bc.categoryLetterSpacing ?? 0.35}em`
               : "0.35em",
@@ -661,7 +660,7 @@ function PageContent({
         )}
 
         {/* Items */}
-        <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap}px` }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: `${bc.itemSpacingV ?? spacing.itemGap}px` }}>
           {category.items.map((item) => {
             const itemState = getItemHighlight(item.id);
             return (
@@ -669,7 +668,11 @@ function PageContent({
                 key={item.id}
                 data-item-id={item.id}
                 className={`transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)}`}
-                style={{ textAlign: isCenterB ? "center" : isRightB ? "right" : "left" }}
+                style={{
+                  textAlign: isCenterB ? "center" : isRightB ? "right" : "left",
+                  paddingLeft: bc.itemSpacingH ? `${bc.itemSpacingH}px` : undefined,
+                  paddingRight: bc.itemSpacingH ? `${bc.itemSpacingH}px` : undefined,
+                }}
                 onClick={() => selectItem(item.id)}
                 onMouseEnter={() => !isActiveDrag && setHover(item.id, "item")}
                 onMouseLeave={() => clearHover(item.id)}

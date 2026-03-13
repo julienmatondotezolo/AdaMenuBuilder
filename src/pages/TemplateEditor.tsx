@@ -69,6 +69,8 @@ import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } fro
 import type { MenuTemplate, PageVariant, VariantBodyConfig, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient, ShapePreset } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
+import { useMenus } from "../db/hooks";
+import type { MenuData } from "../types/menu";
 import { FONT_CATALOG, FONT_PAIRINGS, loadTemplateFonts, fontDisplayName, findFont, loadFont, type FontPairing } from "../data/fonts";
 import { SHAPE_PRESETS } from "../data/decorationPresets";
 import DecorationRenderer from "../components/Preview/DecorationRenderer";
@@ -134,6 +136,20 @@ export default function TemplateEditor() {
   const [hoveredPanel, setHoveredPanel] = useState<PanelId | null>(null);
   const [lockedSections, setLockedSections] = useState<Set<SectionType>>(new Set());
   const [capturingThumbnail, setCapturingThumbnail] = useState(false);
+
+  // Preview data source — "sample" or a menu ID (persisted in template)
+  const [previewDataSource, setPreviewDataSource] = useState<string>("sample");
+  const allMenus = useMenus();
+  // Sync from template once loaded
+  useEffect(() => {
+    if (template?.previewMenuId) setPreviewDataSource(template.previewMenuId);
+  }, [template?.previewMenuId]);
+  const hasRealMenus = allMenus && allMenus.some((m) => m.data.categories.some((c) => c.items.length > 0));
+  const previewData: MenuData = (() => {
+    if (previewDataSource === "sample") return sampleMenuData;
+    const menu = allMenus?.find((m) => m.id === previewDataSource);
+    return menu?.data ?? sampleMenuData;
+  })();
 
   const toggleLock = (section: SectionType) => {
     setLockedSections(prev => {
@@ -721,6 +737,24 @@ export default function TemplateEditor() {
           <div className="flex-1 overflow-y-auto">
             {activeVariant && (
               <div className="p-3 space-y-1.5">
+                {/* ── Preview Data Source ── */}
+                {hasRealMenus && (
+                  <div className="mb-2 pb-2 border-b border-border/50">
+                    <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Preview Data</Label>
+                    <Select value={previewDataSource} onValueChange={(v) => { setPreviewDataSource(v); save({ previewMenuId: v }); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sample">Sample menu</SelectItem>
+                        {allMenus?.filter((m) => m.data.categories.some((c) => c.items.length > 0)).map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.data.title || m.title || "Untitled Menu"}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* ── Page Format ── */}
                 <SettingsPanel
                   icon={<Ruler className={cn("w-4 h-4", openPanel === "format" ? "text-primary" : "text-muted-foreground")} />}
@@ -1468,124 +1502,146 @@ export default function TemplateEditor() {
                                   </Button>
                                 )}
                               </div>
-                              <SelectRow label="Columns" value={String(bodyConfig.columns)}
-                                options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
-                                onChange={(v) => updateBody({ columns: Number(v) })} />
-                              {/* Max categories per body section */}
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <Label className="text-[11px] text-muted-foreground">Categories limit</Label>
-                                  <div className="flex items-center gap-1.5">
-                                    <Label className="text-[10px] text-muted-foreground">All</Label>
-                                    <Switch
-                                      checked={!bodyConfig.maxCategories}
-                                      onCheckedChange={(checked) => updateBody({ maxCategories: checked ? undefined : 3 })}
-                                      className="scale-75 origin-right"
-                                    />
+                              {/* ── Layout ── */}
+                              <div>
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Layout</Label>
+                                <div className="space-y-1.5 mt-2">
+                                  <SelectRow label="Columns" value={String(bodyConfig.columns)}
+                                    options={[{ v: "1", l: "1 Column" }, { v: "2", l: "2 Columns" }, { v: "3", l: "3 Columns" }]}
+                                    onChange={(v) => updateBody({ columns: Number(v) })} />
+                                  <SelectRow label="Alignment" value={bodyConfig.itemAlignment}
+                                    options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }]}
+                                    onChange={(v) => updateBody({ itemAlignment: v as "center" | "left" | "right" })} />
+                                  <SelectRow label="Price" value={bodyConfig.pricePosition}
+                                    options={[{ v: "below", l: "Below Name" }, { v: "right", l: "Right Side" }, { v: "inline", l: "Inline" }]}
+                                    onChange={(v) => updateBody({ pricePosition: v as "right" | "below" | "inline" })} />
+                                  {bodyConfig.pricePosition === "right" && (
+                                    <>
+                                      <ToggleRow label="Price Far Right" checked={!!bodyConfig.priceJustifyRight}
+                                        onChange={(v) => updateBody({ priceJustifyRight: v })} />
+                                      <SelectRow label="Separator" value={bodyConfig.separatorStyle}
+                                        options={[{ v: "line", l: "Solid Line" }, { v: "dotted", l: "Dotted" }, { v: "none", l: "None" }]}
+                                        onChange={(v) => updateBody({ separatorStyle: v as "line" | "dotted" | "none" })} />
+                                    </>
+                                  )}
+                                  {/* Max categories per body section */}
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-[11px] text-muted-foreground">Categories limit</Label>
+                                      <div className="flex items-center gap-1.5">
+                                        <Label className="text-[10px] text-muted-foreground">All</Label>
+                                        <Switch
+                                          checked={!bodyConfig.maxCategories}
+                                          onCheckedChange={(checked) => updateBody({ maxCategories: checked ? undefined : 3 })}
+                                          className="scale-75 origin-right"
+                                        />
+                                      </div>
+                                    </div>
+                                    {bodyConfig.maxCategories != null && bodyConfig.maxCategories > 0 && (
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={50}
+                                          value={bodyConfig.maxCategories}
+                                          onChange={(e) => {
+                                            const v = Math.max(1, Math.min(50, Number(e.target.value) || 1));
+                                            updateBody({ maxCategories: v });
+                                          }}
+                                          className="h-7 w-16 text-xs text-center"
+                                        />
+                                        <span className="text-[10px] text-muted-foreground">
+                                          max categories — overflow goes to next section
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                                {bodyConfig.maxCategories != null && bodyConfig.maxCategories > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      max={50}
-                                      value={bodyConfig.maxCategories}
-                                      onChange={(e) => {
-                                        const v = Math.max(1, Math.min(50, Number(e.target.value) || 1));
-                                        updateBody({ maxCategories: v });
-                                      }}
-                                      className="h-7 w-16 text-xs text-center"
-                                    />
-                                    <span className="text-[10px] text-muted-foreground">
-                                      max categories — overflow goes to next section
-                                    </span>
-                                  </div>
-                                )}
                               </div>
-                              <SelectRow label="Category Style" value={bodyConfig.categoryStyle}
-                                options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "custom", l: "Custom" }]}
-                                onChange={(v) => {
-                                  const newStyle = v as "lines" | "bold" | "minimal" | "custom";
-                                  if (newStyle === "custom" && bodyConfig.categoryStyle !== "custom") {
-                                    const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
-                                    const contentH = mmToPx(template.format.height) - template.spacing.marginTop - template.spacing.marginBottom;
-                                    updateBody({
-                                      categoryStyle: newStyle,
-                                      offsetX: bodyConfig.offsetX ?? 0,
-                                      offsetY: bodyConfig.offsetY ?? 0,
-                                      customWidth: bodyConfig.customWidth || contentW,
-                                      customHeight: bodyConfig.customHeight || Math.round(contentH * 0.6),
-                                    });
-                                  } else {
-                                    updateBody({ categoryStyle: newStyle });
-                                  }
-                                }} />
-                              {bodyConfig.categoryStyle === "custom" && (
-                                <>
-                                  <SliderRow label="X" value={bodyConfig.offsetX ?? 0} min={-200} max={800} unit="px"
-                                    onChange={(v) => updateBody({ offsetX: v })} />
-                                  <SliderRow label="Y" value={bodyConfig.offsetY ?? 0} min={-200} max={1200} unit="px"
-                                    onChange={(v) => updateBody({ offsetY: v })} />
-                                  <SliderRow label="W" value={bodyConfig.customWidth ?? 0} min={20} max={1200} unit="px"
-                                    onChange={(v) => updateBody({ customWidth: v || undefined })} />
-                                  <SliderRow label="H" value={bodyConfig.customHeight ?? 0} min={20} max={1600} unit="px"
-                                    onChange={(v) => updateBody({ customHeight: v || undefined })} />
-                                  <SelectRow label="Cat. Alignment" value={bodyConfig.categoryAlignment || "center"}
-                                    options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
-                                    onChange={(v) => updateBody({ categoryAlignment: v as "left" | "center" | "right" })} />
-                                  <SliderRow label="Font Size" value={bodyConfig.categoryFontSize ?? 9} min={6} max={48} unit="px"
-                                    onChange={(v) => updateBody({ categoryFontSize: v })} />
-                                  <SliderRow label="Spacing" value={bodyConfig.categoryLetterSpacing ?? 0.25} min={0} max={1} step={0.01} unit="em"
-                                    onChange={(v) => updateBody({ categoryLetterSpacing: v })} />
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px]">Font</Label>
-                                    <Select value={bodyConfig.categoryFont || "__default__"} onValueChange={(v) => updateBody({ categoryFont: v === "__default__" ? undefined : v })}>
-                                      <SelectTrigger className="h-7 text-xs">
-                                        <SelectValue placeholder="Template heading font" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="__default__">Default (heading)</SelectItem>
-                                        {FONT_CATALOG.map(f => (
-                                          <SelectItem key={f.family} value={f.family}>{f.name}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <ToggleRow label="Underline" checked={bodyConfig.categoryBorderBottom ?? false}
-                                    onChange={(v) => updateBody({ categoryBorderBottom: v })} />
-                                </>
-                              )}
-                              <SelectRow label="Alignment" value={bodyConfig.itemAlignment}
-                                options={[{ v: "center", l: "Centered" }, { v: "left", l: "Left Aligned" }, { v: "right", l: "Right Aligned" }]}
-                                onChange={(v) => updateBody({ itemAlignment: v as "center" | "left" | "right" })} />
-                              <SelectRow label="Price" value={bodyConfig.pricePosition}
-                                options={[{ v: "below", l: "Below Name" }, { v: "right", l: "Right Side" }, { v: "inline", l: "Inline" }]}
-                                onChange={(v) => updateBody({ pricePosition: v as "right" | "below" | "inline" })} />
-                              <SelectRow label="Separator" value={bodyConfig.separatorStyle}
-                                options={[{ v: "line", l: "Solid Line" }, { v: "dotted", l: "Dotted" }, { v: "none", l: "None" }]}
-                                onChange={(v) => updateBody({ separatorStyle: v as "line" | "dotted" | "none" })} />
-                              <ToggleRow label="Category Names" checked={bodyConfig.showCategoryName !== false}
-                                onChange={(v) => updateBody({ showCategoryName: v })} />
-                              <ToggleRow label="Descriptions" checked={bodyConfig.showDescriptions}
-                                onChange={(v) => updateBody({ showDescriptions: v })} />
-                              <ToggleRow label="Featured Badge" checked={bodyConfig.showFeaturedBadge}
-                                onChange={(v) => updateBody({ showFeaturedBadge: v })} />
-                              <ToggleRow label="Item Dot" checked={!!bodyConfig.showItemDot}
-                                onChange={(v) => updateBody({ showItemDot: v })} />
-                              {bodyConfig.showItemDot && (
-                                <ColorRow label="Dot Color" value={bodyConfig.itemDotColor || template.colors.primary}
-                                  onChange={(v) => updateBody({ itemDotColor: v })} />
-                              )}
-                              <ToggleRow label="Price Far Right" checked={!!bodyConfig.priceJustifyRight}
-                                onChange={(v) => updateBody({ priceJustifyRight: v })} />
 
-                              {/* ── Font Sizes ── */}
+                              {/* ── Display ── */}
                               <div className="pt-3 border-t border-border/50">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Font Sizes</Label>
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Display</Label>
                                 <div className="space-y-1.5 mt-2">
-                                  <SliderRow label="All" value={Math.round((bodyConfig.globalFontScale ?? 1) * 100)} min={50} max={200} unit="%"
-                                    onChange={(v) => updateBody({ globalFontScale: v / 100 })} />
+                                  <ToggleRow label="Category Names" checked={bodyConfig.showCategoryName !== false}
+                                    onChange={(v) => updateBody({ showCategoryName: v })} />
+                                  <ToggleRow label="Descriptions" checked={bodyConfig.showDescriptions}
+                                    onChange={(v) => updateBody({ showDescriptions: v })} />
+                                  <ToggleRow label="Featured Badge" checked={bodyConfig.showFeaturedBadge}
+                                    onChange={(v) => updateBody({ showFeaturedBadge: v })} />
+                                  <ToggleRow label="Item Dot" checked={!!bodyConfig.showItemDot}
+                                    onChange={(v) => updateBody({ showItemDot: v })} />
+                                  {bodyConfig.showItemDot && (
+                                    <ColorRow label="Dot Color" value={bodyConfig.itemDotColor || template.colors.primary}
+                                      onChange={(v) => updateBody({ itemDotColor: v })} />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* ── Category Style ── */}
+                              <div className="pt-3 border-t border-border/50">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Category Style</Label>
+                                <div className="space-y-1.5 mt-2">
+                                  <SelectRow label="Style" value={bodyConfig.categoryStyle}
+                                    options={[{ v: "lines", l: "Decorative Lines" }, { v: "bold", l: "Bold Header" }, { v: "minimal", l: "Minimal" }, { v: "custom", l: "Custom" }]}
+                                    onChange={(v) => {
+                                      const newStyle = v as "lines" | "bold" | "minimal" | "custom";
+                                      if (newStyle === "custom" && bodyConfig.categoryStyle !== "custom") {
+                                        const contentW = mmToPx(template.format.width) - template.spacing.marginLeft - template.spacing.marginRight;
+                                        const contentH = mmToPx(template.format.height) - template.spacing.marginTop - template.spacing.marginBottom;
+                                        updateBody({
+                                          categoryStyle: newStyle,
+                                          offsetX: bodyConfig.offsetX ?? 0,
+                                          offsetY: bodyConfig.offsetY ?? 0,
+                                          customWidth: bodyConfig.customWidth || contentW,
+                                          customHeight: bodyConfig.customHeight || Math.round(contentH * 0.6),
+                                        });
+                                      } else {
+                                        updateBody({ categoryStyle: newStyle });
+                                      }
+                                    }} />
+                                  {bodyConfig.categoryStyle === "custom" && (
+                                    <>
+                                      <SliderRow label="X" value={bodyConfig.offsetX ?? 0} min={-200} max={800} unit="px"
+                                        onChange={(v) => updateBody({ offsetX: v })} />
+                                      <SliderRow label="Y" value={bodyConfig.offsetY ?? 0} min={-200} max={1200} unit="px"
+                                        onChange={(v) => updateBody({ offsetY: v })} />
+                                      <SliderRow label="W" value={bodyConfig.customWidth ?? 0} min={20} max={1200} unit="px"
+                                        onChange={(v) => updateBody({ customWidth: v || undefined })} />
+                                      <SliderRow label="H" value={bodyConfig.customHeight ?? 0} min={20} max={1600} unit="px"
+                                        onChange={(v) => updateBody({ customHeight: v || undefined })} />
+                                      <SelectRow label="Alignment" value={bodyConfig.categoryAlignment || "center"}
+                                        options={[{ v: "left", l: "Left" }, { v: "center", l: "Center" }, { v: "right", l: "Right" }]}
+                                        onChange={(v) => updateBody({ categoryAlignment: v as "left" | "center" | "right" })} />
+                                      <SliderRow label="Font Size" value={bodyConfig.categoryFontSize ?? 9} min={6} max={48} unit="px"
+                                        onChange={(v) => updateBody({ categoryFontSize: v })} />
+                                      <SliderRow label="Letter Spacing" value={bodyConfig.categoryLetterSpacing ?? 0.25} min={0} max={1} step={0.01} unit="em"
+                                        onChange={(v) => updateBody({ categoryLetterSpacing: v })} />
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px]">Font</Label>
+                                        <Select value={bodyConfig.categoryFont || "__default__"} onValueChange={(v) => updateBody({ categoryFont: v === "__default__" ? undefined : v })}>
+                                          <SelectTrigger className="h-7 text-xs">
+                                            <SelectValue placeholder="Template heading font" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="__default__">Default (heading)</SelectItem>
+                                            {FONT_CATALOG.map(f => (
+                                              <SelectItem key={f.family} value={f.family}>{f.name}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <ToggleRow label="Underline" checked={bodyConfig.categoryBorderBottom ?? false}
+                                        onChange={(v) => updateBody({ categoryBorderBottom: v })} />
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* ── Typography ── */}
+                              <div className="pt-3 border-t border-border/50">
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Typography</Label>
+                                <div className="space-y-1.5 mt-2">
                                   <SliderRow label="Item" value={bodyConfig.itemFontSize ?? 14} min={8} max={36} unit="px"
                                     onChange={(v) => updateBody({ itemFontSize: v })} />
                                   <SliderRow label="Price" value={bodyConfig.priceFontSize ?? 12} min={6} max={30} unit="px"
@@ -1596,19 +1652,25 @@ export default function TemplateEditor() {
                                     <SliderRow label="Dot" value={bodyConfig.itemDotSize ?? 6} min={2} max={16} unit="px"
                                       onChange={(v) => updateBody({ itemDotSize: v })} />
                                   )}
+                                  <SelectRow label="Item Casing" value={bodyConfig.itemTextTransform ?? "uppercase"}
+                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
+                                    onChange={(v) => updateBody({ itemTextTransform: v as "uppercase" | "capitalize" | "none" })} />
+                                  <SelectRow label="Cat. Casing" value={bodyConfig.categoryTextTransform ?? "uppercase"}
+                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
+                                    onChange={(v) => updateBody({ categoryTextTransform: v as "uppercase" | "capitalize" | "none" })} />
                                 </div>
                               </div>
 
-                              {/* ── Text Transform ── */}
+                              {/* ── Spacing ── */}
                               <div className="pt-3 border-t border-border/50">
-                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Text Casing</Label>
+                                <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Spacing</Label>
                                 <div className="space-y-1.5 mt-2">
-                                  <SelectRow label="Items" value={bodyConfig.itemTextTransform ?? "uppercase"}
-                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
-                                    onChange={(v) => updateBody({ itemTextTransform: v as "uppercase" | "capitalize" | "none" })} />
-                                  <SelectRow label="Categories" value={bodyConfig.categoryTextTransform ?? "uppercase"}
-                                    options={[{ v: "uppercase", l: "UPPERCASE" }, { v: "capitalize", l: "Capitalize" }, { v: "none", l: "As typed" }]}
-                                    onChange={(v) => updateBody({ categoryTextTransform: v as "uppercase" | "capitalize" | "none" })} />
+                                  <SliderRow label="Item V" value={bodyConfig.itemSpacingV ?? template.spacing.itemGap} min={0} max={60} unit="px"
+                                    onChange={(v) => updateBody({ itemSpacingV: v })} />
+                                  <SliderRow label="Item H" value={bodyConfig.itemSpacingH ?? 0} min={0} max={60} unit="px"
+                                    onChange={(v) => updateBody({ itemSpacingH: v })} />
+                                  <SliderRow label="Cat Gap" value={bodyConfig.categorySpacingV ?? template.spacing.categoryGap} min={0} max={80} unit="px"
+                                    onChange={(v) => updateBody({ categorySpacingV: v })} />
                                 </div>
                               </div>
                             </>
@@ -1847,6 +1909,7 @@ export default function TemplateEditor() {
               capturingThumbnail={capturingThumbnail}
               selectedDecorationId={selectedDecorationId}
               onSelectDecoration={setSelectedDecorationId}
+              previewData={previewData}
             />
           </div>
         </div>
@@ -2202,7 +2265,7 @@ function NumberRow({ label, value, unit, onChange, compact }: {
 
 /* ── Live Preview ────────────────────────────────────────────────────── */
 
-function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard: _isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail, selectedDecorationId, onSelectDecoration }: {
+function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVariant, highlightedSection, isDraggingCard: _isDraggingCard, showMargins, onClickSection, lockedSections, capturingThumbnail, selectedDecorationId, onSelectDecoration, previewData }: {
   template: MenuTemplate; variant?: PageVariant; sectionOrder: SectionType[]; scale: number;
   onUpdateVariant?: (variantId: string, updates: Partial<PageVariant>) => void;
   highlightedSection?: SectionType | null;
@@ -2213,6 +2276,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
   capturingThumbnail?: boolean;
   selectedDecorationId?: string | null;
   onSelectDecoration?: (id: string | null) => void;
+  previewData?: MenuData;
 }) {
   /* ─── Figma-like interaction state ───────────────────────────────── */
   const [selectedSection, setSelectedSection] = useState<SectionType | null>(null);
@@ -2613,10 +2677,9 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
 
   if (!variant) return <div className="flex items-center justify-center h-full text-muted-foreground text-xs">Select a variant</div>;
 
-  const data = sampleMenuData;
+  const data = previewData ?? sampleMenuData;
   const { colors, fonts, spacing } = template;
-  const gScale = (v?: PageVariant) => v?.body.globalFontScale ?? 1;
-  const fs = (size: number, v?: PageVariant) => `${Math.round(size * gScale(v))}px`;
+  const fs = (size: number) => `${Math.round(size * scale)}px`;
 
   /* ─── Helpers ────────────────────────────────────────────────────── */
 
@@ -2747,6 +2810,68 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
     );
   };
 
+  const renderItems = (items: { id: string; name: string; price: number; description: string; featured?: boolean }[], bc: import("../../types/template").VariantBodyConfig, key: string) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: `${(bc.itemSpacingV ?? spacing.itemGap) * scale}px` }}>
+      {items.slice(0, bc.columns > 1 ? 6 : 9).map((item) => (
+        <div key={item.id} style={{
+          textAlign: bc.itemAlignment,
+          paddingLeft: bc.itemSpacingH ? `${bc.itemSpacingH * scale}px` : undefined,
+          paddingRight: bc.itemSpacingH ? `${bc.itemSpacingH * scale}px` : undefined,
+        }}>
+          <div style={{
+            display: bc.pricePosition === "right" ? "flex" : "block",
+            width: "100%",
+            justifyContent: bc.pricePosition === "right"
+              ? (bc.priceJustifyRight ? "space-between" : bc.itemAlignment === "right" ? "flex-end" : bc.itemAlignment === "center" ? "center" : "flex-start")
+              : undefined,
+            alignItems: "baseline",
+            gap: bc.pricePosition === "right" ? "4px" : undefined,
+          }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "4px", flexShrink: 0, justifyContent: bc.itemAlignment === "center" ? "center" : bc.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
+              {bc.showItemDot && (
+                <span style={{ width: (bc.itemDotSize ?? 6) * scale, height: (bc.itemDotSize ?? 6) * scale, borderRadius: "50%", backgroundColor: bc.itemDotColor || colors.primary, flexShrink: 0, position: "relative", top: "-1px" }} />
+              )}
+              <p style={{ fontSize: fs(bc.itemFontSize ?? 14), fontWeight: 700, textTransform: bc.itemTextTransform ?? "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
+                {item.name}
+              </p>
+              {bc.pricePosition === "inline" && (
+                <span style={{ fontSize: fs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
+              )}
+              {item.featured && bc.showFeaturedBadge && (
+                <span style={{ fontSize: fs(10), color: colors.accent, marginLeft: "2px" }}>★</span>
+              )}
+            </div>
+            {bc.pricePosition === "right" && (
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: bc.priceJustifyRight ? 1 : undefined, marginLeft: bc.priceJustifyRight ? "4px" : undefined, justifyContent: bc.priceJustifyRight ? "flex-end" : undefined }}>
+                {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
+                  <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
+                )}
+                {bc.priceJustifyRight && bc.separatorStyle === "line" && (
+                  <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "10px" }} />
+                )}
+                <span style={{ fontSize: fs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>€{item.price}</span>
+              </div>
+            )}
+          </div>
+          {bc.showDescriptions && item.description && (
+            <p style={{
+              fontSize: fs(bc.descriptionFontSize ?? 12), color: colors.muted, fontStyle: "italic", marginTop: "2px",
+              maxWidth: bc.columns > 1 ? "140px" : "200px",
+              marginLeft: bc.itemAlignment === "center" || bc.itemAlignment === "right" ? "auto" : undefined,
+              marginRight: bc.itemAlignment === "center" ? "auto" : undefined,
+              fontFamily: fonts.body,
+            }}>
+              {item.description.slice(0, 60)}…
+            </p>
+          )}
+          {bc.pricePosition === "below" && !bc.priceJustifyRight && (
+            <p style={{ fontSize: fs(bc.priceFontSize ?? 12), color: colors.price || colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
   const renderBackgroundImage = (section: "header" | "body" | `body-${number}`) => {
     const cfg = isBodySection(section) ? getBodyForSection(variant, section) : (variant as any)[section];
     if (!cfg.image?.url) return null;
@@ -2776,15 +2901,15 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
           }}>
             {renderBackgroundImage("header")}
             {variant.header.showSubtitle && (
-              <p style={{ fontSize: fs(7), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
+              <p style={{ fontSize: fs(10), letterSpacing: "0.3em", color: colors.primary, textTransform: "uppercase", fontWeight: 600, marginBottom: "8px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
                 {data.subtitle}
               </p>
             )}
-            <h1 style={{ fontFamily: fonts.heading, fontSize: fs(22), fontWeight: 400, fontStyle: "italic", letterSpacing: "0.05em", color: colors.text, position: "relative", zIndex: 1 }}>
+            <h1 style={{ fontFamily: fonts.heading, fontSize: fs(36), fontWeight: 400, fontStyle: "italic", letterSpacing: "0.05em", color: colors.text, position: "relative", zIndex: 1 }}>
               {data.restaurantName}
             </h1>
             {variant.header.showEstablished && data.established && (
-              <p style={{ fontSize: fs(7), letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
+              <p style={{ fontSize: fs(10), letterSpacing: "0.2em", color: colors.muted, textTransform: "uppercase", marginTop: "6px", fontFamily: fonts.body, position: "relative", zIndex: 1 }}>
                 EST. {data.established}
               </p>
             )}
@@ -2805,104 +2930,56 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
             position: "relative",
             display: bc.columns > 1 ? "grid" : "block",
             gridTemplateColumns: bc.columns > 1 ? `repeat(${bc.columns}, 1fr)` : undefined,
-            gap: bc.columns > 1 ? `0 ${spacing.categoryGap * 0.3}px` : undefined,
+            gap: bc.columns > 1 ? `0 ${spacing.categoryGap * scale}px` : undefined,
             flex: 1,
           }}>
-            {data.categories.map((cat, catIdx) => (
-              <div key={cat.id} style={{ marginBottom: `${spacing.categoryGap * 0.4}px`, position: "relative", zIndex: 1 }}>
-                {bc.showCategoryName !== false && (
-                <div style={{
-                  textAlign: bc.categoryStyle === "custom" ? (bc.categoryAlignment || "center") : bc.itemAlignment,
-                  marginBottom: `${spacing.itemGap * 0.4}px`,
-                  display: bc.categoryStyle === "lines" && bc.itemAlignment === "center" ? "flex" : "block",
-                  alignItems: "center", justifyContent: "center", gap: "8px",
-                }}>
-                  {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
-                    <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
-                  )}
-                  <h2 style={{
-                    fontSize: fs(bc.categoryStyle === "custom"
-                      ? (bc.categoryFontSize ?? 9)
-                      : bc.categoryStyle === "bold" ? 9 : 8),
-                    letterSpacing: bc.categoryStyle === "custom"
-                      ? `${bc.categoryLetterSpacing ?? 0.25}em`
-                      : "0.25em",
-                    color: colors.primary, textTransform: bc.categoryTextTransform ?? "uppercase",
-                    fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
-                    whiteSpace: "nowrap",
-                    fontFamily: bc.categoryStyle === "custom"
-                      ? (bc.categoryFont || fonts.heading)
-                      : bc.categoryStyle === "bold" ? fonts.heading : fonts.body,
-                    borderBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
-                      ? `2px solid ${colors.primary}` : "none",
-                    paddingBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
-                      ? "4px" : "0",
+            {bc.showCategoryName !== false ? (
+              /* With category names: render each category as a separate group */
+              data.categories.map((cat, catIdx) => (
+                <div key={cat.id} style={{ marginBottom: `${(bc.categorySpacingV ?? spacing.categoryGap) * scale}px`, position: "relative", zIndex: 1 }}>
+                  <div style={{
+                    textAlign: bc.categoryStyle === "custom" ? (bc.categoryAlignment || "center") : bc.itemAlignment,
+                    marginBottom: `${(bc.itemSpacingV ?? spacing.itemGap) * scale}px`,
+                    display: bc.categoryStyle === "lines" && bc.itemAlignment === "center" ? "flex" : "block",
+                    alignItems: "center", justifyContent: "center", gap: "8px",
                   }}>
-                    {cat.name}
-                  </h2>
-                  {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
-                    <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
-                  )}
+                    {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
+                      <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
+                    )}
+                    <h2 style={{
+                      fontSize: fs(bc.categoryStyle === "custom"
+                        ? (bc.categoryFontSize ?? 11)
+                        : bc.categoryStyle === "bold" ? 13 : 11),
+                      letterSpacing: bc.categoryStyle === "custom"
+                        ? `${bc.categoryLetterSpacing ?? 0.25}em`
+                        : "0.25em",
+                      color: colors.primary, textTransform: bc.categoryTextTransform ?? "uppercase",
+                      fontWeight: bc.categoryStyle === "bold" || bc.categoryStyle === "custom" ? 800 : 600,
+                      whiteSpace: "nowrap",
+                      fontFamily: bc.categoryStyle === "custom"
+                        ? (bc.categoryFont || fonts.heading)
+                        : bc.categoryStyle === "bold" ? fonts.heading : fonts.body,
+                      borderBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
+                        ? `2px solid ${colors.primary}` : "none",
+                      paddingBottom: (bc.categoryStyle === "bold" || (bc.categoryStyle === "custom" && bc.categoryBorderBottom))
+                        ? "4px" : "0",
+                    }}>
+                      {cat.name}
+                    </h2>
+                    {bc.categoryStyle === "lines" && bc.itemAlignment === "center" && (
+                      <span style={{ flex: 1, maxWidth: 30, height: 1, backgroundColor: colors.primary, opacity: 0.3 }} />
+                    )}
+                  </div>
+                  {renderItems(cat.items, bc, cat.id)}
+                  {catIdx < data.categories.length - 1 && bc.separatorStyle !== "dotted" && renderSeparator(bc.separatorStyle)}
                 </div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: `${spacing.itemGap * 0.3}px` }}>
-                  {cat.items.slice(0, bc.columns > 1 ? 2 : 3).map((item) => (
-                    <div key={item.id} style={{ textAlign: bc.itemAlignment }}>
-                      <div style={{
-                        display: bc.pricePosition === "right" ? "flex" : "block",
-                        width: "100%",
-                        justifyContent: bc.pricePosition === "right"
-                          ? (bc.priceJustifyRight ? "space-between" : bc.itemAlignment === "right" ? "flex-end" : bc.itemAlignment === "center" ? "center" : "flex-start")
-                          : undefined,
-                        alignItems: "baseline",
-                        gap: bc.pricePosition === "right" ? "4px" : undefined,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", flexShrink: 0, justifyContent: bc.itemAlignment === "center" ? "center" : bc.itemAlignment === "right" ? "flex-end" : "flex-start" }}>
-                          {bc.showItemDot && (
-                            <span style={{ width: (bc.itemDotSize ?? 6) * 0.6, height: (bc.itemDotSize ?? 6) * 0.6, borderRadius: "50%", backgroundColor: bc.itemDotColor || colors.primary, flexShrink: 0, position: "relative", top: "-1px" }} />
-                          )}
-                          <p style={{ fontSize: fs(bc.itemFontSize ?? 8, variant), fontWeight: 700, textTransform: bc.itemTextTransform ?? "uppercase", letterSpacing: "0.05em", fontFamily: fonts.body, color: colors.text }}>
-                            {item.name}
-                          </p>
-                          {bc.pricePosition === "inline" && (
-                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600 }}>€{item.price}</span>
-                          )}
-                          {item.featured && bc.showFeaturedBadge && (
-                            <span style={{ fontSize: fs(5, variant), color: colors.accent, marginLeft: "2px" }}>★</span>
-                          )}
-                        </div>
-                        {bc.pricePosition === "right" && (
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px", flex: bc.priceJustifyRight ? 1 : undefined, marginLeft: bc.priceJustifyRight ? "4px" : undefined, justifyContent: bc.priceJustifyRight ? "flex-end" : undefined }}>
-                            {bc.priceJustifyRight && bc.separatorStyle === "dotted" && (
-                              <span style={{ flex: 1, borderBottom: `1px dotted ${colors.muted}66`, minWidth: "10px" }} />
-                            )}
-                            {bc.priceJustifyRight && bc.separatorStyle === "line" && (
-                              <span style={{ flex: 1, height: "1px", backgroundColor: `${colors.muted}33`, minWidth: "10px" }} />
-                            )}
-                            <span style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>€{item.price}</span>
-                          </div>
-                        )}
-                      </div>
-                      {bc.showDescriptions && item.description && (
-                        <p style={{
-                          fontSize: fs(bc.descriptionFontSize ?? 6, variant), color: colors.muted, fontStyle: "italic", marginTop: "2px",
-                          maxWidth: bc.columns > 1 ? "140px" : "200px",
-                          marginLeft: bc.itemAlignment === "center" || bc.itemAlignment === "right" ? "auto" : undefined,
-                          marginRight: bc.itemAlignment === "center" ? "auto" : undefined,
-                          fontFamily: fonts.body,
-                        }}>
-                          {item.description.slice(0, 60)}…
-                        </p>
-                      )}
-                      {bc.pricePosition === "below" && !bc.priceJustifyRight && (
-                        <p style={{ fontSize: fs(bc.priceFontSize ?? 7, variant), color: colors.price || colors.primary, fontWeight: 600, marginTop: "3px" }}>€{item.price}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {catIdx < data.categories.length - 1 && bc.separatorStyle !== "dotted" && renderSeparator(bc.separatorStyle)}
+              ))
+            ) : (
+              /* Without category names: all items in a single flat list */
+              <div style={{ position: "relative", zIndex: 1 }}>
+                {renderItems(data.categories.flatMap(c => c.items), bc, "all")}
               </div>
-            ))}
+            )}
           </div>
         );
       }
@@ -2956,7 +3033,7 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
                 }} />
               ) : (
                 <div style={{ width: "100%", height: imgHeight, background: `${colors.muted}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <p style={{ fontSize: fs(6), color: colors.muted, fontFamily: fonts.body }}>No image set</p>
+                  <p style={{ fontSize: fs(12), color: colors.muted, fontFamily: fonts.body }}>No image set</p>
                 </div>
               )}
               <div style={{ 
