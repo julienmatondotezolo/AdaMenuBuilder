@@ -131,16 +131,51 @@ export async function syncTemplatesFromBackend(token: string): Promise<void> {
   for (const [name, remote] of remoteByName) {
     const local = localByName.get(name);
     if (local) {
-      // Update publish tracking on local template
       const remoteIds: Record<string, string> = {};
       for (const [rid, tid] of remote.restaurants) {
         remoteIds[rid] = tid;
       }
-      await db.templates.update(local.id, {
-        publishedAt: remote.template.updated_at,
-        publishedHash: getTemplateHash(local),
-        remoteIds,
-      });
+
+      // If local has unpublished changes, only update publish tracking
+      // If local is clean, also pull content updates from remote
+      const pj = remote.template.project_json as Record<string, unknown>;
+      const remoteIsNewer = new Date(remote.template.updated_at) > new Date(local.updatedAt);
+
+      if (!local.hasLocalChanges && remoteIsNewer && pj && pj._format === "ada-menu-template") {
+        // Update content + publish tracking from remote
+        const updated: Partial<MenuTemplate> = {
+          description: remote.template.description || local.description,
+          thumbnail: remote.template.thumbnail || local.thumbnail,
+          format: pj.format as MenuTemplate["format"],
+          orientation: (pj.orientation as "portrait" | "landscape") || local.orientation,
+          colors: pj.colors as MenuTemplate["colors"],
+          fonts: pj.fonts as MenuTemplate["fonts"],
+          spacing: pj.spacing as MenuTemplate["spacing"],
+          pageVariants: ((pj.pageVariants as Array<Record<string, unknown>>) || []).map((v) => ({
+            id: (v.id as string) || `var-${uid()}`,
+            name: (v.name as string) || "Page",
+            header: v.header as MenuTemplate["pageVariants"][0]["header"],
+            body: v.body as MenuTemplate["pageVariants"][0]["body"],
+            highlight: v.highlight as MenuTemplate["pageVariants"][0]["highlight"],
+            extraBodies: v.extraBodies as MenuTemplate["pageVariants"][0]["extraBodies"],
+            sectionOrder: v.sectionOrder as MenuTemplate["pageVariants"][0]["sectionOrder"],
+            decorations: v.decorations as MenuTemplate["pageVariants"][0]["decorations"],
+          })),
+          publishedAt: remote.template.updated_at,
+          remoteIds,
+          hasLocalChanges: false,
+          updatedAt: new Date().toISOString(),
+        };
+        updated.publishedHash = getTemplateHash({ ...local, ...updated } as MenuTemplate);
+        await db.templates.update(local.id, updated);
+      } else {
+        // Only update publish tracking
+        await db.templates.update(local.id, {
+          publishedAt: remote.template.updated_at,
+          publishedHash: getTemplateHash(local),
+          remoteIds,
+        });
+      }
     } else {
       // Import from remote — reconstruct local template from project_json
       const pj = remote.template.project_json as Record<string, unknown>;
