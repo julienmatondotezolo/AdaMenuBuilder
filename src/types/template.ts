@@ -248,6 +248,7 @@ export type WebBlockType =
   | "featured-spotlight"
   | "image-banner"
   | "info-bar"
+  | "search"
   | "footer";
 
 interface WebBlockBase {
@@ -295,6 +296,11 @@ export interface WebInfoBarBlock extends WebBlockBase {
   layout: "row" | "column";
 }
 
+export interface WebSearchBlock extends WebBlockBase {
+  type: "search";
+  placeholder: string;
+}
+
 export interface WebFooterBlock extends WebBlockBase {
   type: "footer";
   showAddress: boolean;
@@ -309,6 +315,7 @@ export type WebBlock =
   | WebFeaturedSpotlightBlock
   | WebImageBannerBlock
   | WebInfoBarBlock
+  | WebSearchBlock
   | WebFooterBlock;
 
 export interface WebLayoutSpacing {

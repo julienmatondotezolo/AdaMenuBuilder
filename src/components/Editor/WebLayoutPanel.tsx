@@ -12,6 +12,7 @@ import {
   Info,
   Navigation,
   Footprints,
+  Search,
 } from "lucide-react";
 import {
   Button,
@@ -58,6 +59,7 @@ const BLOCK_META: Record<WebBlockType, { label: string; icon: typeof TypeIcon }>
   "featured-spotlight": { label: "Featured",          icon: Star },
   "image-banner":       { label: "Image Banner",      icon: ImageIcon },
   "info-bar":           { label: "Info Bar",           icon: Info },
+  "search":             { label: "Search",             icon: Search },
   "footer":             { label: "Footer",             icon: Footprints },
 };
 
@@ -76,6 +78,8 @@ function createBlock(type: WebBlockType): WebBlock {
       return { id, type, height: 180, objectFit: "cover" };
     case "info-bar":
       return { id, type, items: [], layout: "row" };
+    case "search":
+      return { id, type, placeholder: "Search menu..." };
     case "footer":
       return { id, type, showAddress: true, showPhone: true, customText: "" };
   }

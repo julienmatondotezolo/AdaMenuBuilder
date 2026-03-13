@@ -84,7 +84,7 @@ function DetailedItem({ item, colors, fonts, block }: { item: MenuItem; colors: 
 
 function CategoryBlock({ category, block, colors, fonts, borderRadius }: { category: Category; block: WebMenuSectionBlockType; colors: ColorScheme; fonts: FontScheme; borderRadius: number }) {
   return (
-    <div>
+    <div data-category-id={category.id}>
       <h3 style={{ fontFamily: fonts.heading, fontSize: 18, fontWeight: 700, color: colors.text, marginBottom: 12, marginTop: 0 }}>
         {category.name}
       </h3>

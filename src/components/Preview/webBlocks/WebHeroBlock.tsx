@@ -7,9 +7,12 @@ interface Props {
   menuData: MenuData;
   colors: ColorScheme;
   fonts: FontScheme;
+  templateName?: string;
 }
 
-export default function WebHeroBlock({ block, menuData, colors, fonts }: Props) {
+export default function WebHeroBlock({ block, menuData, colors, fonts, templateName }: Props) {
+  const displayName = menuData.restaurantName || templateName || "Menu";
+
   return (
     <div
       style={{
@@ -46,7 +49,7 @@ export default function WebHeroBlock({ block, menuData, colors, fonts }: Props) 
             lineHeight: 1.2,
           }}
         >
-          {menuData.restaurantName}
+          {displayName}
         </h1>
         {menuData.subtitle && (
           <p

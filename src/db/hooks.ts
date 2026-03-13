@@ -164,6 +164,7 @@ export async function exportTemplate(id: string): Promise<string | undefined> {
       sectionOrder: v.sectionOrder,
       decorations: v.decorations,
     })),
+    webLayout: tpl.webLayout,
   };
 
   return JSON.stringify(exportData, null, 2);
@@ -216,6 +217,7 @@ export async function importTemplate(jsonString: string): Promise<MenuTemplate> 
     fonts: data.fonts as MenuTemplate["fonts"],
     spacing: data.spacing as MenuTemplate["spacing"],
     previewMenuId: data.previewMenuId as string | undefined,
+    webLayout: data.webLayout as MenuTemplate["webLayout"],
     pageVariants: ((data.pageVariants as Array<Record<string, unknown>>) || []).map((v) => ({
       id: `var-${uid()}`,
       name: (v.name as string) || "Page",

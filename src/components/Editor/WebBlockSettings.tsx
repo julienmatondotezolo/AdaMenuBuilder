@@ -107,6 +107,16 @@ export default function WebBlockSettings({ block, onChange }: Props) {
         </div>
       );
 
+    case "search":
+      return (
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Label className="text-[10px]">Placeholder Text</Label>
+            <Input className="h-7 text-xs" value={block.placeholder} placeholder="Search menu..." onChange={(e) => onChange({ placeholder: e.target.value } as any)} />
+          </div>
+        </div>
+      );
+
     case "footer":
       return (
         <div className="space-y-2">
