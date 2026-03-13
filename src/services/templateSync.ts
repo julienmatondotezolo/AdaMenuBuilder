@@ -29,6 +29,7 @@ interface RemoteBuiltIn {
   fonts: MenuTemplate["fonts"];
   spacing: MenuTemplate["spacing"];
   page_variants: MenuTemplate["pageVariants"];
+  web_layout?: MenuTemplate["webLayout"];
   version: number;
   created_at: string;
   updated_at: string;
@@ -63,6 +64,7 @@ export async function syncBuiltInTemplates(token: string): Promise<void> {
         fonts: remote.fonts,
         spacing: remote.spacing,
         pageVariants: remote.page_variants,
+        webLayout: remote.web_layout,
         builtInVersion: remote.version,
         createdAt: remote.created_at,
         updatedAt: now,

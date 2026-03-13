@@ -126,6 +126,7 @@ export function getTemplateHash(tpl: MenuTemplate): string {
     fonts: tpl.fonts,
     spacing: tpl.spacing,
     pageVariants: tpl.pageVariants,
+    webLayout: tpl.webLayout,
   });
   // Simple djb2 hash
   let hash = 5381;
