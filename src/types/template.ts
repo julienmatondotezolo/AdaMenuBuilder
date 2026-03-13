@@ -254,6 +254,8 @@ export interface MenuTemplate {
   spacing: SpacingConfig;
   pageVariants: PageVariant[];
   previewMenuId?: string;         // menu ID used for preview data ("sample" or a real menu ID)
+  publishedAt?: string;           // ISO timestamp of last publish
+  publishedHash?: string;         // hash of template content at publish time
   createdAt: string;
   updatedAt: string;
 }

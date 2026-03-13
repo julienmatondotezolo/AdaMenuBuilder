@@ -110,6 +110,28 @@ export async function duplicateTemplate(id: string): Promise<MenuTemplate | unde
   return copy;
 }
 
+/* ── Template Hash (for publish change detection) ────────────────────── */
+
+/** Generate a simple hash of template content to detect changes since last publish */
+export function getTemplateHash(tpl: MenuTemplate): string {
+  const content = JSON.stringify({
+    name: tpl.name,
+    description: tpl.description,
+    format: tpl.format,
+    orientation: tpl.orientation,
+    colors: tpl.colors,
+    fonts: tpl.fonts,
+    spacing: tpl.spacing,
+    pageVariants: tpl.pageVariants,
+  });
+  // Simple djb2 hash
+  let hash = 5381;
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) + hash + content.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
 /* ── Template Export / Import ────────────────────────────────────────── */
 
 /** Export a template as a JSON blob (strips internal IDs, adds export metadata) */

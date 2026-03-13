@@ -331,6 +331,11 @@ function TemplateCard({ template, isDropdownOpen, onToggleDropdown, onEdit, onDu
             </p>
           </div>
           <div className="flex items-center gap-1.5 ml-2 shrink-0">
+            {template.publishedAt ? (
+              <Badge variant="default" className="text-[10px]">Published</Badge>
+            ) : (
+              !template.isBuiltIn && <Badge variant="outline" className="text-[10px]">Draft</Badge>
+            )}
             <Badge variant="secondary">{template.format.type}</Badge>
             <div className="relative">
               <Button variant="ghost" size="icon-sm" onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleDropdown(); }}>

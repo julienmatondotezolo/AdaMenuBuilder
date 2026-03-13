@@ -66,7 +66,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate } from "../db/hooks";
+import { useTemplateById, updateTemplate, deleteTemplate, downloadTemplate, getTemplateHash } from "../db/hooks";
 import type { MenuTemplate, PageVariant, VariantBodyConfig, HighlightStyle, Decoration, ShapeDecoration, TextDecoration, ImageDecoration, DecorationGradient, ShapePreset } from "../types/template";
 import { PAGE_FORMATS, mmToPx } from "../types/template";
 import { sampleMenuData } from "../data/sampleMenu";
@@ -611,6 +611,13 @@ export default function TemplateEditor() {
         is_default: isDefault,
         published_by: user?.id,
       });
+      // Mark template as published locally
+      if (id) {
+        await updateTemplate(id, {
+          publishedAt: new Date().toISOString(),
+          publishedHash: getTemplateHash(template),
+        });
+      }
       setShowPublishDialog(false);
     } catch (err: any) {
       setPublishError(err.message || 'Failed to publish');
@@ -681,12 +688,15 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
-          {(user?.role === 'admin' || user?.role === 'owner') && (
-            <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)}>
-              <Rocket className="w-4 h-4 mr-1.5" />
-              Publish
-            </Button>
-          )}
+          {(user?.role === 'admin' || user?.role === 'owner') && (() => {
+            const isUpToDate = !!template.publishedHash && template.publishedHash === getTemplateHash(template);
+            return (
+              <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)} disabled={isUpToDate}>
+                <Rocket className="w-4 h-4 mr-1.5" />
+                {isUpToDate ? "Published" : "Publish"}
+              </Button>
+            );
+          })()}
           <Button
             size="sm"
             onClick={handleSave}
