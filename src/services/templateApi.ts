@@ -1,5 +1,4 @@
 import { API_URL } from '../config/api';
-import { AUTH_URL } from '../config/auth';
 
 interface Restaurant {
   id: string;
@@ -7,9 +6,9 @@ interface Restaurant {
   slug: string;
 }
 
-/** Fetch restaurants the user has access to */
+/** Fetch restaurants the user has access to (via menu backend) */
 export async function fetchRestaurants(token: string): Promise<Restaurant[]> {
-  const res = await fetch(`${AUTH_URL}/owner/restaurants`, {
+  const res = await fetch(`${API_URL}/api/v1/restaurants`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Failed to fetch restaurants');
