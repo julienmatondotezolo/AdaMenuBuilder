@@ -266,6 +266,13 @@ export default function TemplateEditor() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedDecorationId, activeVariantForEffect, id, template?.pageVariants]);
 
+  // Fetch restaurants when publish dialog opens
+  useEffect(() => {
+    if (showPublishDialog && token) {
+      fetchRestaurants(token).then(setRestaurants).catch(() => setRestaurants([]));
+    }
+  }, [showPublishDialog, token]);
+
   if (!template) {
     if (loadTimeout) {
       return (
@@ -571,13 +578,6 @@ export default function TemplateEditor() {
       setIsSaving(false);
     }
   };
-
-  // Fetch restaurants when publish dialog opens
-  useEffect(() => {
-    if (showPublishDialog && token) {
-      fetchRestaurants(token).then(setRestaurants).catch(() => setRestaurants([]));
-    }
-  }, [showPublishDialog, token]);
 
   const handlePublish = async () => {
     if (!token || !selectedRestaurant || !template) return;
