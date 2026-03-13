@@ -30,6 +30,10 @@ import {
   Link2,
   Link2Off,
   Rocket,
+  FileText,
+  Smartphone,
+  Monitor,
+  QrCode,
 } from "lucide-react";
 import {
   Button,
@@ -137,6 +141,7 @@ export default function TemplateEditor() {
   const [showSaved, setShowSaved] = useState(false);
   const [loadTimeout, setLoadTimeout] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const [previewMode, setPreviewMode] = useState("paper");
 
   // Decoration state
   const [selectedDecorationId, setSelectedDecorationId] = useState<string | null>(null);
@@ -2182,7 +2187,7 @@ export default function TemplateEditor() {
         </div>
 
         {/* ═══ RIGHT: Live Preview ═══ */}
-        <div className="flex-1 flex items-center justify-center bg-muted/30 overflow-auto p-6">
+        <div className="flex-1 relative flex items-center justify-center bg-muted/30 overflow-auto p-6">
           <div
             ref={previewRef}
             className="bg-white rounded-sm overflow-hidden"
@@ -2208,6 +2213,30 @@ export default function TemplateEditor() {
               onSelectDecoration={setSelectedDecorationId}
               previewData={previewData}
             />
+          </div>
+
+          {/* ── Preview icons — vertically centered, fixed right ──────── */}
+          <div className="absolute inset-y-0 right-3 z-30 flex flex-col items-center justify-center gap-2">
+            {([
+              { id: "paper", label: "Paper", icon: FileText },
+              { id: "mobile", label: "Phone", icon: Smartphone },
+              { id: "desktop", label: "Desktop", icon: Monitor },
+              { id: "qr", label: "QR Code", icon: QrCode },
+            ] as const).map(({ id, label, icon: Icon }) => (
+              <div
+                key={id}
+                onClick={() => setPreviewMode(id)}
+                title={label}
+                className={cn(
+                  "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm cursor-pointer",
+                  previewMode === id
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20",
+                )}
+              >
+                <Icon className="w-5 h-5" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
