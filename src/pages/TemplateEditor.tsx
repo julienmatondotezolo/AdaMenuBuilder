@@ -681,7 +681,7 @@ export default function TemplateEditor() {
             <Download className="w-4 h-4 mr-1.5" />
             Export
           </Button>
-          {user?.role === 'admin' && (
+          {(user?.role === 'admin' || user?.role === 'owner') && (
             <Button variant="outline" size="sm" onClick={() => setShowPublishDialog(true)}>
               <Rocket className="w-4 h-4 mr-1.5" />
               Publish
