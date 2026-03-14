@@ -8,12 +8,12 @@ import { useAuth } from "../context/AuthContext";
 import { db, type MenuDraft } from "../db/dexie";
 import Header from "../components/Header";
 import EditorPanel from "../components/Editor/EditorPanel";
+import AIChatPanel from "../components/Editor/AIChatPanel";
 import PreviewPanel, { type PreviewMode } from "../components/Preview/PreviewPanel";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
-import { fetchCompleteMenu, updateBackendMenu, type BackendMenu } from "../services/menuApi";
-import { API_URL } from "../config/api";
+import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
 import type { MenuData } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
 import { mmToPx } from "../types/template";
@@ -24,7 +24,7 @@ export default function MenuEditor() {
   const restaurantId = searchParams.get("restaurant") || "";
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem } = useMenu();
+  const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem, aiMode } = useMenu();
   const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
   const [backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,100 +141,42 @@ export default function MenuEditor() {
     if (!id || !token || !restaurantId) return;
     setPublishing(true);
     try {
-      // Update menu metadata
-      await updateBackendMenu(token, restaurantId, id, {
+      // Single bulk request replaces all categories, items, and pages
+      const result = await bulkPublishMenu(token, restaurantId, id, {
         title: menuData.title,
         subtitle: menuData.subtitle || undefined,
         template_id: templateId || undefined,
         status: "published",
+        categories: menuData.categories.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          items: cat.items.map((item) => ({
+            name: item.name,
+            price: item.price,
+            description: item.description || undefined,
+            featured: item.featured || false,
+          })),
+        })),
+        pages: pages.map((p) => ({
+          variant_id: p.variantId,
+          category_ids: p.categoryIds,
+        })),
       });
 
-      // Delete existing categories first (cascade deletes items too)
-      const existingCatsRes = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (existingCatsRes.ok) {
-        const existingCats = await existingCatsRes.json();
-        for (const cat of existingCats.data || []) {
-          await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories/${cat.id}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-      }
-
-      // Create categories + items fresh, tracking old→new ID mapping
-      const categoryIdMap = new Map<string, string>(); // old local ID → new backend ID
-
-      for (let i = 0; i < menuData.categories.length; i++) {
-        const category = menuData.categories[i];
-        const catRes = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            names: [{ language: "en", name: category.name }],
-            display_order: i,
-          }),
-        });
-
-        if (!catRes.ok) continue;
-        const catData = await catRes.json();
-        const backendCatId = catData.data.id;
-
-        // Map old category ID to new backend ID
-        categoryIdMap.set(category.id, backendCatId);
-
-        for (let j = 0; j < category.items.length; j++) {
-          const item = category.items[j];
-          await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories/${backendCatId}/items`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              names: [{ language: "en", name: item.name }],
-              descriptions: item.description ? [{ language: "en", description: item.description }] : [],
-              price: item.price,
-              featured: item.featured || false,
-              display_order: j,
-            }),
-          });
-        }
-      }
-
-      // Sync pages with remapped category IDs
-      if (pages.length > 0) {
-        await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/pages`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            pages: pages.map((p) => ({
-              variant_id: p.variantId,
-              category_ids: p.categoryIds.map((oldId) => categoryIdMap.get(oldId) || oldId),
-            })),
-          }),
-        });
-      }
-
-      // Update local state with new backend category IDs so subsequent publishes work
-      const updatedCategories = menuData.categories.map((cat) => ({
-        ...cat,
-        id: categoryIdMap.get(cat.id) || cat.id,
+      // Update local state with new backend category IDs
+      const idMap = result.categoryIdMap;
+      setMenuData((prev) => ({
+        ...prev,
+        categories: prev.categories.map((cat) => ({
+          ...cat,
+          id: idMap[cat.id] || cat.id,
+        })),
       }));
-      setMenuData((prev) => ({ ...prev, categories: updatedCategories }));
 
-      // Update pages with new category IDs
       setPages((prev) =>
         prev.map((p) => ({
           ...p,
-          categoryIds: p.categoryIds.map((oldId) => categoryIdMap.get(oldId) || oldId),
+          categoryIds: p.categoryIds.map((oldId) => idMap[oldId] || oldId),
         }))
       );
 
@@ -297,12 +239,12 @@ export default function MenuEditor() {
       />
 
       <main className="flex-1 flex overflow-hidden">
-        {/* Editor Panel */}
+        {/* Left Panel — Editor or AI Chat */}
         <div
           className="w-[440px] shrink-0 bg-white"
           style={{ boxShadow: "2px 0 8px rgba(0,0,0,0.06)" }}
         >
-          <EditorPanel />
+          {aiMode ? <AIChatPanel menuId={id} /> : <EditorPanel />}
         </div>
 
         {/* Preview */}

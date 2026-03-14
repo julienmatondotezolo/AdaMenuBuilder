@@ -55,6 +55,9 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
   }, []);
   const [dragState, setDragState] = useState<DragState>(INITIAL_DRAG_STATE);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [aiModifiedIds, setAiModifiedIds] = useState<Set<string>>(new Set());
+  const [aiMode, setAiMode] = useState(false);
+  const [pendingAiMessage, setPendingAiMessage] = useState<string | null>(null);
 
   const selectItem = useCallback((id: string | null) => {
     setSelectedItemId((prev) => (prev === id ? null : id));
@@ -120,7 +123,7 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
 
   // ---- Item CRUD ----
   const addItem = useCallback(
-    (categoryId: string, item: Partial<MenuItem>) => {
+    (categoryId: string, item: Partial<MenuItem>): string => {
       const newItem: MenuItem = {
         id: `item-${uid()}`,
         name: item.name || "New Item",
@@ -134,6 +137,7 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
           c.id === categoryId ? { ...c, items: [...c.items, newItem] } : c,
         ),
       }));
+      return newItem.id;
     },
     [],
   );
@@ -330,6 +334,12 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
     setDragState,
     selectedItemId,
     selectItem,
+    aiModifiedIds,
+    setAiModifiedIds,
+    aiMode,
+    setAiMode,
+    pendingAiMessage,
+    setPendingAiMessage,
   };
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

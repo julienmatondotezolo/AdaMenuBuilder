@@ -117,3 +117,106 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(220 8.9% 46.1% / 0.5);
 }
+
+/* ── AI Skeleton Scan Animation (Editor Panel) ─────────────────────── */
+@keyframes ai-scan {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.ai-skeleton-scan {
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-skeleton-scan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(232 100% 66% / 0.08) 25%,
+    hsl(232 100% 66% / 0.18) 50%,
+    hsl(232 100% 66% / 0.08) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ai-scan 1.8s ease-in-out infinite;
+  border: 2px solid hsl(232 100% 66% / 0.3);
+}
+
+/* ── AI Preview Scan Animation (Menu Preview — glow effect) ────────── */
+@keyframes ai-preview-glow {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ai-preview-border-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px hsl(232 100% 66% / 0.2),
+                0 0 8px hsl(232 100% 66% / 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 2px hsl(232 100% 66% / 0.4),
+                0 0 20px hsl(232 100% 66% / 0.2),
+                0 0 40px hsl(232 100% 66% / 0.05);
+  }
+}
+
+.ai-preview-scan {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  animation: ai-preview-border-pulse 1.5s ease-in-out infinite;
+}
+
+.ai-preview-scan::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: hsl(232 100% 66% / 0.04);
+}
+
+.ai-preview-scan::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  z-index: 11;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(232 100% 66% / 0.06) 20%,
+    hsl(232 100% 66% / 0.15) 45%,
+    hsl(232 100% 66% / 0.25) 50%,
+    hsl(232 100% 66% / 0.15) 55%,
+    hsl(232 100% 66% / 0.06) 80%,
+    transparent 100%
+  );
+  animation: ai-preview-glow 2s ease-in-out infinite;
+}

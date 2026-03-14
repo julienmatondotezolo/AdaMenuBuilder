@@ -19,7 +19,7 @@ export default function MenuItemCard({
   isDraggingActive,
   isOverlay,
 }: MenuItemCardProps) {
-  const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem } =
+  const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem, aiModifiedIds } =
     useMenu();
   const [isEditing, setIsEditing] = useState(false);
   const isSelected = selectedItemId === item.id;
@@ -90,6 +90,8 @@ export default function MenuItemCard({
         /* Overlay / drag */
         isOverlay && "shadow-lg border-primary/60 z-50",
         isDragOver && "border-primary/50",
+        /* AI modification skeleton */
+        aiModifiedIds.has(item.id) && "ai-skeleton-scan",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
       onMouseLeave={() => clearHover(item.id)}

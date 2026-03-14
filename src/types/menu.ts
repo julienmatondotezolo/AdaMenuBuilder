@@ -90,7 +90,7 @@ export interface MenuContextValue {
   duplicateCategory: (categoryId: string) => string | null;
   removeCategory: (categoryId: string) => void;
   updateCategory: (categoryId: string, updates: Partial<Category>) => void;
-  addItem: (categoryId: string, item: Partial<MenuItem>) => void;
+  addItem: (categoryId: string, item: Partial<MenuItem>) => string;
   removeItem: (categoryId: string, itemId: string) => void;
   updateItem: (
     categoryId: string,
@@ -106,4 +106,10 @@ export interface MenuContextValue {
   setDragState: React.Dispatch<React.SetStateAction<DragState>>;
   selectedItemId: string | null;
   selectItem: (id: string | null) => void;
+  aiModifiedIds: Set<string>;
+  setAiModifiedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  aiMode: boolean;
+  setAiMode: (mode: boolean) => void;
+  pendingAiMessage: string | null;
+  setPendingAiMessage: (msg: string | null) => void;
 }

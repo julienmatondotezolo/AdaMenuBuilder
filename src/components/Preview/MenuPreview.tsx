@@ -24,6 +24,7 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     selectItem,
     activePageIndex,
     setActivePageIndex,
+    aiModifiedIds,
   } = useMenu();
 
   // Load template fonts
@@ -262,6 +263,7 @@ function PageContent({
   selectedItemId,
   selectItem,
 }: PageContentProps) {
+  const { aiModifiedIds } = useMenu();
   const headerConfig = variant?.header ?? { show: true, style: "centered" as const, showSubtitle: true, showEstablished: true, showDivider: true };
   const bodyConfig = variant?.body ?? { columns: 1, categoryStyle: "lines" as const, itemAlignment: "center" as const, pricePosition: "below" as const, separatorStyle: "line" as const, showDescriptions: true, showFeaturedBadge: true };
   const highlightConfig = variant?.highlight ?? { show: true, position: "bottom" as const, style: "fit" as const, height: 200, marginTop: 12, marginBottom: 0, marginLeft: 0, marginRight: 0, imageFit: "cover" as const, imageLocked: false };
@@ -626,7 +628,7 @@ function PageContent({
       <div
         key={category.id}
         data-category-id={category.id}
-        className={`transition-all duration-200 ${categoryHighlightClass(catState)}`}
+        className={`transition-all duration-200 ${categoryHighlightClass(catState)} ${aiModifiedIds.has(category.id) ? "ai-preview-scan" : ""}`}
         style={{ marginBottom: `${bc.categorySpacingV ?? spacing.categoryGap}px` }}
         onMouseEnter={() => !isActiveDrag && setHover(category.id, "category")}
         onMouseLeave={() => clearHover(category.id)}
@@ -681,7 +683,7 @@ function PageContent({
               <div
                 key={item.id}
                 data-item-id={item.id}
-                className={`transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)}`}
+                className={`transition-all duration-200 py-1 cursor-pointer ${itemHighlightClass(itemState)} ${aiModifiedIds.has(item.id) ? "ai-preview-scan" : ""}`}
                 style={{
                   textAlign: isCenterB ? "center" : isRightB ? "right" : "left",
                   paddingLeft: bc.itemSpacingH ? `${bc.itemSpacingH}px` : undefined,

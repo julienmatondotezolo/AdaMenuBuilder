@@ -90,3 +90,44 @@ export async function fetchCompleteMenu(token: string, restaurantId: string, men
   const data = await res.json();
   return data.data;
 }
+
+/** Bulk publish — single request to replace all categories, items, and pages */
+export async function bulkPublishMenu(
+  token: string,
+  restaurantId: string,
+  menuId: string,
+  payload: {
+    title: string;
+    subtitle?: string;
+    template_id?: string;
+    status: string;
+    categories: {
+      id: string;
+      name: string;
+      items: {
+        name: string;
+        price: number;
+        description?: string;
+        featured?: boolean;
+      }[];
+    }[];
+    pages: { variant_id: string; category_ids: string[] }[];
+  }
+): Promise<{ categoryIdMap: Record<string, string> }> {
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${menuId}/bulk`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to publish menu");
+  }
+
+  const data = await res.json();
+  return data.data;
+}

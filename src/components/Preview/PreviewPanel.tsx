@@ -5,9 +5,10 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Volume2, ArrowRight, Copy, Check, Loader2 } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Copy, Check, Loader2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn, Button, Input, Switch, Label } from "ada-design-system";
+import { cn, Button, Switch, Label } from "ada-design-system";
+import AIPromptBar from "../AIPromptBar";
 import { QRCodeSVG } from "qrcode.react";
 import MenuPreview from "./MenuPreview";
 import DeviceMockup from "./DeviceMockup";
@@ -232,7 +233,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 /* ── Main Preview Panel ──────────────────────────────────────────────── */
 
 export default function PreviewPanel({ template, menuId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
-  const { menuData, selectedItemId, activePageIndex } = useMenu();
+  const { menuData, selectedItemId, activePageIndex, aiMode } = useMenu();
   const [internalMode, setInternalMode] = useState<PreviewMode>("paper");
 
   // Use controlled mode if provided, otherwise internal
@@ -607,26 +608,11 @@ export default function PreviewPanel({ template, menuId, previewData, previewMod
         </div>
       )}
 
-      {/* ── Magic Prompt — fixed bottom-center (paper, mobile, desktop) ─ */}
-      {(isPaper || isWeb) && (
+      {/* ── AI Prompt — fixed bottom-center (paper, mobile, desktop), hidden in AI mode ── */}
+      {(isPaper || isWeb) && !aiMode && (
         <div className="absolute bottom-4 inset-x-0 z-30 pointer-events-auto flex justify-center px-4">
           <div className="w-[90%] max-w-2xl">
-            <div className="flex items-center gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-2.5">
-              <Button size="sm" className="flex items-center gap-2 text-xs font-semibold shrink-0">
-                <Volume2 className="w-3.5 h-3.5" />
-                Speak
-              </Button>
-              <Input
-                type="text"
-                placeholder="Describe your menu changes — e.g. 'Make all pasta prices €14' or 'Add a vegan section with 3 dishes'"
-                className="flex-1 bg-transparent border-none focus:ring-0 focus:border-none shadow-none"
-              />
-              <div className="flex items-center shrink-0">
-                <Button size="icon" className="w-8 h-8 shrink-0">
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+            <AIPromptBar menuId={menuId} />
           </div>
         </div>
       )}

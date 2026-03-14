@@ -52,6 +52,7 @@ export default function CategorySection({
     clearHover,
     hoveredId,
     dragState,
+    aiModifiedIds,
   } = useMenu();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(category.name);
@@ -106,6 +107,7 @@ export default function CategorySection({
       };
 
   const isHighlighted = hoveredId === category.id;
+  const isAiModified = aiModifiedIds.has(category.id);
 
   // Force collapsed when used as drag overlay
   const effectiveCollapsed = forceCollapsed || isCollapsed;
@@ -197,6 +199,7 @@ export default function CategorySection({
         "border border-border bg-card",
         isHighlighted && !isDraggingActive && "ring-1 ring-primary/20",
         isOverlay && "shadow-xl border-primary/50",
+        isAiModified && "ai-skeleton-scan",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
