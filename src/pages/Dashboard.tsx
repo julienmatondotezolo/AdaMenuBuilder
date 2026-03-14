@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { uid } from "../utils/uid";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -9,6 +8,8 @@ import {
   Trash2,
   Pencil,
   LayoutTemplate,
+  Store,
+  Loader2,
 } from "lucide-react";
 import {
   Button,
@@ -29,64 +30,113 @@ import {
   DialogDescription,
   SkeletonCard,
 } from "ada-design-system";
-import { useMenus, useTemplates, deleteMenu, duplicateMenu, createMenu } from "../db/hooks";
-import type { Menu, MenuData } from "../types/menu";
-
-const emptyMenuData: MenuData = {
-  title: "",
-  restaurantName: "",
-  subtitle: "",
-  established: "",
-  highlightImage: "",
-  highlightLabel: "",
-  highlightTitle: "",
-  lastEditedBy: "",
-  lastEditedTime: "",
-  categories: [],
-};
+import { useTemplates } from "../db/hooks";
+import { useAuth } from "../context/AuthContext";
+import { fetchRestaurants, type Restaurant } from "../services/templateApi";
+import { fetchMenus, createBackendMenu, deleteBackendMenu, type BackendMenu } from "../services/menuApi";
 
 export default function Dashboard() {
-  const menus = useMenus();
   const templates = useTemplates();
   const navigate = useNavigate();
+  const { token, user } = useAuth();
+
+  const isAdmin = user?.role === "admin";
+
+  // Restaurant state
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>("");
+  const [loadingRestaurants, setLoadingRestaurants] = useState(true);
+
+  // Menu state
+  const [menus, setMenus] = useState<BackendMenu[] | null>(null);
+  const [loadingMenus, setLoadingMenus] = useState(false);
+
+  // Dialog state
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [createRestaurantId, setCreateRestaurantId] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Fetch restaurants on mount
+  useEffect(() => {
+    if (!token) return;
+    fetchRestaurants(token)
+      .then((r) => {
+        setRestaurants(r);
+        if (r.length > 0) {
+          setSelectedRestaurantId(r[0].id);
+          setCreateRestaurantId(r[0].id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingRestaurants(false));
+  }, [token]);
+
+  // Fetch menus when restaurant changes
+  const loadMenus = useCallback(async () => {
+    if (!token || !selectedRestaurantId) return;
+    setLoadingMenus(true);
+    try {
+      if (isAdmin) {
+        // Admin: fetch from all restaurants
+        const allMenus: BackendMenu[] = [];
+        for (const r of restaurants) {
+          const rMenus = await fetchMenus(token, r.id);
+          allMenus.push(...rMenus);
+        }
+        // Sort by updated_at descending
+        allMenus.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        setMenus(allMenus);
+      } else {
+        const data = await fetchMenus(token, selectedRestaurantId);
+        setMenus(data);
+      }
+    } catch {
+      setMenus([]);
+    } finally {
+      setLoadingMenus(false);
+    }
+  }, [token, selectedRestaurantId, isAdmin, restaurants]);
+
+  useEffect(() => {
+    if (restaurants.length > 0) loadMenus();
+  }, [loadMenus, restaurants]);
 
   const handleCreateMenu = async () => {
-    if (!newTitle.trim() || !selectedTemplateId) return;
-    const template = templates?.find((t) => t.id === selectedTemplateId);
-    if (!template) return;
+    if (!newTitle.trim() || !token) return;
 
-    const now = new Date().toISOString();
-    const menu: Menu = {
-      id: `menu-${uid()}`,
-      title: newTitle.trim(),
-      templateId: selectedTemplateId,
-      status: "draft",
-      data: { ...emptyMenuData, title: newTitle.trim() },
-      pages: [
-        { id: `page-${uid()}`, variantId: template.pageVariants[0]?.id || "cover", categoryIds: [] },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    };
-    await createMenu(menu);
-    setShowNewMenu(false);
-    setNewTitle("");
-    navigate(`/menus/${menu.id}/edit`);
+    const targetRestaurantId = isAdmin ? createRestaurantId : selectedRestaurantId;
+    if (!targetRestaurantId) return;
+
+    setCreating(true);
+    try {
+      const menu = await createBackendMenu(token, targetRestaurantId, {
+        title: newTitle.trim(),
+        template_id: selectedTemplateId || undefined,
+      });
+      setShowNewMenu(false);
+      setNewTitle("");
+      // Reload menus to reflect new one
+      await loadMenus();
+      navigate(`/menus/${menu.id}/edit?restaurant=${targetRestaurantId}`);
+    } catch (err: any) {
+      alert(err.message || "Failed to create menu");
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const handleDuplicate = async (id: string) => {
+  const handleDelete = async (menu: BackendMenu) => {
     setOpenDropdown(null);
-    await duplicateMenu(id);
-  };
-
-  const handleDelete = async (id: string) => {
-    setOpenDropdown(null);
-    if (confirm("Delete this menu? This cannot be undone.")) {
-      await deleteMenu(id);
+    if (!token) return;
+    if (!confirm("Delete this menu? This cannot be undone.")) return;
+    try {
+      await deleteBackendMenu(token, menu.restaurant_id, menu.id);
+      await loadMenus();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete menu");
     }
   };
 
@@ -98,6 +148,18 @@ export default function Dashboard() {
     }
   };
 
+  const getRestaurantName = (restaurantId: string) => {
+    return restaurants.find((r) => r.id === restaurantId)?.name || "";
+  };
+
+  if (loadingRestaurants) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-muted/30">
       {/* Top bar */}
@@ -107,11 +169,29 @@ export default function Dashboard() {
           <h1 className="text-lg font-bold text-foreground">My Menus</h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* Restaurant filter (non-admin with multiple restaurants) */}
+          {!isAdmin && restaurants.length > 1 && (
+            <Select value={selectedRestaurantId} onValueChange={setSelectedRestaurantId}>
+              <SelectTrigger className="w-[180px] h-8 text-xs">
+                <Store className="w-3.5 h-3.5 mr-1.5" />
+                <SelectValue placeholder="Restaurant" />
+              </SelectTrigger>
+              <SelectContent>
+                {restaurants.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button variant="outline" size="sm" onClick={() => navigate("/templates")}>
             <LayoutTemplate className="w-4 h-4 mr-2" />
             Templates
           </Button>
-          <Button size="sm" onClick={() => { setSelectedTemplateId(templates?.[0]?.id || ""); setShowNewMenu(true); }}>
+          <Button size="sm" onClick={() => {
+            setSelectedTemplateId(templates?.[0]?.id || "");
+            setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
+            setShowNewMenu(true);
+          }}>
             <Plus className="w-4 h-4 mr-2" />
             New Menu
           </Button>
@@ -137,11 +217,29 @@ export default function Dashboard() {
                 onKeyDown={(e) => e.key === "Enter" && handleCreateMenu()}
               />
             </div>
+
+            {/* Restaurant selector — admin sees all, non-admin with multiple sees their restaurants */}
+            {(isAdmin || restaurants.length > 1) && (
+              <div className="space-y-2">
+                <Label>Restaurant</Label>
+                <Select value={createRestaurantId} onValueChange={setCreateRestaurantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select restaurant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {restaurants.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Template</Label>
               <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a template" />
+                  <SelectValue placeholder="Choose a template (optional)" />
                 </SelectTrigger>
                 <SelectContent>
                   {templates?.map((t) => (
@@ -152,8 +250,12 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleCreateMenu}>Create Menu</Button>
+              <Button onClick={handleCreateMenu} disabled={!newTitle.trim() || creating}>
+                {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {creating ? "Creating..." : "Create Menu"}
+              </Button>
               <Button variant="outline" onClick={() => setShowNewMenu(false)}>Cancel</Button>
             </div>
           </div>
@@ -162,7 +264,7 @@ export default function Dashboard() {
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {!menus ? (
+        {loadingMenus || !menus ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
           </div>
@@ -172,7 +274,11 @@ export default function Dashboard() {
               <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
               <p className="text-lg font-medium text-muted-foreground">No menus yet</p>
               <p className="text-sm text-muted-foreground/60 mt-1">Create your first menu to get started</p>
-              <Button size="sm" className="mt-6" onClick={() => { setSelectedTemplateId(templates?.[0]?.id || ""); setShowNewMenu(true); }}>
+              <Button size="sm" className="mt-6" onClick={() => {
+                setSelectedTemplateId(templates?.[0]?.id || "");
+                setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
+                setShowNewMenu(true);
+              }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Create Menu
               </Button>
@@ -184,12 +290,11 @@ export default function Dashboard() {
               <MenuCard
                 key={menu.id}
                 menu={menu}
-                templateName={templates?.find((t) => t.id === menu.templateId)?.name}
+                restaurantName={isAdmin ? getRestaurantName(menu.restaurant_id) : undefined}
                 isDropdownOpen={openDropdown === menu.id}
                 onToggleDropdown={() => setOpenDropdown(openDropdown === menu.id ? null : menu.id)}
-                onEdit={() => navigate(`/menus/${menu.id}/edit`)}
-                onDuplicate={() => handleDuplicate(menu.id)}
-                onDelete={() => handleDelete(menu.id)}
+                onEdit={() => navigate(`/menus/${menu.id}/edit?restaurant=${menu.restaurant_id}`)}
+                onDelete={() => handleDelete(menu)}
                 formatDate={formatDate}
               />
             ))}
@@ -197,7 +302,11 @@ export default function Dashboard() {
             {/* New menu card */}
             <Card
               className="cursor-pointer border-2 border-dashed transition-colors hover:border-primary/40"
-              onClick={() => { setSelectedTemplateId(templates?.[0]?.id || ""); setShowNewMenu(true); }}
+              onClick={() => {
+                setSelectedTemplateId(templates?.[0]?.id || "");
+                setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
+                setShowNewMenu(true);
+              }}
             >
               <CardContent className="flex flex-col items-center justify-center gap-3 py-16">
                 <Plus className="w-8 h-8 text-muted-foreground/40" />
@@ -214,17 +323,16 @@ export default function Dashboard() {
 /* ── Menu Card ───────────────────────────────────────────────────────── */
 
 interface MenuCardProps {
-  menu: Menu;
-  templateName?: string;
+  menu: BackendMenu;
+  restaurantName?: string;
   isDropdownOpen: boolean;
   onToggleDropdown: () => void;
   onEdit: () => void;
-  onDuplicate: () => void;
   onDelete: () => void;
   formatDate: (iso: string) => string;
 }
 
-function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit, onDuplicate, onDelete, formatDate }: MenuCardProps) {
+function MenuCard({ menu, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, formatDate }: MenuCardProps) {
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md"
@@ -233,11 +341,13 @@ function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit
       {/* Preview area */}
       <div className="h-32 bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-[8px] tracking-[0.3em] text-primary/60 uppercase font-semibold">
-            {menu.data.subtitle || "MENU"}
-          </p>
+          {restaurantName && (
+            <p className="text-[8px] tracking-[0.3em] text-primary/60 uppercase font-semibold">
+              {restaurantName}
+            </p>
+          )}
           <p className="text-lg font-light italic text-foreground/70 mt-1">
-            {menu.data.restaurantName || menu.title}
+            {menu.title}
           </p>
         </div>
       </div>
@@ -247,8 +357,7 @@ function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-bold text-foreground truncate">{menu.title}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {templateName && <span>{templateName} · </span>}
-              {formatDate(menu.updatedAt)}
+              {formatDate(menu.updated_at)}
             </p>
           </div>
           <div className="flex items-center gap-1.5 ml-2 shrink-0">
@@ -268,9 +377,6 @@ function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit
                   <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Pencil className="w-3 h-3" /> Edit
                   </button>
-                  <button onClick={onDuplicate} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
-                    <Copy className="w-3 h-3" /> Duplicate
-                  </button>
                   <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
                     <Trash2 className="w-3 h-3" /> Delete
                   </button>
@@ -279,9 +385,6 @@ function MenuCard({ menu, templateName, isDropdownOpen, onToggleDropdown, onEdit
             </div>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground/60 mt-2">
-          {menu.data.categories.length} categories · {menu.data.categories.reduce((sum, c) => sum + c.items.length, 0)} items · {menu.pages.length} {menu.pages.length === 1 ? "page" : "pages"}
-        </p>
       </CardContent>
     </Card>
   );

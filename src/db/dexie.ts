@@ -1,12 +1,23 @@
 import Dexie, { type Table } from "dexie";
-import type { Menu } from "../types/menu";
+import type { Menu, MenuData, MenuPage } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
 import { BUILT_IN_TEMPLATES, LUMIERE_TEMPLATE } from "../data/builtInTemplates";
 import { createSampleMenu } from "../data/sampleMenu";
 
+/** Local draft of a backend menu — stores unsaved edits */
+export interface MenuDraft {
+  id: string;              // backend menu ID
+  restaurantId: string;
+  data: MenuData;
+  pages: MenuPage[];
+  templateId: string;
+  updatedAt: string;
+}
+
 class AdaMenuDB extends Dexie {
   menus!: Table<Menu, string>;
   templates!: Table<MenuTemplate, string>;
+  drafts!: Table<MenuDraft, string>;
 
   constructor() {
     super("AdaMenuDB");
@@ -14,6 +25,12 @@ class AdaMenuDB extends Dexie {
     this.version(1).stores({
       menus: "id, templateId, status, updatedAt",
       templates: "id, isBuiltIn, updatedAt",
+    });
+
+    this.version(2).stores({
+      menus: "id, templateId, status, updatedAt",
+      templates: "id, isBuiltIn, updatedAt",
+      drafts: "id, restaurantId, updatedAt",
     });
   }
 }

@@ -1,57 +1,269 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "ada-design-system";
-import { useMenuById, updateMenu, useTemplateById } from "../db/hooks";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Loader2, X, FileText, Smartphone, Monitor } from "lucide-react";
+import { Button, cn } from "ada-design-system";
+import { useTemplateById } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
+import { useAuth } from "../context/AuthContext";
+import { db, type MenuDraft } from "../db/dexie";
 import Header from "../components/Header";
 import EditorPanel from "../components/Editor/EditorPanel";
-import PreviewPanel from "../components/Preview/PreviewPanel";
+import PreviewPanel, { type PreviewMode } from "../components/Preview/PreviewPanel";
+import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
+import DeviceMockup from "../components/Preview/DeviceMockup";
+import MenuPreview from "../components/Preview/MenuPreview";
+import { fetchCompleteMenu, updateBackendMenu, type BackendMenu } from "../services/menuApi";
+import { API_URL } from "../config/api";
+import type { MenuData } from "../types/menu";
+import type { MenuTemplate } from "../types/template";
+import { mmToPx } from "../types/template";
 
 export default function MenuEditor() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const restaurantId = searchParams.get("restaurant") || "";
   const navigate = useNavigate();
-  const menu = useMenuById(id);
-  const { menuData, setMenuData, templateId, setTemplateId, pages, setPages } = useMenu();
+  const { token } = useAuth();
+  const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem } = useMenu();
   const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
+  const [backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("paper");
+  const initialized = useRef(false);
 
-  // Live-query the template — auto-updates when template changes
+  // Live-query the template
   const template = useTemplateById(templateId || undefined);
 
-  // Load menu data from IndexedDB into context
+  // Load menu: try local draft first, then backend
   useEffect(() => {
-    if (menu) {
-      setMenuData(menu.data);
-      setTemplateId(menu.templateId);
-      setPages(menu.pages);
-      setLastSaved(menu.updatedAt);
+    if (!id || !token || !restaurantId) {
+      setError("Missing menu ID or restaurant");
+      setLoading(false);
+      return;
     }
-  }, [menu?.id]);
 
-  // Auto-save back to IndexedDB when menuData or pages change
+    async function load() {
+      try {
+        // Check for local draft first
+        const draft = await db.drafts.get(id!);
+        if (draft) {
+          setMenuData(draft.data);
+          setTemplateId(draft.templateId);
+          setPages(draft.pages);
+          setLastSaved(draft.updatedAt);
+          initialized.current = true;
+          setLoading(false);
+
+          // Still fetch backend menu for metadata
+          try {
+            const data = await fetchCompleteMenu(token!, restaurantId, id!);
+            setBackendMenu(data);
+          } catch {}
+          return;
+        }
+
+        // No local draft — fetch from backend
+        const data = await fetchCompleteMenu(token!, restaurantId, id!);
+        setBackendMenu(data);
+
+        const categories = (data.categories || []).map((cat: any) => ({
+          id: cat.id,
+          name: getLocalizedName(cat.names),
+          items: [
+            ...(cat.items || []).map(mapBackendItem),
+            ...(cat.subcategories || []).flatMap((sub: any) =>
+              (sub.items || []).map(mapBackendItem)
+            ),
+          ],
+        }));
+
+        setMenuData({
+          title: data.title || "",
+          restaurantName: "",
+          subtitle: data.subtitle || "",
+          established: "",
+          highlightImage: "",
+          highlightLabel: "",
+          highlightTitle: "",
+          lastEditedBy: "",
+          lastEditedTime: "",
+          categories,
+        });
+
+        if (data.template_id) {
+          setTemplateId(data.template_id);
+        }
+
+        if (data.pages && data.pages.length > 0) {
+          setPages(data.pages.map((p: any) => ({
+            id: p.id,
+            variantId: p.variant_id,
+            categoryIds: p.category_ids || [],
+          })));
+        }
+
+        setLastSaved(data.updated_at);
+        initialized.current = true;
+      } catch (err: any) {
+        setError(err.message || "Failed to load menu");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, [id, token, restaurantId]);
+
+  // Auto-save draft to IndexedDB on changes
   useEffect(() => {
-    if (!id || !menu) return;
+    if (!initialized.current || !id || !restaurantId) return;
     const timeout = setTimeout(() => {
       const now = new Date().toISOString();
-      updateMenu(id, { data: menuData, pages });
+      const draft: MenuDraft = {
+        id,
+        restaurantId,
+        data: menuData,
+        pages,
+        templateId,
+        updatedAt: now,
+      };
+      db.drafts.put(draft);
       setLastSaved(now);
     }, 500);
     return () => clearTimeout(timeout);
-  }, [menuData, pages, id]);
+  }, [menuData, pages, templateId, id, restaurantId]);
 
-  // Persist templateId changes to IndexedDB
-  useEffect(() => {
-    if (!id || !menu || !templateId || templateId === menu.templateId) return;
-    const now = new Date().toISOString();
-    updateMenu(id, { templateId });
-    setLastSaved(now);
-  }, [templateId, id]);
+  // Publish: push all data to backend
+  const handlePublish = useCallback(async () => {
+    if (!id || !token || !restaurantId) return;
+    setPublishing(true);
+    try {
+      // Update menu metadata
+      await updateBackendMenu(token, restaurantId, id, {
+        title: menuData.title,
+        subtitle: menuData.subtitle || undefined,
+        template_id: templateId || undefined,
+        status: "published",
+      });
 
-  if (!menu) {
+      // Delete existing categories first (cascade deletes items too)
+      const existingCatsRes = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (existingCatsRes.ok) {
+        const existingCats = await existingCatsRes.json();
+        for (const cat of existingCats.data || []) {
+          await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories/${cat.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      }
+
+      // Create categories + items fresh, tracking old→new ID mapping
+      const categoryIdMap = new Map<string, string>(); // old local ID → new backend ID
+
+      for (let i = 0; i < menuData.categories.length; i++) {
+        const category = menuData.categories[i];
+        const catRes = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            names: [{ language: "en", name: category.name }],
+            display_order: i,
+          }),
+        });
+
+        if (!catRes.ok) continue;
+        const catData = await catRes.json();
+        const backendCatId = catData.data.id;
+
+        // Map old category ID to new backend ID
+        categoryIdMap.set(category.id, backendCatId);
+
+        for (let j = 0; j < category.items.length; j++) {
+          const item = category.items[j];
+          await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/categories/${backendCatId}/items`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              names: [{ language: "en", name: item.name }],
+              descriptions: item.description ? [{ language: "en", description: item.description }] : [],
+              price: item.price,
+              featured: item.featured || false,
+              display_order: j,
+            }),
+          });
+        }
+      }
+
+      // Sync pages with remapped category IDs
+      if (pages.length > 0) {
+        await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${id}/pages`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pages: pages.map((p) => ({
+              variant_id: p.variantId,
+              category_ids: p.categoryIds.map((oldId) => categoryIdMap.get(oldId) || oldId),
+            })),
+          }),
+        });
+      }
+
+      // Update local state with new backend category IDs so subsequent publishes work
+      const updatedCategories = menuData.categories.map((cat) => ({
+        ...cat,
+        id: categoryIdMap.get(cat.id) || cat.id,
+      }));
+      setMenuData((prev) => ({ ...prev, categories: updatedCategories }));
+
+      // Update pages with new category IDs
+      setPages((prev) =>
+        prev.map((p) => ({
+          ...p,
+          categoryIds: p.categoryIds.map((oldId) => categoryIdMap.get(oldId) || oldId),
+        }))
+      );
+
+      // Clear local draft after successful publish
+      await db.drafts.delete(id);
+      setLastSaved(new Date().toISOString());
+    } catch (err: any) {
+      alert(err.message || "Failed to publish");
+    } finally {
+      setPublishing(false);
+    }
+  }, [id, token, restaurantId, menuData, pages, templateId]);
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
           <p>Loading menu...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <div className="text-center">
+          <p>{error}</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -61,9 +273,28 @@ export default function MenuEditor() {
     );
   }
 
+  // Full-screen preview overlay
+  if (showPreview) {
+    return (
+      <FullScreenPreview
+        previewMode={previewMode}
+        onModeChange={setPreviewMode}
+        onClose={() => setShowPreview(false)}
+        menuData={menuData}
+        template={template}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <Header template={template} lastSaved={lastSaved} />
+      <Header
+        template={template}
+        lastSaved={lastSaved}
+        onPreview={() => { selectItem(null); setShowPreview(true); }}
+        onPublish={handlePublish}
+        publishing={publishing}
+      />
 
       <main className="flex-1 flex overflow-hidden">
         {/* Editor Panel */}
@@ -76,9 +307,128 @@ export default function MenuEditor() {
 
         {/* Preview */}
         <div className="flex-1 min-w-0 relative">
-          <PreviewPanel template={template} menuId={id} previewData={menuData} />
+          <PreviewPanel
+            template={template}
+            menuId={id}
+            previewData={menuData}
+            previewMode={previewMode}
+            onPreviewModeChange={setPreviewMode}
+          />
         </div>
       </main>
     </div>
   );
+}
+
+// ── Full-screen preview ─────────────────────────────────────────────────────
+
+const PREVIEW_MODES = [
+  { id: "paper" as PreviewMode, label: "Paper", icon: FileText },
+  { id: "mobile" as PreviewMode, label: "Mobile", icon: Smartphone },
+  { id: "desktop" as PreviewMode, label: "Desktop", icon: Monitor },
+];
+
+function FullScreenPreview({
+  previewMode,
+  onModeChange,
+  onClose,
+  menuData,
+  template,
+}: {
+  previewMode: PreviewMode;
+  onModeChange: (mode: PreviewMode) => void;
+  onClose: () => void;
+  menuData: MenuData;
+  template?: MenuTemplate;
+}) {
+  const activeWebLayout =
+    previewMode === "desktop"
+      ? template?.webLayoutDesktop
+      : template?.webLayoutMobile;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Header with view switcher */}
+      <header className="h-12 flex items-center justify-between px-4 bg-background border-b border-border shrink-0">
+        <span className="text-sm font-semibold text-foreground">
+          Preview: {menuData.title || "Menu"}
+        </span>
+
+        {/* View switcher */}
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          {PREVIEW_MODES.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => onModeChange(id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                previewMode === id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <Button variant="ghost" size="icon-sm" onClick={onClose}>
+          <X className="w-5 h-5" />
+        </Button>
+      </header>
+
+      {/* Preview content */}
+      <div className="flex-1 overflow-auto flex items-center justify-center bg-muted p-6">
+        {previewMode === "paper" && template && (
+          <div
+            className="bg-white shadow-xl"
+            style={{ width: `${mmToPx(template.format.width)}px` }}
+          >
+            <MenuPreview template={template} />
+          </div>
+        )}
+
+        {(previewMode === "mobile" || previewMode === "desktop") && (
+          <>
+            {activeWebLayout && template ? (
+              <DeviceMockup mode={previewMode}>
+                <WebMenuRenderer
+                  webLayout={activeWebLayout}
+                  menuData={menuData}
+                  colors={template.colors}
+                  fonts={template.fonts}
+                  templateName={template.name}
+                  mode={previewMode}
+                />
+              </DeviceMockup>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                <p className="text-sm">No {previewMode} web layout configured.</p>
+                <p className="text-xs mt-1">Set it up in the Template Editor first.</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function getLocalizedName(names: { language: string; name: string }[], lang = "en"): string {
+  if (!names || names.length === 0) return "";
+  const match = names.find((n) => n.language === lang);
+  return match?.name || names[0]?.name || "";
+}
+
+function mapBackendItem(item: any) {
+  return {
+    id: item.id,
+    name: getLocalizedName(item.names),
+    price: parseFloat(item.price) || 0,
+    description: getLocalizedName(item.descriptions, "en"),
+    featured: item.featured || false,
+  };
 }

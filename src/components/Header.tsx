@@ -17,9 +17,12 @@ import type { MenuTemplate } from "../types/template";
 interface HeaderProps {
   template?: MenuTemplate;
   lastSaved?: string; // ISO string
+  onPreview?: () => void;
+  onPublish?: () => void;
+  publishing?: boolean;
 }
 
-export default function Header({ template: _template, lastSaved }: HeaderProps) {
+export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing }: HeaderProps) {
   const { menuData, setMenuData, selectItem } = useMenu();
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -164,7 +167,7 @@ export default function Header({ template: _template, lastSaved }: HeaderProps) 
 
       {/* RIGHT — Actions */}
       <div className="flex-1 flex items-center justify-end gap-2">
-        <Button variant="outline" size="sm" className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={onPreview}>
           <Eye className="w-4 h-4" />
           Preview
         </Button>
@@ -184,9 +187,13 @@ export default function Header({ template: _template, lastSaved }: HeaderProps) 
           {downloading ? "Generating…" : "Download"}
         </Button>
 
-        <Button size="sm" className="flex items-center gap-2">
-          <Rocket className="w-4 h-4" />
-          Publish
+        <Button size="sm" className="flex items-center gap-2" onClick={onPublish} disabled={publishing}>
+          {publishing ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Rocket className="w-4 h-4" />
+          )}
+          {publishing ? "Publishing…" : "Publish"}
         </Button>
       </div>
     </header>

@@ -39,10 +39,14 @@ const DEFAULT_ZOOM = 0.7;
 
 const PREVIEW_WIDTH = 794;
 
+export type PreviewMode = "paper" | "mobile" | "desktop" | "qr";
+
 interface PreviewPanelProps {
   template?: MenuTemplate;
   menuId?: string;
   previewData?: MenuData;
+  previewMode?: PreviewMode;
+  onPreviewModeChange?: (mode: PreviewMode) => void;
 }
 
 /* ── QR Code View ────────────────────────────────────────────────────── */
@@ -227,9 +231,17 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 
 /* ── Main Preview Panel ──────────────────────────────────────────────── */
 
-export default function PreviewPanel({ template, menuId, previewData }: PreviewPanelProps) {
+export default function PreviewPanel({ template, menuId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
   const { menuData, selectedItemId, activePageIndex } = useMenu();
-  const [selectedIcon, setSelectedIcon] = useState("paper");
+  const [internalMode, setInternalMode] = useState<PreviewMode>("paper");
+
+  // Use controlled mode if provided, otherwise internal
+  const selectedIcon = previewMode ?? internalMode;
+  const setSelectedIcon = (mode: string) => {
+    const m = mode as PreviewMode;
+    if (onPreviewModeChange) onPreviewModeChange(m);
+    else setInternalMode(m);
+  };
 
   const data = previewData || menuData;
 
@@ -595,8 +607,8 @@ export default function PreviewPanel({ template, menuId, previewData }: PreviewP
         </div>
       )}
 
-      {/* ── Magic Prompt — fixed bottom-center ───────────────────────── */}
-      {isPaper && (
+      {/* ── Magic Prompt — fixed bottom-center (paper, mobile, desktop) ─ */}
+      {(isPaper || isWeb) && (
         <div className="absolute bottom-4 inset-x-0 z-30 pointer-events-auto flex justify-center px-4">
           <div className="w-[90%] max-w-2xl">
             <div className="flex items-center gap-3 bg-card border border-border rounded-xl shadow-lg px-4 py-2.5">
