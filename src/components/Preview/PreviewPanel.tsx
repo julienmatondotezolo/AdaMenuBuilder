@@ -5,7 +5,7 @@ import {
   useEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Copy, Check, Loader2, X, Code } from "lucide-react";
+import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Copy, Check, Loader2, X, Code, Eye } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn, Button, Switch, Label } from "ada-design-system";
 import AIPromptBar from "../AIPromptBar";
@@ -321,7 +321,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 /* ── Main Preview Panel ──────────────────────────────────────────────── */
 
 export default function PreviewPanel({ template, menuId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
-  const { menuData, selectedItemId, activePageIndex, aiMode } = useMenu();
+  const { menuData, selectedItemId, activePageIndex, aiMode, aiPreviewData, setAiPreview } = useMenu();
   const [internalMode, setInternalMode] = useState<PreviewMode>("paper");
 
   // Use controlled mode if provided, otherwise internal
@@ -332,7 +332,8 @@ export default function PreviewPanel({ template, menuId, previewData, previewMod
     else setInternalMode(m);
   };
 
-  const data = previewData || menuData;
+  const data = aiPreviewData || previewData || menuData;
+  const isPreviewingAi = !!aiPreviewData;
 
   /* ── Canvas state ──────────────────────────────────────────────────── */
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -605,6 +606,22 @@ export default function PreviewPanel({ template, menuId, previewData, previewMod
 
   return (
     <div className="absolute inset-0 bg-muted overflow-hidden">
+      {/* ── AI Preview Banner ──────────────────────────────────────── */}
+      {isPreviewingAi && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 pointer-events-auto">
+          <div className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg shadow-lg text-xs font-semibold">
+            <Eye className="w-3.5 h-3.5" />
+            AI Preview Mode
+            <button
+              onClick={() => setAiPreview(null)}
+              className="ml-1 w-5 h-5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Paper: Infinite canvas ───────────────────────────────────── */}
       {isPaper && (
         <>

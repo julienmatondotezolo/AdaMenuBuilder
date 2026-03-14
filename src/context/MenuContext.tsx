@@ -58,9 +58,24 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
   const [aiModifiedIds, setAiModifiedIds] = useState<Set<string>>(new Set());
   const [aiMode, setAiMode] = useState(false);
   const [pendingAiMessage, setPendingAiMessage] = useState<string | null>(null);
+  const [aiPreviewData, setAiPreviewData] = useState<MenuData | null>(null);
+  const [aiPreviewPages, setAiPreviewPages] = useState<MenuPage[] | null>(null);
+  const [aiPreviewNewIds, setAiPreviewNewIds] = useState<Set<string>>(new Set());
+
+  const setAiPreview = useCallback((data: MenuData | null, previewPages?: MenuPage[] | null, newIds?: Set<string>) => {
+    setAiPreviewData(data);
+    setAiPreviewPages(previewPages ?? null);
+    setAiPreviewNewIds(newIds ?? new Set());
+  }, []);
 
   const selectItem = useCallback((id: string | null) => {
     setSelectedItemId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedItemId(null);
+    setHoveredId(null);
+    setHoveredType(null);
   }, []);
 
   // ---- Category CRUD ----
@@ -334,12 +349,17 @@ export function MenuProvider({ children, initialTemplateId }: { children: ReactN
     setDragState,
     selectedItemId,
     selectItem,
+    clearSelection,
     aiModifiedIds,
     setAiModifiedIds,
     aiMode,
     setAiMode,
     pendingAiMessage,
     setPendingAiMessage,
+    aiPreviewData,
+    aiPreviewPages,
+    aiPreviewNewIds,
+    setAiPreview,
   };
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

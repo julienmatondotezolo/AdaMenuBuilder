@@ -239,7 +239,15 @@ export default function EditorPanel() {
     moveOrReorderItem,
     setDragState,
     dragState,
+    aiPreviewData,
+    aiPreviewPages,
+    aiPreviewNewIds,
   } = useMenu();
+
+  // When AI preview is active, use preview data for display
+  const isAiPreview = !!aiPreviewData;
+  const displayData = aiPreviewData || menuData;
+  const displayPages = aiPreviewPages || pages;
 
   const currentTemplate = useTemplateById(templateId || undefined);
 
@@ -825,8 +833,8 @@ export default function EditorPanel() {
   };
 
   /* ── Unassigned categories (not on any page) ───────────────────── */
-  const assignedCategoryIds = new Set(pages.flatMap((p) => p.categoryIds));
-  const unassignedCategories = menuData.categories.filter(
+  const assignedCategoryIds = new Set(displayPages.flatMap((p) => p.categoryIds));
+  const unassignedCategories = displayData.categories.filter(
     (c) => !assignedCategoryIds.has(c.id),
   );
 
@@ -847,18 +855,22 @@ export default function EditorPanel() {
   /* ── Build page categories ─────────────────────────────────────── */
   const getPageCategories = (page: MenuPage) => {
     return page.categoryIds
-      .map((cid) => menuData.categories.find((c) => c.id === cid))
-      .filter(Boolean) as typeof menuData.categories;
+      .map((cid) => displayData.categories.find((c) => c.id === cid))
+      .filter(Boolean) as typeof displayData.categories;
   };
 
   const isDraggingCategory = dragState.activeType === "category";
 
   /* ── Active page variant info ─────────────────────────────────── */
-  const activePage = pages[activePageIndex];
+  const activePage = displayPages[activePageIndex];
   const activeVariant = activePage
     ? currentTemplate?.pageVariants.find((v) => v.id === activePage.variantId)
     : undefined;
   const activeVariantHeaderVisible = activeVariant?.header?.show !== false;
+
+  /* ── Determine which pages are "new" in AI preview ─────────────── */
+  const originalPageIds = new Set(pages.map((p) => p.id));
+  const isNewPage = (pageId: string) => isAiPreview && !originalPageIds.has(pageId);
 
   return (
     <div className="w-full h-full flex flex-col bg-muted/30">
@@ -873,7 +885,7 @@ export default function EditorPanel() {
       {/* Menu title + fold/unfold */}
       <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          {menuData.title || "Untitled Menu"}
+          {displayData.title || "Untitled Menu"}
         </h3>
         <button
           onClick={handleToggleAll}
@@ -1064,8 +1076,17 @@ export default function EditorPanel() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
+          {/* AI Preview banner */}
+          {isAiPreview && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 mb-3">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-semibold text-amber-700">AI Preview Mode</span>
+              <span className="text-xs text-amber-600 ml-auto">New items highlighted in green</span>
+            </div>
+          )}
+
           <div className="space-y-3">
-            {pages.map((page, pageIndex) => (
+            {displayPages.map((page, pageIndex) => (
               <PageCard
                 key={page.id}
                 page={page}
@@ -1073,12 +1094,12 @@ export default function EditorPanel() {
                 categories={getPageCategories(page)}
                 template={currentTemplate}
                 isActive={activePageIndex === pageIndex}
-                totalPages={pages.length}
+                totalPages={displayPages.length}
                 overflowPx={pageOverflows.get(pageIndex) ?? 0}
                 isDraggingCategory={isDraggingCategory}
                 onActivate={() => setActivePageIndex(pageIndex)}
-                onRemove={() => removePage(pageIndex)}
-                onChangeVariant={(v) => changePageVariant(pageIndex, v)}
+                onRemove={isAiPreview ? undefined : () => removePage(pageIndex)}
+                onChangeVariant={isAiPreview ? undefined : (v) => changePageVariant(pageIndex, v)}
                 onAddItem={() => {
                   /* handled by CategorySection */
                 }}
@@ -1088,6 +1109,9 @@ export default function EditorPanel() {
                 expandSignal={expandSignal}
                 dragCollapseSignal={dragCollapseSignal}
                 dragRestoreSignal={dragRestoreSignal}
+                isNewPage={isNewPage(page.id)}
+                newPageLabel={isNewPage(page.id) ? `Page ${pages.length + displayPages.filter((p, i) => i <= pageIndex && isNewPage(p.id)).length}` : undefined}
+                aiNewIds={isAiPreview ? aiPreviewNewIds : undefined}
               />
             ))}
           </div>
@@ -1106,7 +1130,7 @@ export default function EditorPanel() {
           )}
 
           {/* Add Page button */}
-          <button
+          {!isAiPreview && <button
             onClick={addPage}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
             style={{ border: "2px dashed hsl(220 13% 88%)", marginTop: "24px" }}
@@ -1123,7 +1147,7 @@ export default function EditorPanel() {
           >
             <Plus className="w-4 h-4" />
             Add Page
-          </button>
+          </button>}
 
           {/* Drag Overlay */}
           <DragOverlay dropAnimation={null}>
@@ -1155,7 +1179,7 @@ export default function EditorPanel() {
           </DragOverlay>
         </DndContext>
 
-        {menuData.categories.length === 0 && pages.length === 0 && (
+        {displayData.categories.length === 0 && displayPages.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-medium">No categories yet</p>
             <p className="text-sm mt-1">

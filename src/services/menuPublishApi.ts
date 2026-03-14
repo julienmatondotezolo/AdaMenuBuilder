@@ -38,7 +38,7 @@ export async function unpublishMenu(token: string, menuId: string) {
   }
 }
 
-export async function getPublishStatus(token: string, menuId: string): Promise<{ published: boolean; updatedAt?: string }> {
+export async function getPublishStatus(token: string, menuId: string): Promise<{ published: boolean; updatedAt?: string; menuData?: Record<string, unknown> }> {
   const res = await fetch(`${API_URL}/api/v1/menus/${menuId}/publish-status`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -52,5 +52,6 @@ export async function getPublishStatus(token: string, menuId: string): Promise<{
   return {
     published: json.published,
     updatedAt: json.data?.updated_at,
+    menuData: json.data?.menu_data || undefined,
   };
 }

@@ -11,6 +11,7 @@ interface MenuItemCardProps {
   categoryId: string;
   isDraggingActive: boolean;
   isOverlay?: boolean;
+  isAiNew?: boolean;
 }
 
 export default function MenuItemCard({
@@ -18,6 +19,7 @@ export default function MenuItemCard({
   categoryId,
   isDraggingActive,
   isOverlay,
+  isAiNew,
 }: MenuItemCardProps) {
   const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem, aiModifiedIds } =
     useMenu();
@@ -76,7 +78,10 @@ export default function MenuItemCard({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        ...(isAiNew ? { backgroundColor: "rgba(34, 197, 94, 0.04)", borderColor: "#22c55e", borderWidth: "2px" } : {}),
+      }}
       onClick={handleCardClick}
       className={cn(
         "menu-item-card group relative rounded-lg transition-all duration-150 cursor-pointer",
@@ -86,7 +91,7 @@ export default function MenuItemCard({
         /* Editing */
         isEditing && "selected",
         /* Featured — accent */
-        item.featured && !isSelected && !isEditing && "border-l-[3px] border-l-warning",
+        item.featured && !isSelected && !isEditing && !isAiNew && "border-l-[3px] border-l-warning",
         /* Overlay / drag */
         isOverlay && "shadow-lg border-primary/60 z-50",
         isDragOver && "border-primary/50",
@@ -175,7 +180,12 @@ export default function MenuItemCard({
                   <h4 className="font-semibold text-sm text-foreground leading-snug">
                     {item.name}
                   </h4>
-                  {item.featured && (
+                  {isAiNew && (
+                    <span className="text-[9px] font-semibold px-1.5 py-0 rounded-full bg-green-100 text-green-700">
+                      NEW
+                    </span>
+                  )}
+                  {item.featured && !isAiNew && (
                     <Badge className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0 bg-warning/15 text-warning border border-warning/30">
                       Popular
                     </Badge>

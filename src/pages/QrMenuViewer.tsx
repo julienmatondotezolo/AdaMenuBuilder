@@ -132,6 +132,7 @@ export default function QrMenuViewer() {
         templateName={data.templateName}
         mode="mobile"
         qrOrderConfig={data.qrOrderConfig}
+        fullscreen
       />
     </div>
   );

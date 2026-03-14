@@ -7,6 +7,7 @@ export interface BackendMenu {
   subtitle: string | null;
   template_id: string | null;
   status: "draft" | "published";
+  thumbnail: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +113,7 @@ export async function bulkPublishMenu(
       }[];
     }[];
     pages: { variant_id: string; category_ids: string[] }[];
+    thumbnail?: string;
   }
 ): Promise<{ categoryIdMap: Record<string, string> }> {
   const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${menuId}/bulk`, {

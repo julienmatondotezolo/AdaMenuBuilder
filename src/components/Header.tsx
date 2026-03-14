@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing }: HeaderProps) {
-  const { menuData, setMenuData, selectItem } = useMenu();
+  const { menuData, setMenuData, clearSelection } = useMenu();
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(menuData.title || "");
@@ -37,8 +37,8 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
   }, [isEditing]);
 
   const handleDownload = async () => {
-    // Deselect everything before capturing
-    selectItem(null);
+    // Deselect and unhover everything before capturing
+    clearSelection();
 
     // Small delay to let React re-render without selections
     await new Promise((r) => setTimeout(r, 100));

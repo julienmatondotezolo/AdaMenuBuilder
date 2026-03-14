@@ -339,17 +339,37 @@ function MenuCard({ menu, restaurantName, isDropdownOpen, onToggleDropdown, onEd
       onClick={onEdit}
     >
       {/* Preview area */}
-      <div className="h-32 bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
-        <div className="text-center">
-          {restaurantName && (
-            <p className="text-[8px] tracking-[0.3em] text-primary/60 uppercase font-semibold">
-              {restaurantName}
+      <div className="h-40 relative overflow-hidden flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+        {menu.thumbnail ? (
+          <>
+            {/* Blurred background fill */}
+            <img
+              src={menu.thumbnail}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: "blur(20px)", transform: "scale(1.2)" }}
+            />
+            {/* Sharp thumbnail centered */}
+            <img
+              src={menu.thumbnail}
+              alt={menu.title}
+              className="relative h-full object-contain drop-shadow-lg"
+              style={{ maxHeight: "160px" }}
+            />
+          </>
+        ) : (
+          <div className="text-center">
+            {restaurantName && (
+              <p className="text-[8px] tracking-[0.3em] text-primary/60 uppercase font-semibold">
+                {restaurantName}
+              </p>
+            )}
+            <p className="text-lg font-light italic text-foreground/70 mt-1">
+              {menu.title}
             </p>
-          )}
-          <p className="text-lg font-light italic text-foreground/70 mt-1">
-            {menu.title}
-          </p>
-        </div>
+          </div>
+        )}
       </div>
 
       <CardContent className="p-4">

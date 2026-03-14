@@ -22,6 +22,7 @@ interface Props {
   qrOrderConfig?: QrOrderConfig;
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string | null) => void;
+  fullscreen?: boolean;
 }
 
 function RenderBlock({
@@ -77,9 +78,10 @@ function RenderBlock({
   }
 }
 
-export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock }: Props) {
+export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock, fullscreen }: Props) {
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -87,6 +89,10 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
 
   const orderingEnabled = qrOrderConfig?.enabled ?? false;
   const currency = qrOrderConfig?.currency ?? "€";
+
+  useEffect(() => {
+    setScrollContainer(scrollRef.current);
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -148,6 +154,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           contentPaddingX={spacing.contentPaddingX}
           onUpdateQuantity={handleUpdateQuantity}
           onClose={() => setShowCart(false)}
+          fullscreen={fullscreen}
         />
       )}
       <div
@@ -188,7 +195,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               fonts={fonts}
               spacing={spacing}
               borderRadius={borderRadius}
-              scrollContainer={scrollRef.current}
+              scrollContainer={scrollContainer}
               templateName={templateName}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}

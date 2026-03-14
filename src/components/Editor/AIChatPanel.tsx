@@ -7,6 +7,8 @@ import {
   Sparkles,
   Trash,
   ArrowLeft,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
@@ -42,11 +44,14 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
     selectItem,
     pendingAiMessage,
     setPendingAiMessage,
+    aiPreviewData,
+    setAiPreview,
   } = useMenu();
 
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [previewingMsgIndex, setPreviewingMsgIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
   messagesRef.current = messages;
@@ -84,7 +89,9 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
   const doSend = useCallback(async (message: string) => {
     if (!message || loading || !token) return;
 
-    // Auto-reject any pending AI responses before sending new message
+    // Clear AI preview and auto-reject any pending AI responses before sending new message
+    setPreviewingMsgIndex(null);
+    setAiPreview(null);
     const updatedHistory = messagesRef.current.map((m) =>
       m.status === "pending" ? { ...m, status: "rejected" as const } : m
     );
@@ -275,22 +282,181 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
     [addCategory, removeCategory, updateCategory, addItem, removeItem, updateItem, setMenuData, setAiModifiedIds, selectItem, pages, setPages]
   );
 
+  // Compute a preview of menuData + pages with actions applied (without mutating state)
+  const computePreviewData = useCallback(
+    (actions: AIAction[]) => {
+      let preview = JSON.parse(JSON.stringify(menuData)) as typeof menuData;
+      let previewPages = JSON.parse(JSON.stringify(pages)) as typeof pages;
+      let nextId = 1;
+      const newIds = new Set<string>();
+
+      for (const action of actions) {
+        switch (action.type) {
+          case "create_category": {
+            if (action.name) {
+              const catId = `preview-cat-${nextId++}`;
+              preview.categories.push({
+                id: catId,
+                name: action.name,
+                items: [],
+              });
+              newIds.add(catId);
+              // Assign to target page or last page, or create new page
+              const targetPageId = action.addToPageId;
+              if (targetPageId) {
+                previewPages = previewPages.map((p) =>
+                  p.id === targetPageId ? { ...p, categoryIds: [...p.categoryIds, catId] } : p
+                );
+              } else if (previewPages.length > 0) {
+                const lastIdx = previewPages.length - 1;
+                previewPages[lastIdx] = {
+                  ...previewPages[lastIdx],
+                  categoryIds: [...previewPages[lastIdx].categoryIds, catId],
+                };
+              }
+            }
+            break;
+          }
+          case "update_category": {
+            if (action.categoryId && action.updates) {
+              preview.categories = preview.categories.map((c) =>
+                c.id === action.categoryId ? { ...c, ...(action.updates as any) } : c
+              );
+              newIds.add(action.categoryId);
+            }
+            break;
+          }
+          case "delete_category": {
+            if (action.categoryId) {
+              preview.categories = preview.categories.filter((c) => c.id !== action.categoryId);
+              previewPages = previewPages.map((p) => ({
+                ...p,
+                categoryIds: p.categoryIds.filter((id) => id !== action.categoryId),
+              }));
+            }
+            break;
+          }
+          case "create_item": {
+            let targetCatId = action.categoryId;
+            if (targetCatId === "new" && action.categoryName) {
+              const existing = preview.categories.find((c) => c.name === action.categoryName);
+              if (existing) {
+                targetCatId = existing.id;
+              } else {
+                const newCatId = `preview-cat-${nextId++}`;
+                preview.categories.push({ id: newCatId, name: action.categoryName, items: [] });
+                newIds.add(newCatId);
+                // Assign new category to a page
+                if (previewPages.length > 0) {
+                  const lastIdx = previewPages.length - 1;
+                  previewPages[lastIdx] = {
+                    ...previewPages[lastIdx],
+                    categoryIds: [...previewPages[lastIdx].categoryIds, newCatId],
+                  };
+                }
+                targetCatId = newCatId;
+              }
+            }
+            if (targetCatId && action.item) {
+              const itemId = `preview-item-${nextId++}`;
+              newIds.add(itemId);
+              preview.categories = preview.categories.map((c) =>
+                c.id === targetCatId
+                  ? {
+                      ...c,
+                      items: [
+                        ...c.items,
+                        {
+                          id: itemId,
+                          name: action.item!.name,
+                          price: action.item!.price,
+                          description: action.item!.description || "",
+                          featured: action.item!.featured || false,
+                        },
+                      ],
+                    }
+                  : c
+              );
+            }
+            break;
+          }
+          case "update_item": {
+            if (action.categoryId && action.itemId && action.updates) {
+              preview.categories = preview.categories.map((c) =>
+                c.id === action.categoryId
+                  ? {
+                      ...c,
+                      items: c.items.map((item) =>
+                        item.id === action.itemId ? { ...item, ...(action.updates as any) } : item
+                      ),
+                    }
+                  : c
+              );
+              newIds.add(action.itemId);
+            }
+            break;
+          }
+          case "delete_item": {
+            if (action.categoryId && action.itemId) {
+              preview.categories = preview.categories.map((c) =>
+                c.id === action.categoryId
+                  ? { ...c, items: c.items.filter((item) => item.id !== action.itemId) }
+                  : c
+              );
+            }
+            break;
+          }
+          case "update_menu": {
+            if (action.updates) {
+              preview = { ...preview, ...(action.updates as any) };
+            }
+            break;
+          }
+        }
+      }
+
+      return { menuData: preview, pages: previewPages, newIds };
+    },
+    [menuData, pages]
+  );
+
+  const handlePreview = useCallback(
+    (msgIndex: number) => {
+      if (previewingMsgIndex === msgIndex) {
+        // Toggle off
+        setPreviewingMsgIndex(null);
+        setAiPreview(null);
+        return;
+      }
+      const msg = messages[msgIndex];
+      if (!msg?.actions) return;
+      const result = computePreviewData(msg.actions);
+      setAiPreview(result.menuData, result.pages, result.newIds);
+      setPreviewingMsgIndex(msgIndex);
+    },
+    [messages, computePreviewData, previewingMsgIndex, setAiPreview]
+  );
+
   const handleAccept = useCallback(
     (msgIndex: number) => {
+      setPreviewingMsgIndex(null);
+      setAiPreview(null);
       setMessages((prev) =>
         prev.map((m, i) => (i === msgIndex ? { ...m, status: "accepted" as const } : m))
       );
       const msg = messages[msgIndex];
       if (msg?.actions) applyActions(msg.actions);
     },
-    [messages, applyActions]
+    [messages, applyActions, setAiPreview]
   );
 
   const handleReject = useCallback((msgIndex: number) => {
+    setPreviewingMsgIndex(null);
+    setAiPreview(null);
     setMessages((prev) =>
       prev.map((m, i) => (i === msgIndex ? { ...m, status: "rejected" as const } : m))
     );
-  }, []);
+  }, [setAiPreview]);
 
   const handleClearHistory = useCallback(async () => {
     if (!token || !menuId) return;
@@ -556,7 +722,22 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
                         onClick={() => handleAccept(i)}
                       >
                         <Check className="w-3.5 h-3.5" />
-                        Apply changes
+                        Apply
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-8 text-xs gap-1.5 px-3",
+                          previewingMsgIndex === i && "bg-amber-500/10 border-amber-500/40 text-amber-600"
+                        )}
+                        onClick={() => handlePreview(i)}
+                      >
+                        {previewingMsgIndex === i ? (
+                          <><EyeOff className="w-3.5 h-3.5" /> Stop</>
+                        ) : (
+                          <><Eye className="w-3.5 h-3.5" /> Preview</>
+                        )}
                       </Button>
                       <Button
                         variant="outline"

@@ -28,8 +28,8 @@ interface PageCardProps {
   overflowPx: number;
   isDraggingCategory: boolean;
   onActivate: () => void;
-  onRemove: () => void;
-  onChangeVariant: (variantId: string) => void;
+  onRemove?: () => void;
+  onChangeVariant?: (variantId: string) => void;
   onAddItem: (categoryId: string) => void;
   onContentChanged: (categoryId: string) => void;
   searchQuery: string;
@@ -37,6 +37,9 @@ interface PageCardProps {
   expandSignal: number;
   dragCollapseSignal: number;
   dragRestoreSignal: number;
+  isNewPage?: boolean;
+  newPageLabel?: string;
+  aiNewIds?: Set<string>;
 }
 
 export default function PageCard({
@@ -58,6 +61,9 @@ export default function PageCard({
   expandSignal,
   dragCollapseSignal,
   dragRestoreSignal,
+  isNewPage,
+  newPageLabel,
+  aiNewIds,
 }: PageCardProps) {
   const { menuData, setMenuData, duplicateCategory, setPages } = useMenu();
   const variant = template?.pageVariants.find((v) => v.id === page.variantId);
@@ -145,17 +151,21 @@ export default function PageCard({
         "border bg-card",
       )}
       style={{
-        borderColor: isMainBodyOver && isDraggingCategory
-          ? `${primaryColor}88`
-          : hasOverflow
-            ? "#fbbf24"
-            : isActive
-              ? primaryColor
-              : "hsl(220 13% 91%)",
-        borderWidth: isActive && !hasOverflow && !(isMainBodyOver && isDraggingCategory) ? "2px" : "1px",
-        backgroundColor: isMainBodyOver && isDraggingCategory
-          ? `${primaryColor}08`
-          : undefined,
+        borderColor: isNewPage
+          ? "#22c55e"
+          : isMainBodyOver && isDraggingCategory
+            ? `${primaryColor}88`
+            : hasOverflow
+              ? "#fbbf24"
+              : isActive
+                ? primaryColor
+                : "hsl(220 13% 91%)",
+        borderWidth: isNewPage ? "2px" : isActive && !hasOverflow && !(isMainBodyOver && isDraggingCategory) ? "2px" : "1px",
+        backgroundColor: isNewPage
+          ? "rgba(34, 197, 94, 0.04)"
+          : isMainBodyOver && isDraggingCategory
+            ? `${primaryColor}08`
+            : undefined,
       }}
       onClick={() => { if (!isActive) onActivate(); }}
     >
@@ -215,7 +225,7 @@ export default function PageCard({
                       key={v.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onChangeVariant(v.id);
+                        onChangeVariant?.(v.id);
                         setShowVariantDropdown(false);
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors"
@@ -259,7 +269,7 @@ export default function PageCard({
                 size="icon-sm"
                 onClick={(e: React.MouseEvent) => {
                   e.stopPropagation();
-                  onRemove();
+                  onRemove?.();
                 }}
                 className="shrink-0"
                 style={{ color: "hsl(0 72% 55%)" }}
@@ -272,8 +282,13 @@ export default function PageCard({
           <>
             {/* Page name */}
             <h3 className="font-semibold text-sm text-foreground">
-              {variant?.name || `Page ${pageIndex + 1}`}
+              {newPageLabel || variant?.name || `Page ${pageIndex + 1}`}
             </h3>
+            {isNewPage && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                NEW
+              </span>
+            )}
 
             {/* Edit button (pen) — only visible when active/selected, RIGHT of name */}
             {isActive && (
@@ -313,7 +328,7 @@ export default function PageCard({
             </span>
 
             {/* Delete page button — visible when active */}
-            {isActive && totalPages > 1 && (
+            {isActive && totalPages > 1 && onRemove && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -369,6 +384,7 @@ export default function PageCard({
                   dragRestoreSignal={dragRestoreSignal}
                   onDuplicate={handleDuplicateCategory}
                   onContentChanged={onContentChanged}
+                  aiNewIds={aiNewIds}
                 />
               ))}
             </div>

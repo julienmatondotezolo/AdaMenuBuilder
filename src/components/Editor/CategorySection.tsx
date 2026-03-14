@@ -29,6 +29,7 @@ interface CategorySectionProps {
   forceCollapsed?: boolean;
   onDuplicate?: (categoryId: string) => void;
   onContentChanged?: (categoryId: string) => void;
+  aiNewIds?: Set<string>;
 }
 
 export default function CategorySection({
@@ -43,6 +44,7 @@ export default function CategorySection({
   forceCollapsed,
   onDuplicate,
   onContentChanged,
+  aiNewIds,
 }: CategorySectionProps) {
   const {
     addItem,
@@ -108,6 +110,7 @@ export default function CategorySection({
 
   const isHighlighted = hoveredId === category.id;
   const isAiModified = aiModifiedIds.has(category.id);
+  const isAiNew = aiNewIds?.has(category.id) ?? false;
 
   // Force collapsed when used as drag overlay
   const effectiveCollapsed = forceCollapsed || isCollapsed;
@@ -193,6 +196,7 @@ export default function CategorySection({
       style={{
         ...style,
         ...(isDragging ? { border: '2px dashed hsl(232 80% 62% / 0.4)', opacity: 0.4 } : {}),
+        ...(isAiNew ? { backgroundColor: "rgba(34, 197, 94, 0.04)", borderColor: "#22c55e", borderWidth: "2px" } : {}),
       }}
       className={cn(
         "rounded-xl overflow-hidden transition-all duration-200",
@@ -281,14 +285,21 @@ export default function CategorySection({
             </Button>
           </div>
         ) : (
-          <h3
-            className={cn(
-              "font-bold text-sm",
-              isExpanded ? "text-white" : "text-foreground"
+          <>
+            <h3
+              className={cn(
+                "font-bold text-sm",
+                isExpanded ? "text-white" : "text-foreground"
+              )}
+            >
+              {category.name}
+            </h3>
+            {isAiNew && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">
+                NEW
+              </span>
             )}
-          >
-            {category.name}
-          </h3>
+          </>
         )}
 
         {/* Edit button (pencil) — always white when expanded */}
@@ -352,6 +363,7 @@ export default function CategorySection({
                 item={item}
                 categoryId={category.id}
                 isDraggingActive={isDraggingActive}
+                isAiNew={aiNewIds?.has(item.id) ?? false}
               />
             ))}
 

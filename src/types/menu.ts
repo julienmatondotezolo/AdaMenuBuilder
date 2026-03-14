@@ -106,10 +106,15 @@ export interface MenuContextValue {
   setDragState: React.Dispatch<React.SetStateAction<DragState>>;
   selectedItemId: string | null;
   selectItem: (id: string | null) => void;
+  clearSelection: () => void;
   aiModifiedIds: Set<string>;
   setAiModifiedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   aiMode: boolean;
   setAiMode: (mode: boolean) => void;
   pendingAiMessage: string | null;
   setPendingAiMessage: (msg: string | null) => void;
+  aiPreviewData: MenuData | null;
+  aiPreviewPages: MenuPage[] | null;
+  aiPreviewNewIds: Set<string>;
+  setAiPreview: (data: MenuData | null, pages?: MenuPage[] | null, newIds?: Set<string>) => void;
 }

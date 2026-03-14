@@ -11,6 +11,7 @@ interface Props {
   contentPaddingX: number;
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onClose: () => void;
+  fullscreen?: boolean;
 }
 
 const ORDER_MODE_LABELS: Record<OrderMode, { label: string; icon: string }> = {
@@ -19,7 +20,7 @@ const ORDER_MODE_LABELS: Record<OrderMode, { label: string; icon: string }> = {
   "delivery":    { label: "Delivery",     icon: "M14 18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18h6a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14M17 18a2 2 0 1 1-4 0M7 18a2 2 0 1 1-4 0" },
 };
 
-export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose }: Props) {
+export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, fullscreen }: Props) {
   const currency = qrOrderConfig.currency || "€";
   const enabledModes = (Object.keys(qrOrderConfig.modes) as OrderMode[]).filter((m) => qrOrderConfig.modes[m]);
   const [selectedMode, setSelectedMode] = useState<OrderMode | null>(enabledModes[0] ?? null);
@@ -31,7 +32,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
   if (orderPlaced) {
     return (
       <div style={{
-        position: "absolute",
+        position: fullscreen ? "fixed" : "absolute",
         inset: 0,
         backgroundColor: colors.background,
         zIndex: 50,
@@ -91,7 +92,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
 
   return (
     <div style={{
-      position: "absolute",
+      position: fullscreen ? "fixed" : "absolute",
       inset: 0,
       backgroundColor: colors.background,
       zIndex: 50,

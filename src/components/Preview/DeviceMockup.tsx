@@ -36,9 +36,10 @@ export default function DeviceMockup({ mode, children }: Props) {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      const pad = 32;
-      const sx = (el.clientWidth - pad) / totalW;
-      const sy = (el.clientHeight - pad) / totalH;
+      const padX = 32;
+      const padY = 100; // extra vertical padding for AI prompt bar at bottom
+      const sx = (el.clientWidth - padX) / totalW;
+      const sy = (el.clientHeight - padY) / totalH;
       setScale(Math.min(sx, sy, 1));
     });
     observer.observe(el);

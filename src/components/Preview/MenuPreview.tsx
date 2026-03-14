@@ -12,8 +12,8 @@ interface MenuPreviewProps {
 
 export default function MenuPreview({ template }: MenuPreviewProps) {
   const {
-    menuData,
-    pages,
+    menuData: realMenuData,
+    pages: realPages,
     hoveredId,
     setHover,
     clearHover,
@@ -25,7 +25,13 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     activePageIndex,
     setActivePageIndex,
     aiModifiedIds,
+    aiPreviewData,
+    aiPreviewPages,
   } = useMenu();
+
+  // Use AI preview data when available
+  const menuData = aiPreviewData || realMenuData;
+  const pages = aiPreviewPages || realPages;
 
   // Load template fonts
   useEffect(() => {

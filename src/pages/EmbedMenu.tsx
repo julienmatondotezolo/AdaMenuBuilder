@@ -124,6 +124,7 @@ export default function EmbedMenu() {
         fonts={data.fonts}
         templateName={data.templateName}
         mode={mode}
+        fullscreen
       />
     </div>
   );

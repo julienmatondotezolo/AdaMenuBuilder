@@ -97,6 +97,7 @@ import {
   type Restaurant,
   type PublishStatus,
 } from "../services/templateApi";
+import { fetchMenus, fetchCompleteMenu } from "../services/menuApi";
 
 /* ── Section order type for drag-and-drop ────────────────────────────── */
 
@@ -204,15 +205,92 @@ export default function TemplateEditor() {
   // Preview data source — "sample" or a menu ID (persisted in template)
   const [previewDataSource, setPreviewDataSource] = useState<string>("sample");
   const allMenus = useMenus();
+  // Backend menus for the restaurant(s)
+  const [backendMenuList, setBackendMenuList] = useState<{ id: string; title: string; restaurantId: string }[]>([]);
+  const [backendMenuCache, setBackendMenuCache] = useState<Record<string, MenuData>>({});
+
+  // Fetch backend menus on mount
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const rests = await fetchRestaurants(token);
+        const allBackendMenus: { id: string; title: string; restaurantId: string }[] = [];
+        for (const r of rests) {
+          const menus = await fetchMenus(token, r.id);
+          for (const m of menus) {
+            allBackendMenus.push({ id: m.id, title: m.title || "Untitled Menu", restaurantId: r.id });
+          }
+        }
+        setBackendMenuList(allBackendMenus);
+      } catch {}
+    })();
+  }, [token]);
+
   // Sync from template once loaded
   useEffect(() => {
     if (template?.previewMenuId) setPreviewDataSource(template.previewMenuId);
   }, [template?.previewMenuId]);
-  const hasRealMenus = allMenus && allMenus.some((m) => m.data.categories.some((c) => c.items.length > 0));
+
+  // Load backend menu data when selected
+  useEffect(() => {
+    if (previewDataSource === "sample") return;
+    // Already in local menus?
+    if (allMenus?.find((m) => m.id === previewDataSource)) return;
+    // Already cached?
+    if (backendMenuCache[previewDataSource]) return;
+    // Find in backend list
+    const backendEntry = backendMenuList.find((m) => m.id === previewDataSource);
+    if (!backendEntry || !token) return;
+    (async () => {
+      try {
+        const data = await fetchCompleteMenu(token, backendEntry.restaurantId, backendEntry.id);
+        const categories = (data.categories || []).map((cat: any) => ({
+          id: cat.id,
+          name: getLocalizedName(cat.names),
+          items: [
+            ...(cat.items || []).map((item: any) => ({
+              id: item.id,
+              name: getLocalizedName(item.names),
+              price: parseFloat(item.price) || 0,
+              description: getLocalizedName(item.descriptions),
+              featured: item.featured || false,
+            })),
+            ...(cat.subcategories || []).flatMap((sub: any) =>
+              (sub.items || []).map((item: any) => ({
+                id: item.id,
+                name: getLocalizedName(item.names),
+                price: parseFloat(item.price) || 0,
+                description: getLocalizedName(item.descriptions),
+                featured: item.featured || false,
+              }))
+            ),
+          ],
+        }));
+        const menuData: MenuData = {
+          title: data.title || "",
+          restaurantName: "",
+          subtitle: data.subtitle || "",
+          established: "",
+          highlightImage: "",
+          highlightLabel: "",
+          highlightTitle: "",
+          lastEditedBy: "",
+          lastEditedTime: "",
+          categories,
+        };
+        setBackendMenuCache((prev) => ({ ...prev, [backendEntry.id]: menuData }));
+      } catch {}
+    })();
+  }, [previewDataSource, backendMenuList, token, allMenus, backendMenuCache]);
+
+  const hasRealMenus = (allMenus && allMenus.some((m) => m.data.categories.some((c) => c.items.length > 0))) || backendMenuList.length > 0;
   const previewData: MenuData = (() => {
     if (previewDataSource === "sample") return sampleMenuData;
-    const menu = allMenus?.find((m) => m.id === previewDataSource);
-    return menu?.data ?? sampleMenuData;
+    const localMenu = allMenus?.find((m) => m.id === previewDataSource);
+    if (localMenu) return localMenu.data;
+    if (backendMenuCache[previewDataSource]) return backendMenuCache[previewDataSource];
+    return sampleMenuData;
   })();
 
   const toggleLock = (section: SectionType) => {
@@ -1144,6 +1222,11 @@ export default function TemplateEditor() {
                         <SelectItem value="sample">Sample menu</SelectItem>
                         {allMenus?.filter((m) => m.data.categories.some((c) => c.items.length > 0)).map((m) => (
                           <SelectItem key={m.id} value={m.id}>{m.data.title || m.title || "Untitled Menu"}</SelectItem>
+                        ))}
+                        {backendMenuList
+                          .filter((bm) => !allMenus?.some((m) => m.id === bm.id))
+                          .map((bm) => (
+                          <SelectItem key={bm.id} value={bm.id}>{bm.title}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -3765,4 +3848,12 @@ function VariantPreview({ template, variant, sectionOrder, scale, onUpdateVarian
       })}
     </div>
   );
+}
+
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+
+function getLocalizedName(names: { language: string; name: string }[], lang = "en"): string {
+  if (!names || names.length === 0) return "";
+  const match = names.find((n) => n.language === lang);
+  return match?.name || names[0]?.name || "";
 }
