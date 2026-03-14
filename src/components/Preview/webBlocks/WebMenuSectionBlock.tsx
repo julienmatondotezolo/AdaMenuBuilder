@@ -142,7 +142,7 @@ function CompactItem({ item, colors, fonts, block, borderRadius, orderingEnabled
   );
 }
 
-function CardItem({ item, colors, fonts, block, borderRadius, orderingEnabled, cart, onAdd, onUpdate }: {
+function CardItem({ item, colors, fonts, block: _block, borderRadius, orderingEnabled, cart, onAdd, onUpdate }: {
   item: MenuItem; colors: ColorScheme; fonts: FontScheme; block: WebMenuSectionBlockType; borderRadius: number;
   orderingEnabled?: boolean; cart?: CartItem[]; onAdd?: () => void; onUpdate?: (delta: number) => void;
 }) {
@@ -173,7 +173,7 @@ function CardItem({ item, colors, fonts, block, borderRadius, orderingEnabled, c
   );
 }
 
-function DetailedItem({ item, colors, fonts, block, borderRadius, orderingEnabled, cart, onAdd, onUpdate }: {
+function DetailedItem({ item, colors, fonts, block: _block, borderRadius, orderingEnabled, cart, onAdd, onUpdate }: {
   item: MenuItem; colors: ColorScheme; fonts: FontScheme; block: WebMenuSectionBlockType; borderRadius: number;
   orderingEnabled?: boolean; cart?: CartItem[]; onAdd?: () => void; onUpdate?: (delta: number) => void;
 }) {

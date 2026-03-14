@@ -135,9 +135,7 @@ function MenuSide({
 
   const addedCatIds = new Set(diff.addedCategories.map((c) => c.id));
   const removedCatIds = new Set(diff.removedCategories.map((c) => c.id));
-  const modifiedCatNames = new Map(
-    diff.modifiedCategories.map((m) => [m.name, m])
-  );
+  // modifiedCatNames available via diff.modifiedCategories if needed
 
   const categories = menu.categories;
 

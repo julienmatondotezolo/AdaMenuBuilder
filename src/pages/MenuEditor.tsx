@@ -29,7 +29,7 @@ export default function MenuEditor() {
   const { token } = useAuth();
   const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem, aiMode } = useMenu();
   const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
-  const [backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
+  const [_backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);

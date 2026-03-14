@@ -4,7 +4,6 @@ import {
   Plus,
   MoreVertical,
   FileText,
-  Copy,
   Trash2,
   Pencil,
   LayoutTemplate,

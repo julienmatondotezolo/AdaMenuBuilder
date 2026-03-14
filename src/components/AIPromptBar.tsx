@@ -8,11 +8,11 @@ interface AIPromptBarProps {
   menuId?: string;
 }
 
-export default function AIPromptBar({ menuId }: AIPromptBarProps) {
+export default function AIPromptBar({ menuId: _menuId }: AIPromptBarProps) {
   const { token } = useAuth();
   const { aiMode, setAiMode, setPendingAiMessage } = useMenu();
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, _setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);

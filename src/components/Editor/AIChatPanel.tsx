@@ -44,7 +44,6 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
     selectItem,
     pendingAiMessage,
     setPendingAiMessage,
-    aiPreviewData,
     setAiPreview,
   } = useMenu();
 

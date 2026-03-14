@@ -24,7 +24,6 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
     selectItem,
     activePageIndex,
     setActivePageIndex,
-    aiModifiedIds,
     aiPreviewData,
     aiPreviewPages,
   } = useMenu();

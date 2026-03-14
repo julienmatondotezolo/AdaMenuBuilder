@@ -1,4 +1,4 @@
-import type { ColorScheme, FontScheme, QrOrderConfig } from "../../../types/template";
+import type { ColorScheme, FontScheme } from "../../../types/template";
 
 export interface CartItem {
   id: string;
