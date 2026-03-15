@@ -594,7 +594,7 @@ export default function EditorPanel() {
 
         if (capacity !== Infinity && targetPage && targetPage.categoryIds.length >= capacity) {
           // Page is full — queue swap dialog for dragEnd
-          const cat = menuData.categories.find((c) => c.id === activeId);
+          const cat = displayData.categories.find((c) => c.id === activeId);
           const targetIdx = pages.indexOf(targetPage);
           pendingSwapRef.current = {
             draggedCategoryId: activeId,
@@ -1503,8 +1503,7 @@ export default function EditorPanel() {
 
             <div className="space-y-2">
               {swapDialog.targetCategoryIds.map((catId) => {
-                const cat = menuData.categories.find((c) => c.id === catId);
-                console.log(`[Swap] Looking up catId=${catId}, found=${!!cat}, name=${cat?.name}, allIds=`, menuData.categories.map(c => c.id));
+                const cat = displayData.categories.find((c) => c.id === catId);
                 return (
                   <button
                     key={catId}
