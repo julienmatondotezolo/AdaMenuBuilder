@@ -15,13 +15,16 @@ interface Props {
   borderRadius: number;
   contentPaddingX: number;
   onViewCart: () => void;
+  t?: (key: string) => string;
 }
 
-export default function WebCartBar({ cart, colors, fonts, currency, borderRadius, contentPaddingX, onViewCart }: Props) {
+export default function WebCartBar({ cart, colors, fonts, currency, borderRadius, contentPaddingX, onViewCart, t }: Props) {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   if (totalItems === 0) return null;
+
+  const viewCartLabel = t ? t("qrMenu.viewCart") : "View Cart";
 
   return (
     <div
@@ -60,7 +63,7 @@ export default function WebCartBar({ cart, colors, fonts, currency, borderRadius
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
           </svg>
           <span style={{ fontSize: 15, fontWeight: 600 }}>
-            View Cart ({totalItems})
+            {viewCartLabel} ({totalItems})
           </span>
         </div>
         <span style={{ fontSize: 15, fontWeight: 700 }}>

@@ -12,16 +12,11 @@ interface Props {
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onClose: () => void;
   fullscreen?: boolean;
+  t?: (key: string) => string;
 }
 
-const ORDER_MODE_LABELS: Record<OrderMode, { label: string; icon: string }> = {
-  "takeaway":    { label: "Takeaway",    icon: "M20 7H4a1 1 0 0 0-1 1v1a4 4 0 0 0 2 3.46V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.54A4 4 0 0 0 21 9V8a1 1 0 0 0-1-1ZM7 3h10M12 3v4" },
-  "send-to-kds": { label: "Dine In",     icon: "M3 2l1.578 4.735A2 2 0 0 0 6.476 8H17.52a2 2 0 0 0 1.9-1.265L21 2M12 8v13M5 21h14M7.5 8l-.5 6M16.5 8l.5 6" },
-  "delivery":    { label: "Delivery",     icon: "M14 18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18h6a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14M17 18a2 2 0 1 1-4 0M7 18a2 2 0 1 1-4 0" },
-};
-
-export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, fullscreen }: Props) {
-  const currency = qrOrderConfig.currency || "€";
+export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, fullscreen, t }: Props) {
+  const currency = qrOrderConfig.currency || "\u20AC";
   const enabledModes = (Object.keys(qrOrderConfig.modes) as OrderMode[]).filter((m) => qrOrderConfig.modes[m]);
   const [selectedMode, setSelectedMode] = useState<OrderMode | null>(enabledModes[0] ?? null);
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -29,7 +24,22 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Translation helpers with fallbacks
+  const tr = (key: string, fallback: string) => t ? t(key) : fallback;
+
+  const ORDER_MODE_LABELS: Record<OrderMode, { label: string; icon: string }> = {
+    "takeaway":    { label: tr("qrMenu.takeaway", "Takeaway"),  icon: "M20 7H4a1 1 0 0 0-1 1v1a4 4 0 0 0 2 3.46V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.54A4 4 0 0 0 21 9V8a1 1 0 0 0-1-1ZM7 3h10M12 3v4" },
+    "send-to-kds": { label: tr("qrMenu.dineIn", "Dine In"),     icon: "M3 2l1.578 4.735A2 2 0 0 0 6.476 8H17.52a2 2 0 0 0 1.9-1.265L21 2M12 8v13M5 21h14M7.5 8l-.5 6M16.5 8l.5 6" },
+    "delivery":    { label: tr("qrMenu.delivery", "Delivery"),   icon: "M14 18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18h6a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14M17 18a2 2 0 1 1-4 0M7 18a2 2 0 1 1-4 0" },
+  };
+
   if (orderPlaced) {
+    const confirmationMessage = selectedMode === "delivery"
+      ? tr("qrMenu.deliveryMessage", "We'll deliver it to you.")
+      : selectedMode === "takeaway"
+        ? tr("qrMenu.takeawayMessage", "You can pick it up shortly.")
+        : tr("qrMenu.dineInMessage", "Preparing your order now.");
+
     return (
       <div style={{
         position: fullscreen ? "fixed" : "absolute",
@@ -59,13 +69,11 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: fonts.heading, fontSize: 22, fontWeight: 700, color: colors.text, marginBottom: 8 }}>
-            Order Confirmed!
+            {tr("qrMenu.orderConfirmed", "Order Confirmed!")}
           </div>
           <div style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, lineHeight: 1.5 }}>
-            Your order will be ready soon.
-            {selectedMode === "delivery" && <><br />We'll deliver it to you.</>}
-            {selectedMode === "takeaway" && <><br />You can pick it up shortly.</>}
-            {selectedMode === "send-to-kds" && <><br />Preparing your order now.</>}
+            {tr("qrMenu.orderReadySoon", "Your order will be ready soon.")}
+            <br />{confirmationMessage}
           </div>
         </div>
         <button
@@ -84,7 +92,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
             fontWeight: 600,
           }}
         >
-          Back to Menu
+          {tr("qrMenu.backToMenu", "Back to Menu")}
         </button>
       </div>
     );
@@ -130,10 +138,10 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         </button>
         <div>
           <div style={{ fontFamily: fonts.heading, fontSize: 20, fontWeight: 700, color: colors.text }}>
-            Your Order
+            {tr("qrMenu.yourOrder", "Your Order")}
           </div>
           <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }}>
-            {totalItems} {totalItems === 1 ? "item" : "items"}
+            {totalItems} {totalItems === 1 ? tr("qrMenu.item", "item") : tr("qrMenu.items", "items")}
           </div>
         </div>
       </div>
@@ -147,7 +155,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
       }}>
         {cart.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
-            <div style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>Your cart is empty</div>
+            <div style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>{tr("qrMenu.cartEmpty", "Your cart is empty")}</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -229,7 +237,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         {cart.length > 0 && enabledModes.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <div style={{ fontFamily: fonts.body, fontSize: 12, fontWeight: 600, color: colors.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
-              Order Type
+              {tr("qrMenu.orderType", "Order Type")}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {enabledModes.map((mode) => {
@@ -279,7 +287,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <span style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>Total</span>
+            <span style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>{tr("qrMenu.total", "Total")}</span>
             <span style={{ fontFamily: fonts.heading, fontSize: 22, fontWeight: 700, color: colors.text }}>
               {currency}{totalPrice.toFixed(2)}
             </span>
@@ -300,7 +308,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
               boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
             }}
           >
-            Place Order
+            {tr("qrMenu.placeOrder", "Place Order")}
           </button>
         </div>
       )}

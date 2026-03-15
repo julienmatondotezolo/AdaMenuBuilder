@@ -11,6 +11,7 @@ import WebSearchBlock from "./webBlocks/WebSearchBlock";
 import WebFooterBlock from "./webBlocks/WebFooterBlock";
 import WebCartBar, { type CartItem } from "./webBlocks/WebCartBar";
 import WebCartView from "./webBlocks/WebCartView";
+import WebLanguageSwitcher from "./webBlocks/WebLanguageSwitcher";
 
 interface Props {
   webLayout: WebLayout;
@@ -23,6 +24,7 @@ interface Props {
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string | null) => void;
   fullscreen?: boolean;
+  t?: (key: string) => string;
 }
 
 function RenderBlock({
@@ -78,7 +80,7 @@ function RenderBlock({
   }
 }
 
-export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock, fullscreen }: Props) {
+export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock, fullscreen, t }: Props) {
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
@@ -161,6 +163,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           onUpdateQuantity={handleUpdateQuantity}
           onClose={() => setShowCart(false)}
           fullscreen={fullscreen}
+          t={t}
         />
       )}
       <div
@@ -213,6 +216,16 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
         })}
       </div>
 
+      {/* Language switcher — only in fullscreen (QR/embed) */}
+      {t && (
+        <WebLanguageSwitcher
+          colors={colors}
+          fonts={fonts}
+          contentPaddingX={spacing.contentPaddingX}
+          t={t}
+        />
+      )}
+
       {/* Cart bottom bar */}
       {orderingEnabled && (
         <WebCartBar
@@ -223,6 +236,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           borderRadius={borderRadius}
           contentPaddingX={spacing.contentPaddingX}
           onViewCart={handleViewCart}
+          t={t}
         />
       )}
 

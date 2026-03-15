@@ -5,6 +5,7 @@ import { db } from "../db/dexie";
 import type { MenuData } from "../types/menu";
 import type { WebLayout, ColorScheme, FontScheme, QrOrderConfig } from "../types/template";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
+import { useTranslation } from "../i18n";
 import { API_URL } from "../config/api";
 
 interface QrMenuData {
@@ -23,13 +24,14 @@ interface QrMenuData {
  */
 export default function QrMenuViewer() {
   const { menuId } = useParams<{ menuId: string }>();
+  const { t } = useTranslation();
   const [data, setData] = useState<QrMenuData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!menuId) {
-      setError("No menu ID provided.");
+      setError("no_id");
       setLoading(false);
       return;
     }
@@ -60,7 +62,7 @@ export default function QrMenuViewer() {
         // Fall back to backend API (for public access)
         const res = await fetch(`${API_URL}/api/v1/public/menus/${menuId}`);
         if (!res.ok) {
-          setError("Menu not found.");
+          setError("not_found");
           setLoading(false);
           return;
         }
@@ -69,14 +71,14 @@ export default function QrMenuViewer() {
         const tpl = json.data?.template;
 
         if (!menu || !tpl) {
-          setError("Menu not found.");
+          setError("not_found");
           setLoading(false);
           return;
         }
 
         const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile;
         if (!webLayout) {
-          setError("This menu doesn't have a web layout configured.");
+          setError("no_layout");
           setLoading(false);
           return;
         }
@@ -90,7 +92,7 @@ export default function QrMenuViewer() {
           qrOrderConfig: tpl.qrOrderConfig,
         });
       } catch {
-        setError("Failed to load menu.");
+        setError("failed");
       } finally {
         setLoading(false);
       }
@@ -108,14 +110,20 @@ export default function QrMenuViewer() {
   }
 
   if (error || !data) {
+    const errorMessage = error === "no_layout"
+      ? t("qrMenu.noWebLayout")
+      : error === "failed"
+        ? t("qrMenu.failedToLoad")
+        : t("qrMenu.menuNotFound");
+
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", backgroundColor: "#fafafa", padding: 24 }}>
         <div style={{ textAlign: "center" }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
-            {error || "Menu not found"}
+            {errorMessage}
           </h2>
           <p style={{ fontSize: 14, color: "#888" }}>
-            This menu may have been removed or is not available.
+            {t("qrMenu.menuUnavailable")}
           </p>
         </div>
       </div>
@@ -133,6 +141,7 @@ export default function QrMenuViewer() {
         mode="mobile"
         qrOrderConfig={data.qrOrderConfig}
         fullscreen
+        t={t}
       />
     </div>
   );

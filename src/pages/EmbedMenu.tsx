@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import type { MenuData } from "../types/menu";
 import type { WebLayout, ColorScheme, FontScheme } from "../types/template";
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
+import { useTranslation } from "../i18n";
 import { API_URL } from "../config/api";
 
 interface EmbedData {
@@ -21,6 +22,7 @@ interface EmbedData {
  */
 export default function EmbedMenu() {
   const { menuId } = useParams<{ menuId: string }>();
+  const { t } = useTranslation();
   const [data, setData] = useState<EmbedData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,6 +127,7 @@ export default function EmbedMenu() {
         templateName={data.templateName}
         mode={mode}
         fullscreen
+        t={t}
       />
     </div>
   );
