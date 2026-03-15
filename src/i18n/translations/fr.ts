@@ -94,6 +94,8 @@ export const fr: TranslationKeys = {
   },
 
   editorPanel: {
+    title: "Éditeur de Menu",
+    subtitle_tagline: "Composez vos offres culinaires avec précision et élégance.",
     template: "Modèle",
     editTemplateSettings: "Modifier les paramètres du modèle",
     menuHeader: "En-tête du Menu",
@@ -130,7 +132,7 @@ export const fr: TranslationKeys = {
     changesApplied: "Changements appliqués",
     changesRejected: "Changements rejetés",
     thinking: "Réflexion...",
-    promptPlaceholder: "Demandez-moi n'importe quoi — ajouter des articles, modifier les prix, traduire votre menu...",
+    promptPlaceholder: "Modifiez votre menu avec l'IA...",
   },
 
   publishDiff: {

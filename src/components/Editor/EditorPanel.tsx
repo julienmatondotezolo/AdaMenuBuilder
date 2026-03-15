@@ -913,9 +913,9 @@ export default function EditorPanel() {
     <div className="w-full h-full flex flex-col bg-muted/30">
       {/* Header */}
       <div className="px-4 pt-4 pb-1 shrink-0">
-        <h2 className="text-lg font-bold text-foreground">Menu Editor</h2>
+        <h2 className="text-lg font-bold text-foreground">{t("editorPanel.title")}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Curate your culinary offerings with precision and light.
+          {t("editorPanel.subtitle_tagline")}
         </p>
       </div>
 

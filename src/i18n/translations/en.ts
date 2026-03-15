@@ -92,6 +92,8 @@ export const en = {
   },
 
   editorPanel: {
+    title: "Menu Editor",
+    subtitle_tagline: "Curate your culinary offerings with precision and flair.",
     template: "Template",
     editTemplateSettings: "Edit template settings",
     menuHeader: "Menu Header",
@@ -128,7 +130,7 @@ export const en = {
     changesApplied: "Changes applied",
     changesRejected: "Changes rejected",
     thinking: "Thinking...",
-    promptPlaceholder: "Ask me anything — add items, change prices, translate your menu...",
+    promptPlaceholder: "Update your menu with AI...",
   },
 
   publishDiff: {
@@ -208,4 +210,8 @@ export const en = {
   },
 } as const;
 
-export type TranslationKeys = typeof en;
+type DeepStringify<T> = {
+  [K in keyof T]: T[K] extends string ? string : DeepStringify<T[K]>;
+};
+
+export type TranslationKeys = DeepStringify<typeof en>;

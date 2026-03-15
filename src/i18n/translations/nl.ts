@@ -94,6 +94,8 @@ export const nl: TranslationKeys = {
   },
 
   editorPanel: {
+    title: "Menu Editor",
+    subtitle_tagline: "Stel uw culinaire aanbod samen met precisie en flair.",
     template: "Sjabloon",
     editTemplateSettings: "Sjablooninstellingen bewerken",
     menuHeader: "Menu Koptekst",
@@ -130,7 +132,7 @@ export const nl: TranslationKeys = {
     changesApplied: "Wijzigingen toegepast",
     changesRejected: "Wijzigingen afgewezen",
     thinking: "Nadenken...",
-    promptPlaceholder: "Vraag me alles — items toevoegen, prijzen wijzigen, uw menu vertalen...",
+    promptPlaceholder: "Pas uw menu aan met AI...",
   },
 
   publishDiff: {
