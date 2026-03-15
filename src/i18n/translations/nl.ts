@@ -81,6 +81,16 @@ export const nl: TranslationKeys = {
     desktop: "Desktop",
     noWebLayout: "Geen weblay-out geconfigureerd voor deze modus.",
     setupInTemplateEditor: "Stel het eerst in via de Sjablooneditor.",
+    saveFirstForQr: "Sla dit menu eerst op om een QR-code te genereren.",
+    scanToOrder: "Scan om te Bestellen",
+    scanToOrderDescription: "Klanten scannen deze QR-code om het menu te bekijken en te bestellen",
+    publiclyAccessible: "Openbaar toegankelijk",
+    liveSince: "Live sinds",
+    enableToLetCustomers: "Activeer om klanten te laten scannen en bestellen",
+    signInToPublish: "Log in om dit menu te publiceren",
+    getQrAndEmbed: "QR-code & Insluitcode Ophalen",
+    qrCode: "QR-code",
+    phone: "Telefoon",
   },
 
   editorPanel: {

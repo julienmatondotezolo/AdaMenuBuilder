@@ -79,6 +79,16 @@ export const en = {
     desktop: "Desktop",
     noWebLayout: "No web layout configured for this mode.",
     setupInTemplateEditor: "Set it up in the Template Editor first.",
+    saveFirstForQr: "Save this menu first to generate a QR code.",
+    scanToOrder: "Scan to Order",
+    scanToOrderDescription: "Customers scan this QR code to view the menu and place orders",
+    publiclyAccessible: "Publicly accessible",
+    liveSince: "Live since",
+    enableToLetCustomers: "Enable to let customers scan and order",
+    signInToPublish: "Sign in to publish this menu",
+    getQrAndEmbed: "Get QR Code & Embed Code",
+    qrCode: "QR Code",
+    phone: "Phone",
   },
 
   editorPanel: {

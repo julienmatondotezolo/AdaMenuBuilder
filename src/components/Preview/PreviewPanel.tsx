@@ -18,14 +18,15 @@ import type { MenuTemplate } from "../../types/template";
 import { mmToPx } from "../../types/template";import { publishMenu, unpublishMenu, getPublishStatus } from "../../services/menuPublishApi";
 import { fetchRestaurants } from "../../services/templateApi";
 import type { MenuData } from "../../types/menu";
+import { useTranslation } from "../../i18n";
 
 /* ── Preview sidebar icons ────────────────────────────────────────────── */
 
-const previewIcons: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "paper", label: "Paper", icon: FileText },
-  { id: "mobile", label: "Phone", icon: Smartphone },
-  { id: "desktop", label: "Desktop", icon: Monitor },
-  { id: "qr", label: "QR Code", icon: QrCode },
+const previewIcons: { id: string; labelKey: string; icon: LucideIcon }[] = [
+  { id: "paper", labelKey: "menuEditor.paper", icon: FileText },
+  { id: "mobile", labelKey: "menuEditor.phone", icon: Smartphone },
+  { id: "desktop", labelKey: "menuEditor.desktop", icon: Monitor },
+  { id: "qr", labelKey: "menuEditor.qrCode", icon: QrCode },
 ];
 
 /* ── Zoom constants ──────────────────────────────────────────────────── */
@@ -59,6 +60,7 @@ interface QrCodeViewProps {
 
 function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeViewProps) {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -145,7 +147,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
   if (!menuId) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Save this menu first to generate a QR code.</p>
+        <p className="text-sm">{t("menuEditor.saveFirstForQr")}</p>
       </div>
     );
   }
@@ -171,9 +173,9 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 
           {/* Label */}
           <div className="text-center">
-            <h3 className="text-lg font-bold text-foreground mb-1">Scan to Order</h3>
+            <h3 className="text-lg font-bold text-foreground mb-1">{t("menuEditor.scanToOrder")}</h3>
             <p className="text-sm text-muted-foreground">
-              Customers scan this QR code to view the menu and place orders
+              {t("menuEditor.scanToOrderDescription")}
             </p>
           </div>
 
@@ -181,11 +183,11 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
           <div className="w-full flex flex-col gap-2">
             <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
               <div className="flex flex-col gap-0.5">
-                <Label className="text-sm font-medium">Publicly accessible</Label>
+                <Label className="text-sm font-medium">{t("menuEditor.publiclyAccessible")}</Label>
                 <span className="text-xs text-muted-foreground">
                   {isPublished
-                    ? `Live${publishedAt ? ` since ${new Date(publishedAt).toLocaleDateString()}` : ""}`
-                    : "Enable to let customers scan and order"}
+                    ? `${t("menuEditor.liveSince")}${publishedAt ? ` ${new Date(publishedAt).toLocaleDateString()}` : ""}`
+                    : t("menuEditor.enableToLetCustomers")}
                 </span>
               </div>
               {toggling ? (
@@ -202,7 +204,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
               <p className="text-xs text-destructive text-center">{publishError}</p>
             )}
             {!token && (
-              <p className="text-xs text-muted-foreground text-center">Sign in to publish this menu</p>
+              <p className="text-xs text-muted-foreground text-center">{t("menuEditor.signInToPublish")}</p>
             )}
           </div>
 
@@ -215,7 +217,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
               onClick={() => setShowPublishPopup(true)}
             >
               <Code className="w-4 h-4" />
-              Get QR Code & Embed Code
+              {t("menuEditor.getQrAndEmbed")}
             </Button>
           )}
         </div>
@@ -228,9 +230,9 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
             {/* Popup header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Menu Published</h2>
+                <h2 className="text-lg font-bold text-foreground">{t("menuEditor.menuPublished")}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Your menu is now live and accessible
+                  {t("menuEditor.menuPublishedDescription")}
                 </p>
               </div>
               <button
@@ -258,13 +260,13 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
                   />
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Scan to view your menu
+                  {t("menuEditor.scanToView")}
                 </p>
               </div>
 
               {/* QR URL */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground">Menu URL</Label>
+                <Label className="text-xs font-medium text-muted-foreground">{t("menuEditor.menuUrl")}</Label>
                 <div className="flex items-center gap-2 bg-muted/30 rounded-lg border border-border px-3 py-2.5">
                   <span className="flex-1 text-xs text-muted-foreground truncate font-mono">
                     {qrUrl}
@@ -283,7 +285,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
               {/* Divider */}
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-border" />
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Embed</span>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("menuEditor.embed")}</span>
                 <div className="flex-1 h-px bg-border" />
               </div>
 
@@ -291,7 +293,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Code className="w-3.5 h-3.5 text-muted-foreground" />
-                  <Label className="text-xs font-medium text-muted-foreground">Embed on your website</Label>
+                  <Label className="text-xs font-medium text-muted-foreground">{t("menuEditor.embedOnWebsite")}</Label>
                 </div>
                 <div className="relative bg-muted/30 rounded-lg border border-border px-3 py-2.5">
                   <pre className="text-[11px] text-muted-foreground font-mono whitespace-pre-wrap break-all leading-relaxed pr-8">
@@ -307,7 +309,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Paste this code into your website. The menu automatically adapts to mobile and desktop screens.
+                  {t("menuEditor.embedHelp")}
                 </p>
               </div>
             </div>
@@ -322,6 +324,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 
 export default function PreviewPanel({ template, menuId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
   const { menuData, selectedItemId, activePageIndex, aiMode, aiPreviewData, setAiPreview } = useMenu();
+  const { t } = useTranslation();
   const [internalMode, setInternalMode] = useState<PreviewMode>("paper");
 
   // Use controlled mode if provided, otherwise internal
@@ -724,11 +727,11 @@ export default function PreviewPanel({ template, menuId, previewData, previewMod
 
       {/* ── Preview icons — vertically centered, fixed right ─────────── */}
       <div className="absolute inset-y-0 right-3 z-30 flex flex-col items-center justify-center gap-2 pointer-events-auto">
-        {previewIcons.map(({ id, label, icon: Icon }) => (
+        {previewIcons.map(({ id, labelKey, icon: Icon }) => (
           <div
             key={id}
             onClick={() => setSelectedIcon(id)}
-            title={label}
+            title={t(labelKey)}
             className={cn(
               "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-150 shadow-sm cursor-pointer",
               selectedIcon === id

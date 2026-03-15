@@ -81,6 +81,16 @@ export const fr: TranslationKeys = {
     desktop: "Bureau",
     noWebLayout: "Aucune mise en page web configurée pour ce mode.",
     setupInTemplateEditor: "Configurez-la d'abord dans l'Éditeur de Modèles.",
+    saveFirstForQr: "Enregistrez ce menu d'abord pour générer un code QR.",
+    scanToOrder: "Scanner pour Commander",
+    scanToOrderDescription: "Les clients scannent ce code QR pour voir le menu et passer commande",
+    publiclyAccessible: "Accessible publiquement",
+    liveSince: "En ligne depuis le",
+    enableToLetCustomers: "Activez pour permettre aux clients de scanner et commander",
+    signInToPublish: "Connectez-vous pour publier ce menu",
+    getQrAndEmbed: "Obtenir le Code QR et le Code d'Intégration",
+    qrCode: "Code QR",
+    phone: "Téléphone",
   },
 
   editorPanel: {
