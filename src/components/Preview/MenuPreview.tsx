@@ -67,7 +67,6 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
   // Highlight categories that overflow past the page boundary
   const markOverflowCategories = useCallback(() => {
     document.querySelectorAll("[data-menu-preview]").forEach((pageEl) => {
-      const pageIndex = Number(pageEl.getAttribute("data-page-index"));
       const pageHeightPx = template ? mmToPx(template.format.height) : 1123;
       const pageRect = pageEl.getBoundingClientRect();
       const pageBottom = pageRect.top + pageHeightPx;
