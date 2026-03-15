@@ -125,6 +125,8 @@ export const nl: TranslationKeys = {
     moveToPage: "Verplaatsen naar Pagina {{page}} — {{name}}",
     createNewPage: "Nieuwe pagina aanmaken en verplaatsen",
     keepAnyway: "Toch op deze pagina houden",
+    pageFull: "Pagina {{page}} is vol (max {{max}} categorieën). Toegevoegd aan Pagina {{target}}.",
+    pageFullNewPage: "Pagina {{page}} is vol (max {{max}} categorieën). Pagina {{target}} aangemaakt voor deze categorie.",
   },
 
   aiChat: {

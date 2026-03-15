@@ -125,6 +125,8 @@ export const fr: TranslationKeys = {
     moveToPage: "Déplacer vers Page {{page}} — {{name}}",
     createNewPage: "Créer une nouvelle page et y déplacer",
     keepAnyway: "Garder sur cette page quand même",
+    pageFull: "Page {{page}} est pleine (max {{max}} catégories). Ajouté à la Page {{target}}.",
+    pageFullNewPage: "Page {{page}} est pleine (max {{max}} catégories). Page {{target}} créée pour cette catégorie.",
   },
 
   aiChat: {

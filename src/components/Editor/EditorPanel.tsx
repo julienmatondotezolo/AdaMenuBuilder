@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   Type,
   Palette,
+  AlertTriangle,
 } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
@@ -273,13 +274,27 @@ export default function EditorPanel() {
     if (!defaultVariantId) return;
 
     if (pages.length === 0) {
-      // No pages yet — create a default page with all categories
+      // No pages yet — distribute categories across pages based on variant capacity
       lastResolvedTemplateId.current = currentTemplate.id;
-      setPages([{
-        id: `page-${Date.now()}`,
-        variantId: defaultVariantId,
-        categoryIds: displayData.categories.map((c) => c.id),
-      }]);
+      const firstVariant = currentTemplate.pageVariants.find((v) => v.id === defaultVariantId);
+      const capacity = getVariantCategoryCapacity(firstVariant);
+      const allCatIds = displayData.categories.map((c) => c.id);
+
+      if (capacity === Infinity || allCatIds.length <= capacity) {
+        // Everything fits on one page
+        setPages([{ id: `page-${Date.now()}`, variantId: defaultVariantId, categoryIds: allCatIds }]);
+      } else {
+        // Distribute across multiple pages
+        const newPages: MenuPage[] = [];
+        for (let i = 0; i < allCatIds.length; i += capacity) {
+          newPages.push({
+            id: `page-${Date.now()}-${newPages.length}`,
+            variantId: defaultVariantId,
+            categoryIds: allCatIds.slice(i, i + capacity),
+          });
+        }
+        setPages(newPages);
+      }
     } else {
       const needsUpdate = pages.some((p) => !validVariantIds.has(p.variantId));
       if (needsUpdate) {
@@ -303,6 +318,14 @@ export default function EditorPanel() {
   const [expandSignal, setExpandSignal] = useState(0);
   const [dragCollapseSignal, setDragCollapseSignal] = useState(0);
   const [dragRestoreSignal, setDragRestoreSignal] = useState(0);
+
+  /* ── Capacity notification (shown when category auto-moved to next page) ── */
+  const [capacityNotice, setCapacityNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!capacityNotice) return;
+    const timer = setTimeout(() => setCapacityNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [capacityNotice]);
 
   /* ── Overflow dialog state ─────────────────────────────────────── */
   const [overflowDialog, setOverflowDialog] = useState<{
@@ -421,13 +444,23 @@ export default function EditorPanel() {
   useEffect(() => {
     if (pages.length === 0 && menuData.categories.length > 0 && currentTemplate) {
       const firstVariant = currentTemplate.pageVariants[0];
-      setPages([
-        {
-          id: `page-${uid()}`,
-          variantId: firstVariant?.id ?? "",
-          categoryIds: menuData.categories.map((c) => c.id),
-        },
-      ]);
+      const variantId = firstVariant?.id ?? "";
+      const capacity = getVariantCategoryCapacity(firstVariant);
+      const allCatIds = menuData.categories.map((c) => c.id);
+
+      if (capacity === Infinity || allCatIds.length <= capacity) {
+        setPages([{ id: `page-${uid()}`, variantId, categoryIds: allCatIds }]);
+      } else {
+        const newPages: MenuPage[] = [];
+        for (let i = 0; i < allCatIds.length; i += capacity) {
+          newPages.push({
+            id: `page-${uid()}`,
+            variantId,
+            categoryIds: allCatIds.slice(i, i + capacity),
+          });
+        }
+        setPages(newPages);
+      }
     }
   }, [pages.length, menuData.categories.length, currentTemplate?.id]);
 
@@ -840,22 +873,62 @@ export default function EditorPanel() {
     );
   };
 
-  /* ── Add category — goes to active page ────────────────────────── */
+  /* ── Add category — goes to active page, respects maxCategories ── */
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
       const catId = addCategory(newCategoryName.trim());
-      // Add to active page
       if (pages.length > 0 && catId) {
         const targetPageIndex = Math.min(activePageIndex, pages.length - 1);
-        setPages((prev) =>
-          prev.map((p, i) =>
-            i === targetPageIndex
-              ? { ...p, categoryIds: [...p.categoryIds, catId] }
-              : p,
-          ),
-        );
-        // Check overflow after adding
-        scheduleOverflowCheck(catId);
+        const targetPage = pages[targetPageIndex];
+        const variant = currentTemplate?.pageVariants.find((v) => v.id === targetPage?.variantId);
+        const capacity = getVariantCategoryCapacity(variant);
+
+        if (capacity !== Infinity && targetPage.categoryIds.length >= capacity) {
+          // Page is full — find next page with space or create one
+          const nextPageIndex = pages.findIndex(
+            (p, i) => i > targetPageIndex && p.categoryIds.length < getVariantCategoryCapacity(
+              currentTemplate?.pageVariants.find((v) => v.id === p.variantId),
+            ),
+          );
+
+          if (nextPageIndex !== -1) {
+            // Add to next available page
+            setPages((prev) =>
+              prev.map((p, i) => i === nextPageIndex ? { ...p, categoryIds: [...p.categoryIds, catId] } : p),
+            );
+            setCapacityNotice(
+              t("overflow.pageFull")
+                .replace("{{page}}", String(targetPageIndex + 1))
+                .replace("{{max}}", String(capacity))
+                .replace("{{target}}", String(nextPageIndex + 1)),
+            );
+            setActivePageIndex(nextPageIndex);
+          } else {
+            // No page with space — create a new one
+            const defaultVariantId = currentTemplate?.pageVariants[0]?.id ?? "";
+            const newPageId = `page-${uid()}`;
+            setPages((prev) => [
+              ...prev,
+              { id: newPageId, variantId: targetPage.variantId || defaultVariantId, categoryIds: [catId] },
+            ]);
+            const newPageIndex = pages.length;
+            setCapacityNotice(
+              t("overflow.pageFullNewPage")
+                .replace("{{page}}", String(targetPageIndex + 1))
+                .replace("{{max}}", String(capacity))
+                .replace("{{target}}", String(newPageIndex + 1)),
+            );
+            setActivePageIndex(newPageIndex);
+          }
+        } else {
+          // Page has space — add normally
+          setPages((prev) =>
+            prev.map((p, i) =>
+              i === targetPageIndex ? { ...p, categoryIds: [...p.categoryIds, catId] } : p,
+            ),
+          );
+          scheduleOverflowCheck(catId);
+        }
       }
       setNewCategoryName("");
       setIsAddingCategory(false);
@@ -1132,6 +1205,20 @@ export default function EditorPanel() {
               <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               <span className="text-xs font-semibold text-amber-700">AI Preview Mode</span>
               <span className="text-xs text-amber-600 ml-auto">New items highlighted in green</span>
+            </div>
+          )}
+
+          {/* Capacity notice banner */}
+          {capacityNotice && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-3 animate-in fade-in slide-in-from-top-1 duration-200">
+              <AlertTriangle className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="text-xs font-medium text-blue-700 flex-1">{capacityNotice}</span>
+              <button
+                onClick={() => setCapacityNotice(null)}
+                className="text-blue-400 hover:text-blue-600 shrink-0"
+              >
+                <X className="w-3 h-3" />
+              </button>
             </div>
           )}
 

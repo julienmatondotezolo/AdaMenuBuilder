@@ -123,6 +123,8 @@ export const en = {
     moveToPage: "Move to Page {{page}} — {{name}}",
     createNewPage: "Create new page & move there",
     keepAnyway: "Keep on this page anyway",
+    pageFull: "Page {{page}} is full (max {{max}} categories). Added to Page {{target}} instead.",
+    pageFullNewPage: "Page {{page}} is full (max {{max}} categories). Created Page {{target}} for this category.",
   },
 
   aiChat: {
