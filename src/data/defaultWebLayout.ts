@@ -9,7 +9,7 @@ export function createDefaultWebLayout(mode: "mobile" | "desktop" | "qr"): WebLa
         {
           id: `wb-${uid()}`,
           type: "search",
-          placeholder: "Search by title",
+          placeholder: "",
         },
         {
           id: `wb-${uid()}`,

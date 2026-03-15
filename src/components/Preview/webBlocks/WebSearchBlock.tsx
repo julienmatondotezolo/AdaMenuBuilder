@@ -45,7 +45,7 @@ export default function WebSearchBlock({ block, colors, fonts, contentPaddingX, 
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-          placeholder={block.placeholder || (t ? t("qrMenu.searchMenu") : "Search menu...")}
+          placeholder={(t ? t("qrMenu.searchMenu") : null) || block.placeholder || "Search menu..."}
           style={{
             flex: 1,
             border: "none",
