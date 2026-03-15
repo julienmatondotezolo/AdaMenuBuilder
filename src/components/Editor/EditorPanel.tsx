@@ -332,6 +332,12 @@ export default function EditorPanel() {
       if (!currentTemplate || pageIndex < 0 || pageIndex >= pages.length) return null;
       const page = pages[pageIndex];
 
+      // Skip overflow checks on empty pages — nothing can overflow
+      if (page.categoryIds.length === 0) {
+        console.log(`[Overflow] Page ${pageIndex}: empty page, skipping`);
+        return null;
+      }
+
       // 1. Capacity-based overflow (maxCategories limits)
       // Only check capacity when there are multiple pages — with a single page
       // there's nowhere to move categories, so the check is meaningless.
