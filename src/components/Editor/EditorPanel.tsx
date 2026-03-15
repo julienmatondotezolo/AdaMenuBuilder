@@ -10,6 +10,8 @@ import {
   Palette,
   AlertTriangle,
   ArrowLeftRight,
+  Trash2,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
@@ -247,6 +249,7 @@ export default function EditorPanel() {
     activePageIndex,
     setActivePageIndex,
     addCategory,
+    removeCategory,
     moveOrReorderItem,
     setDragState,
     dragState,
@@ -346,6 +349,12 @@ export default function EditorPanel() {
     targetPageIndex: number;
     capacity: number;
     targetCategoryIds: string[];
+  } | null>(null);
+
+  /* ── Delete page dialog state ─────────────────────────────────── */
+  const [deletePageDialog, setDeletePageDialog] = useState<{
+    pageIndex: number;
+    categoryCount: number;
   } | null>(null);
 
   /* ── Overflow dialog state ─────────────────────────────────────── */
@@ -928,28 +937,70 @@ export default function EditorPanel() {
   const removePage = (pageIndex: number) => {
     if (pages.length <= 1) return;
     const removedPage = pages[pageIndex];
-    // Move orphaned categories to previous page (or first page)
-    const targetPageIdx = pageIndex > 0 ? pageIndex - 1 : 1;
+    const validCatCount = removedPage.categoryIds.filter((cid) =>
+      displayData.categories.some((c) => c.id === cid),
+    ).length;
 
-    setPages((prev) => {
-      const targetPage = prev[targetPageIdx];
-      return prev
-        .map((p, i) => {
-          if (i === pageIndex) return null; // remove
-          if (p.id === targetPage?.id) {
-            return {
-              ...p,
-              categoryIds: [...p.categoryIds, ...removedPage.categoryIds],
-            };
+    if (validCatCount > 0) {
+      setDeletePageDialog({ pageIndex, categoryCount: validCatCount });
+      return;
+    }
+    // No categories — just remove the page
+    executeDeletePage(pageIndex, false);
+  };
+
+  const executeDeletePage = (pageIndex: number, deleteCategories: boolean) => {
+    const removedPage = pages[pageIndex];
+    const catIds = removedPage.categoryIds.filter((cid) =>
+      displayData.categories.some((c) => c.id === cid),
+    );
+
+    if (deleteCategories) {
+      // Delete page and all its categories
+      for (const catId of catIds) {
+        removeCategory(catId);
+      }
+      setPages((prev) => prev.filter((_, i) => i !== pageIndex));
+    } else {
+      // Delete page only — redistribute categories respecting capacity
+      setPages((prev) => {
+        const remaining = prev.filter((_, i) => i !== pageIndex);
+        let overflow: string[] = [];
+
+        for (const catId of catIds) {
+          const targetPage = remaining.find((p) => {
+            const variant = currentTemplate?.variants?.find((v) => v.id === p.variantId);
+            const cap = getVariantCategoryCapacity(variant);
+            return p.categoryIds.length < cap;
+          });
+
+          if (targetPage) {
+            targetPage.categoryIds = [...targetPage.categoryIds, catId];
+          } else {
+            overflow.push(catId);
           }
-          return p;
-        })
-        .filter(Boolean) as MenuPage[];
-    });
+        }
+
+        if (overflow.length > 0) {
+          const defaultVariantId = currentTemplate?.variants?.[0]?.id ?? "";
+          remaining.push({
+            id: `page-${Date.now()}-overflow`,
+            variantId: defaultVariantId,
+            categoryIds: overflow,
+          });
+          setCapacityNotice(
+            t("overflow.categoriesMovedToNew").replace("{{page}}", String(remaining.length)),
+          );
+        }
+
+        return remaining;
+      });
+    }
 
     if (activePageIndex >= pages.length - 1) {
       setActivePageIndex(Math.max(0, pages.length - 2));
     }
+    setDeletePageDialog(null);
     setTimeout(measureAllOverflows, 400);
   };
 
@@ -1571,6 +1622,89 @@ export default function EditorPanel() {
                   e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.08)";
                   e.currentTarget.style.borderColor = "hsl(0 84% 60% / 0.3)";
                 }}
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Page Dialog */}
+      {deletePageDialog && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          onClick={() => setDeletePageDialog(null)}
+        >
+          <div
+            className="bg-card rounded-xl shadow-2xl border border-border p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: "hsl(0 84% 60% / 0.12)" }}
+              >
+                <Trash2 className="w-5 h-5" style={{ color: "hsl(0 84% 60%)" }} />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-foreground">{t("overflow.deletePageTitle")}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t("overflow.deletePageDescription")
+                    .replace("{{page}}", String(deletePageDialog.pageIndex + 1))
+                    .replace("{{count}}", String(deletePageDialog.categoryCount))}
+                </p>
+              </div>
+              <button
+                onClick={() => setDeletePageDialog(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={() => executeDeletePage(deletePageDialog.pageIndex, false)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-foreground transition-colors text-left"
+                style={{
+                  backgroundColor: "hsl(232 100% 66% / 0.06)",
+                  border: "1px solid hsl(232 100% 66% / 0.15)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(232 100% 66% / 0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(232 100% 66% / 0.06)";
+                }}
+              >
+                <ArrowRightLeft className="w-4 h-4 text-primary shrink-0" />
+                {t("overflow.deletePageOnly")}
+              </button>
+
+              <button
+                onClick={() => executeDeletePage(deletePageDialog.pageIndex, true)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-left"
+                style={{
+                  backgroundColor: "hsl(0 84% 60% / 0.06)",
+                  border: "1px solid hsl(0 84% 60% / 0.15)",
+                  color: "hsl(0 84% 60%)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.06)";
+                }}
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                {t("overflow.deletePageAndCategories")}
+              </button>
+
+              <button
+                onClick={() => setDeletePageDialog(null)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50"
               >
                 {t("common.cancel")}
               </button>

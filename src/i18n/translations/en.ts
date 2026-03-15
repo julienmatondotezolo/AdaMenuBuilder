@@ -128,6 +128,11 @@ export const en = {
     pageFullTitle: "Page Full",
     pageFullDescription: "Page {{page}} can only hold {{max}} categories. Swap with an existing category or cancel.",
     swapWith: "Swap with",
+    deletePageTitle: "Delete Page",
+    deletePageDescription: "Page {{page}} contains {{count}} categories. What would you like to do?",
+    deletePageOnly: "Delete page only — move categories to other pages",
+    deletePageAndCategories: "Delete page and all its categories",
+    categoriesMovedToNew: "Some categories were moved to a new Page {{page}} (not enough space on existing pages).",
   },
 
   aiChat: {

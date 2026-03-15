@@ -130,6 +130,11 @@ export const fr: TranslationKeys = {
     pageFullTitle: "Page Pleine",
     pageFullDescription: "La Page {{page}} ne peut contenir que {{max}} catégories. Échangez avec une catégorie existante ou annulez.",
     swapWith: "Échanger avec",
+    deletePageTitle: "Supprimer la Page",
+    deletePageDescription: "La Page {{page}} contient {{count}} catégories. Que souhaitez-vous faire ?",
+    deletePageOnly: "Supprimer la page uniquement — déplacer les catégories",
+    deletePageAndCategories: "Supprimer la page et toutes ses catégories",
+    categoriesMovedToNew: "Certaines catégories ont été déplacées vers une nouvelle Page {{page}} (pas assez de place).",
   },
 
   aiChat: {

@@ -130,6 +130,11 @@ export const nl: TranslationKeys = {
     pageFullTitle: "Pagina Vol",
     pageFullDescription: "Pagina {{page}} kan maximaal {{max}} categorieën bevatten. Wissel met een bestaande categorie of annuleer.",
     swapWith: "Wisselen met",
+    deletePageTitle: "Pagina Verwijderen",
+    deletePageDescription: "Pagina {{page}} bevat {{count}} categorieën. Wat wilt u doen?",
+    deletePageOnly: "Alleen pagina verwijderen — categorieën verplaatsen",
+    deletePageAndCategories: "Pagina en alle categorieën verwijderen",
+    categoriesMovedToNew: "Sommige categorieën zijn verplaatst naar een nieuwe Pagina {{page}} (niet genoeg ruimte).",
   },
 
   aiChat: {
