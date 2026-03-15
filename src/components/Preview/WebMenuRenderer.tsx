@@ -130,6 +130,8 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
     setShowCart(true);
   }, []);
 
+  const hasStickyNav = blocks.some((b) => b.type === "category-nav" && b.sticky);
+
   return (
     <div
       ref={scrollRef}
@@ -140,9 +142,13 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
         overflowX: "hidden",
         backgroundColor: colors.background,
         position: "relative",
+        WebkitOverflowScrolling: "touch",
         ...(webLayout.showScrollbar ? {} : { scrollbarWidth: "none" as const }),
       }}
     >
+      {hasStickyNav && (
+        <style>{`.web-menu-sticky-nav { position: -webkit-sticky; position: sticky; top: 0; z-index: 10; }`}</style>
+      )}
       {/* Cart view overlay */}
       {showCart && orderingEnabled && qrOrderConfig && (
         <WebCartView
@@ -172,14 +178,12 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           return (
           <div
             key={block.id}
+            className={isSticky ? "web-menu-sticky-nav" : undefined}
             onClick={(e) => {
               e.stopPropagation();
               onSelectBlock?.(block.id);
             }}
             style={{
-              position: isSticky ? "sticky" : "relative",
-              top: isSticky ? 0 : undefined,
-              zIndex: isSticky ? 10 : undefined,
               backgroundColor: isSticky ? colors.background : undefined,
               cursor: onSelectBlock ? "pointer" : "default",
               outline: selectedBlockId === block.id ? `2px solid ${colors.primary}` : "none",
