@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { useMenu } from "../../context/MenuContext";
 import type { MenuTemplate, PageVariant } from "../../types/template";
 import type { MenuPage, Category } from "../../types/menu";
@@ -63,6 +63,49 @@ export default function MenuPreview({ template }: MenuPreviewProps) {
   }, [template?.pageVariants]);
 
   const isActiveDrag = dragState.activeId !== null;
+
+  // Highlight categories that overflow past the page boundary
+  const markOverflowCategories = useCallback(() => {
+    document.querySelectorAll("[data-menu-preview]").forEach((pageEl) => {
+      const pageIndex = Number(pageEl.getAttribute("data-page-index"));
+      const pageHeightPx = template ? mmToPx(template.format.height) : 1123;
+      const pageRect = pageEl.getBoundingClientRect();
+      const pageBottom = pageRect.top + pageHeightPx;
+
+      pageEl.querySelectorAll("[data-category-id]").forEach((catEl) => {
+        const catRect = catEl.getBoundingClientRect();
+        const catBottom = catRect.top + catRect.height;
+        const htmlEl = catEl as HTMLElement;
+
+        if (catBottom > pageBottom + 2) {
+          // This category extends past the page boundary
+          htmlEl.style.outline = "2px solid hsl(0 80% 55% / 0.6)";
+          htmlEl.style.outlineOffset = "2px";
+          htmlEl.style.borderRadius = "4px";
+          if (!htmlEl.querySelector(".overflow-badge")) {
+            const badge = document.createElement("div");
+            badge.className = "overflow-badge";
+            badge.style.cssText =
+              "position:absolute;top:2px;right:2px;z-index:30;background:hsl(0 80% 55%);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;pointer-events:none;font-family:system-ui;";
+            badge.textContent = "OVERFLOW";
+            htmlEl.style.position = "relative";
+            htmlEl.appendChild(badge);
+          }
+        } else {
+          htmlEl.style.outline = "";
+          htmlEl.style.outlineOffset = "";
+          const badge = htmlEl.querySelector(".overflow-badge");
+          if (badge) badge.remove();
+        }
+      });
+    });
+  }, [template]);
+
+  useEffect(() => {
+    const timer = setTimeout(markOverflowCategories, 500);
+    const interval = setInterval(markOverflowCategories, 2000);
+    return () => { clearTimeout(timer); clearInterval(interval); };
+  }, [markOverflowCategories, menuData, pages]);
 
   // Template-derived styles (fallback to defaults if no template)
   const colors = template?.colors ?? {
