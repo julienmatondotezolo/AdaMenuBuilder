@@ -9,6 +9,8 @@ import {
   LayoutTemplate,
   Store,
   Loader2,
+  EyeOff,
+  RotateCcw,
 } from "lucide-react";
 import {
   Button,
@@ -32,7 +34,7 @@ import {
 import { useTemplates } from "../db/hooks";
 import { useAuth } from "../context/AuthContext";
 import { fetchRestaurants, type Restaurant } from "../services/templateApi";
-import { fetchMenus, createBackendMenu, deleteBackendMenu, type BackendMenu } from "../services/menuApi";
+import { fetchMenus, createBackendMenu, deleteBackendMenu, disableBackendMenu, enableBackendMenu, type BackendMenu } from "../services/menuApi";
 
 export default function Dashboard() {
   const templates = useTemplates();
@@ -130,18 +132,45 @@ export default function Dashboard() {
   const handleDelete = async (menu: BackendMenu) => {
     setOpenDropdown(null);
     if (!token) return;
-    if (!confirm("Delete this menu? This cannot be undone.")) return;
+
+    if (isAdmin) {
+      // Admin: hard delete
+      if (!confirm("Permanently delete this menu? This cannot be undone.")) return;
+      try {
+        await deleteBackendMenu(token, menu.restaurant_id, menu.id);
+        await loadMenus();
+      } catch (err: any) {
+        alert(err.message || "Failed to delete menu");
+      }
+    } else {
+      // Owner: soft delete (disable)
+      if (!confirm("Remove this menu? It will be hidden from your list.")) return;
+      try {
+        await disableBackendMenu(token, menu.restaurant_id, menu.id);
+        await loadMenus();
+      } catch (err: any) {
+        alert(err.message || "Failed to remove menu");
+      }
+    }
+  };
+
+  const handleEnable = async (menu: BackendMenu) => {
+    setOpenDropdown(null);
+    if (!token) return;
     try {
-      await deleteBackendMenu(token, menu.restaurant_id, menu.id);
+      await enableBackendMenu(token, menu.restaurant_id, menu.id);
       await loadMenus();
     } catch (err: any) {
-      alert(err.message || "Failed to delete menu");
+      alert(err.message || "Failed to re-enable menu");
     }
   };
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const d = new Date(iso);
+      const date = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      return `${date}, ${time}`;
     } catch {
       return "";
     }
@@ -182,10 +211,12 @@ export default function Dashboard() {
               </SelectContent>
             </Select>
           )}
-          <Button variant="outline" size="sm" onClick={() => navigate("/templates")}>
-            <LayoutTemplate className="w-4 h-4 mr-2" />
-            Templates
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/templates")}>
+              <LayoutTemplate className="w-4 h-4 mr-2" />
+              Templates
+            </Button>
+          )}
           <Button size="sm" onClick={() => {
             setSelectedTemplateId(templates?.[0]?.id || "");
             setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
@@ -289,11 +320,13 @@ export default function Dashboard() {
               <MenuCard
                 key={menu.id}
                 menu={menu}
+                isAdmin={isAdmin}
                 restaurantName={isAdmin ? getRestaurantName(menu.restaurant_id) : undefined}
                 isDropdownOpen={openDropdown === menu.id}
                 onToggleDropdown={() => setOpenDropdown(openDropdown === menu.id ? null : menu.id)}
                 onEdit={() => navigate(`/menus/${menu.id}/edit?restaurant=${menu.restaurant_id}`)}
                 onDelete={() => handleDelete(menu)}
+                onEnable={isAdmin ? () => handleEnable(menu) : undefined}
                 formatDate={formatDate}
               />
             ))}
@@ -323,22 +356,33 @@ export default function Dashboard() {
 
 interface MenuCardProps {
   menu: BackendMenu;
+  isAdmin: boolean;
   restaurantName?: string;
   isDropdownOpen: boolean;
   onToggleDropdown: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onEnable?: () => void;
   formatDate: (iso: string) => string;
 }
 
-function MenuCard({ menu, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, formatDate }: MenuCardProps) {
+function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, onEnable, formatDate }: MenuCardProps) {
+  const isDisabled = menu.disabled;
+
   return (
     <Card
-      className="cursor-pointer transition-shadow hover:shadow-md"
+      className={`cursor-pointer transition-shadow hover:shadow-md ${isDisabled ? "opacity-50" : ""}`}
       onClick={onEdit}
     >
       {/* Preview area */}
       <div className="h-40 relative overflow-hidden flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+        {isDisabled && (
+          <div className="absolute top-2 left-2 z-10">
+            <Badge variant="destructive" className="text-[10px]">
+              <EyeOff className="w-3 h-3 mr-1" /> Disabled
+            </Badge>
+          </div>
+        )}
         {menu.thumbnail ? (
           <>
             {/* Blurred background fill */}
@@ -396,8 +440,13 @@ function MenuCard({ menu, restaurantName, isDropdownOpen, onToggleDropdown, onEd
                   <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
                     <Pencil className="w-3 h-3" /> Edit
                   </button>
+                  {isAdmin && isDisabled && onEnable && (
+                    <button onClick={onEnable} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
+                      <RotateCcw className="w-3 h-3" /> Re-enable
+                    </button>
+                  )}
                   <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
-                    <Trash2 className="w-3 h-3" /> Delete
+                    <Trash2 className="w-3 h-3" /> {isAdmin ? "Delete" : "Remove"}
                   </button>
                 </Card>
               )}

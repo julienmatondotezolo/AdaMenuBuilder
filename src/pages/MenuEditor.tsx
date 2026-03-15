@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toPng } from "html-to-image";
-import { ArrowLeft, Loader2, X, FileText, Smartphone, Monitor, Copy, Check, Code } from "lucide-react";
-import { Button, Label, cn } from "ada-design-system";
+import { ArrowLeft, Loader2, X, FileText, Smartphone, Monitor, Copy, Check, Code, Trash2 } from "lucide-react";
+import { Button, Card, CardContent, Label, cn } from "ada-design-system";
 import { QRCodeSVG } from "qrcode.react";
 import { useTemplateById } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
@@ -34,6 +34,7 @@ export default function MenuEditor() {
   const [_backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [menuDisabled, setMenuDisabled] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [showDiffPopup, setShowDiffPopup] = useState(false);
   const [showPublishSuccess, setShowPublishSuccess] = useState(false);
@@ -130,7 +131,11 @@ export default function MenuEditor() {
 
         initialized.current = true;
       } catch (err: any) {
-        setError(err.message || "Failed to load menu");
+        if (err.code === "MENU_DISABLED") {
+          setMenuDisabled(true);
+        } else {
+          setError(err.message || "Failed to load menu");
+        }
       } finally {
         setLoading(false);
       }
@@ -290,6 +295,26 @@ export default function MenuEditor() {
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
           <p>Loading menu...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (menuDisabled) {
+    return (
+      <div className="flex items-center justify-center h-full bg-muted/30">
+        <Card className="max-w-sm">
+          <CardContent className="flex flex-col items-center py-12 text-center">
+            <Trash2 className="w-12 h-12 text-muted-foreground/30 mb-4" />
+            <p className="text-lg font-medium text-foreground">Menu Deleted</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              This menu has been removed and is no longer accessible.
+            </p>
+            <Button variant="outline" size="sm" className="mt-6" onClick={() => navigate("/")}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

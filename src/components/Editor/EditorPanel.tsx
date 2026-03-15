@@ -33,6 +33,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { useMenu } from "../../context/MenuContext";
+import { useAuth } from "../../context/AuthContext";
 import { useTemplates, useTemplateById } from "../../db/hooks";
 import CategorySection from "./CategorySection";
 import EditorCard from "./EditorCard";
@@ -243,6 +244,8 @@ export default function EditorPanel() {
     aiPreviewPages,
     aiPreviewNewIds,
   } = useMenu();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   // When AI preview is active, use preview data for display
   const isAiPreview = !!aiPreviewData;
@@ -985,35 +988,37 @@ export default function EditorPanel() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {/* Template Selector */}
-        <EditorCard
-          icon={<Palette className="w-4 h-4" />}
-          title="Template"
-          defaultCollapsed
-          collapseSignal={collapseSignal}
-          expandSignal={expandSignal}
-        >
-          <TemplateSelector
-            template={currentTemplate}
-            templateId={templateId}
-            setTemplateId={setTemplateId}
-          />
-          {currentTemplate && (
-            <a
-              href={`/templates/${currentTemplate.id}/edit`}
-              className="flex items-center gap-1.5 text-xs font-medium text-primary transition-colors"
-              style={{ opacity: 0.8 }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.opacity = "1";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.opacity = "0.8";
-              }}
-            >
-              Edit template settings →
-            </a>
-          )}
-        </EditorCard>
+        {/* Template Selector — admin only */}
+        {isAdmin && (
+          <EditorCard
+            icon={<Palette className="w-4 h-4" />}
+            title="Template"
+            defaultCollapsed
+            collapseSignal={collapseSignal}
+            expandSignal={expandSignal}
+          >
+            <TemplateSelector
+              template={currentTemplate}
+              templateId={templateId}
+              setTemplateId={setTemplateId}
+            />
+            {currentTemplate && (
+              <a
+                href={`/templates/${currentTemplate.id}/edit`}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary transition-colors"
+                style={{ opacity: 0.8 }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.opacity = "0.8";
+                }}
+              >
+                Edit template settings →
+              </a>
+            )}
+          </EditorCard>
+        )}
 
         <div className="h-4" />
 

@@ -7,6 +7,7 @@ export interface BackendMenu {
   subtitle: string | null;
   template_id: string | null;
   status: "draft" | "published";
+  disabled: boolean;
   thumbnail: string | null;
   created_at: string;
   updated_at: string;
@@ -82,12 +83,41 @@ export async function deleteBackendMenu(token: string, restaurantId: string, men
   }
 }
 
+/** Soft-delete a menu (set disabled=true) */
+export async function disableBackendMenu(token: string, restaurantId: string, menuId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${menuId}/disable`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to disable menu");
+  }
+}
+
+/** Re-enable a disabled menu (admin only) */
+export async function enableBackendMenu(token: string, restaurantId: string, menuId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${menuId}/enable`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Failed to enable menu");
+  }
+}
+
 /** Get complete menu (nested categories, items, pages) */
 export async function fetchCompleteMenu(token: string, restaurantId: string, menuId: string) {
   const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus/${menuId}/complete`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error("Failed to fetch complete menu");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const error = new Error(err.message || "Failed to fetch complete menu") as Error & { code?: string };
+    error.code = err.error;
+    throw error;
+  }
   const data = await res.json();
   return data.data;
 }
