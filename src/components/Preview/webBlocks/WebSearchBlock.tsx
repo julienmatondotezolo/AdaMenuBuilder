@@ -9,9 +9,10 @@ interface Props {
   borderRadius: number;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  t?: (key: string) => string;
 }
 
-export default function WebSearchBlock({ block, colors, fonts, contentPaddingX, borderRadius, searchQuery, onSearchChange }: Props) {
+export default function WebSearchBlock({ block, colors, fonts, contentPaddingX, borderRadius, searchQuery, onSearchChange, t }: Props) {
   return (
     <div style={{ padding: `0 ${contentPaddingX}px` }}>
       <div
@@ -44,7 +45,7 @@ export default function WebSearchBlock({ block, colors, fonts, contentPaddingX, 
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           onClick={(e) => e.stopPropagation()}
-          placeholder={block.placeholder || "Search menu..."}
+          placeholder={block.placeholder || (t ? t("qrMenu.searchMenu") : "Search menu...")}
           style={{
             flex: 1,
             border: "none",

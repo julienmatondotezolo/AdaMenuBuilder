@@ -15,6 +15,7 @@ interface Props {
   cart?: CartItem[];
   onAddToCart?: (item: MenuItem) => void;
   onUpdateQuantity?: (itemId: string, delta: number) => void;
+  t?: (key: string) => string;
 }
 
 function QuantityControls({ item, cart, colors, fonts, borderRadius, onAdd, onUpdate }: {
@@ -239,7 +240,7 @@ function CategoryBlock({ category, block, colors, fonts, borderRadius, orderingE
   );
 }
 
-export default function WebMenuSectionBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius, searchQuery, orderingEnabled, cart, onAddToCart, onUpdateQuantity }: Props) {
+export default function WebMenuSectionBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius, searchQuery, orderingEnabled, cart, onAddToCart, onUpdateQuantity, t }: Props) {
   const q = (searchQuery || "").toLowerCase().trim();
 
   // Filter categories and items by search query
@@ -260,7 +261,7 @@ export default function WebMenuSectionBlock({ block, menuData, colors, fonts, co
     return (
       <div style={{ padding: `16px ${contentPaddingX}px`, textAlign: "center" }}>
         <span style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>
-          No items found for "{searchQuery}"
+          {t ? t("qrMenu.noItemsFound").replace("{{query}}", searchQuery || "") : `No items found for "${searchQuery}"`}
         </span>
       </div>
     );

@@ -242,6 +242,8 @@ export const fr: TranslationKeys = {
     dineIn: "Sur Place",
     delivery: "Livraison",
     language: "Langue",
+    searchMenu: "Rechercher dans le menu...",
+    noItemsFound: "Aucun article trouvé pour \"{{query}}\"",
   },
 
   common: {

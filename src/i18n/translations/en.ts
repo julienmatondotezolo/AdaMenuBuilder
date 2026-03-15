@@ -240,6 +240,8 @@ export const en = {
     dineIn: "Dine In",
     delivery: "Delivery",
     language: "Language",
+    searchMenu: "Search menu...",
+    noItemsFound: "No items found for \"{{query}}\"",
   },
 
   common: {

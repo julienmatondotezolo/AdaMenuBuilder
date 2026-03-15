@@ -242,6 +242,8 @@ export const nl: TranslationKeys = {
     dineIn: "Ter Plaatse",
     delivery: "Bezorging",
     language: "Taal",
+    searchMenu: "Zoeken in het menu...",
+    noItemsFound: "Geen items gevonden voor \"{{query}}\"",
   },
 
   common: {

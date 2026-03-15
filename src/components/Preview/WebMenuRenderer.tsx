@@ -42,6 +42,7 @@ function RenderBlock({
   cart,
   onAddToCart,
   onUpdateQuantity,
+  t,
 }: {
   block: WebBlock;
   menuData: MenuData;
@@ -57,6 +58,7 @@ function RenderBlock({
   cart: CartItem[];
   onAddToCart: (item: MenuItem) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
+  t?: (key: string) => string;
 }) {
   switch (block.type) {
     case "hero":
@@ -64,7 +66,7 @@ function RenderBlock({
     case "category-nav":
       return <WebCategoryNavBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} scrollContainer={scrollContainer} />;
     case "menu-section":
-      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} orderingEnabled={orderingEnabled} cart={cart} onAddToCart={onAddToCart} onUpdateQuantity={onUpdateQuantity} />;
+      return <WebMenuSectionBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} orderingEnabled={orderingEnabled} cart={cart} onAddToCart={onAddToCart} onUpdateQuantity={onUpdateQuantity} t={t} />;
     case "featured-spotlight":
       return <WebFeaturedSpotlightBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} orderingEnabled={orderingEnabled} cart={cart} onAddToCart={onAddToCart} onUpdateQuantity={onUpdateQuantity} />;
     case "image-banner":
@@ -72,7 +74,7 @@ function RenderBlock({
     case "info-bar":
       return <WebInfoBarBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} />;
     case "search":
-      return <WebSearchBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} onSearchChange={onSearchChange} />;
+      return <WebSearchBlock block={block} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} borderRadius={borderRadius} searchQuery={searchQuery} onSearchChange={onSearchChange} t={t} />;
     case "footer":
       return <WebFooterBlock block={block} menuData={menuData} colors={colors} fonts={fonts} contentPaddingX={spacing.contentPaddingX} />;
     default:
@@ -210,6 +212,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
               cart={cart}
               onAddToCart={handleAddToCart}
               onUpdateQuantity={handleUpdateQuantity}
+              t={t}
             />
           </div>
           );
