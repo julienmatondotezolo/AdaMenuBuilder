@@ -1559,15 +1559,17 @@ export default function EditorPanel() {
                 onClick={() => setSwapDialog(null)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors"
                 style={{
-                  backgroundColor: "hsl(220 13% 91% / 0.5)",
-                  border: "1px solid hsl(220 13% 91%)",
-                  color: "hsl(220 9% 46%)",
+                  backgroundColor: "hsl(0 84% 60% / 0.08)",
+                  border: "1px solid hsl(0 84% 60% / 0.3)",
+                  color: "hsl(0 84% 60%)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "hsl(220 13% 91% / 0.8)";
+                  e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.15)";
+                  e.currentTarget.style.borderColor = "hsl(0 84% 60% / 0.5)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "hsl(220 13% 91% / 0.5)";
+                  e.currentTarget.style.backgroundColor = "hsl(0 84% 60% / 0.08)";
+                  e.currentTarget.style.borderColor = "hsl(0 84% 60% / 0.3)";
                 }}
               >
                 {t("common.cancel")}
