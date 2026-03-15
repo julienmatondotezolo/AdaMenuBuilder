@@ -591,8 +591,10 @@ export default function EditorPanel() {
         const targetPage = pages.find((p) => p.id === targetPageId);
         const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage?.variantId);
         const capacity = getVariantCategoryCapacity(targetVariant);
+        // Only count valid (non-orphaned) category IDs for capacity
+        const validCatIds = targetPage?.categoryIds.filter((cid) => displayData.categories.some((c) => c.id === cid)) ?? [];
 
-        if (capacity !== Infinity && targetPage && targetPage.categoryIds.length >= capacity) {
+        if (capacity !== Infinity && targetPage && validCatIds.length >= capacity) {
           // Page is full — queue swap dialog for dragEnd
           const cat = displayData.categories.find((c) => c.id === activeId);
           const targetIdx = pages.indexOf(targetPage);
@@ -603,7 +605,7 @@ export default function EditorPanel() {
             targetPageId,
             targetPageIndex: targetIdx,
             capacity,
-            targetCategoryIds: [...targetPage.categoryIds],
+            targetCategoryIds: validCatIds,
           };
           return; // Don't move — swap dialog will handle it
         }
@@ -674,10 +676,11 @@ export default function EditorPanel() {
             // Cross-page: check capacity before moving
             const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage.variantId);
             const capacity = getVariantCategoryCapacity(targetVariant);
+            const validCatIds2 = targetPage.categoryIds.filter((cid) => displayData.categories.some((c) => c.id === cid));
 
-            if (capacity !== Infinity && targetPage.categoryIds.length >= capacity) {
+            if (capacity !== Infinity && validCatIds2.length >= capacity) {
               // Page is full — queue swap dialog
-              const cat = menuData.categories.find((c) => c.id === activeId);
+              const cat = displayData.categories.find((c) => c.id === activeId);
               const targetIdx = pages.indexOf(targetPage);
               pendingSwapRef.current = {
                 draggedCategoryId: activeId,
@@ -686,7 +689,7 @@ export default function EditorPanel() {
                 targetPageId: targetPage.id,
                 targetPageIndex: targetIdx,
                 capacity,
-                targetCategoryIds: [...targetPage.categoryIds],
+                targetCategoryIds: validCatIds2,
               };
             } else {
               setPages((prev) => {
@@ -708,9 +711,10 @@ export default function EditorPanel() {
           // From unassigned to page — check capacity
           const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage.variantId);
           const capacity = getVariantCategoryCapacity(targetVariant);
+          const validCatIds3 = targetPage.categoryIds.filter((cid) => displayData.categories.some((c) => c.id === cid));
 
-          if (capacity !== Infinity && targetPage.categoryIds.length >= capacity) {
-            const cat = menuData.categories.find((c) => c.id === activeId);
+          if (capacity !== Infinity && validCatIds3.length >= capacity) {
+            const cat = displayData.categories.find((c) => c.id === activeId);
             const targetIdx = pages.indexOf(targetPage);
             pendingSwapRef.current = {
               draggedCategoryId: activeId,
@@ -719,7 +723,7 @@ export default function EditorPanel() {
               targetPageId: targetPage.id,
               targetPageIndex: targetIdx,
               capacity,
-              targetCategoryIds: [...targetPage.categoryIds],
+              targetCategoryIds: validCatIds3,
             };
           } else {
             setPages((prev) =>
@@ -1502,9 +1506,10 @@ export default function EditorPanel() {
             </div>
 
             <div className="space-y-2">
-              {swapDialog.targetCategoryIds.map((catId) => {
-                const cat = displayData.categories.find((c) => c.id === catId);
-                return (
+              {swapDialog.targetCategoryIds
+                .map((catId) => ({ catId, cat: displayData.categories.find((c) => c.id === catId) }))
+                .filter(({ cat }) => !!cat)
+                .map(({ catId, cat }) => (
                   <button
                     key={catId}
                     onClick={() => {
@@ -1546,10 +1551,9 @@ export default function EditorPanel() {
                     }}
                   >
                     <ArrowLeftRight className="w-4 h-4 text-primary shrink-0" />
-                    {t("overflow.swapWith")} <strong>{cat?.name || catId}</strong>
+                    {t("overflow.swapWith")} <strong>{cat!.name}</strong>
                   </button>
-                );
-              })}
+                ))}
 
               <button
                 onClick={() => setSwapDialog(null)}
