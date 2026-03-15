@@ -326,7 +326,7 @@ export default function EditorPanel() {
    */
   const pendingOverflowCheckRef = useRef<string | null>(null);
 
-  /** Check a single page for overflow — returns { px, capacity } or null */
+  /** Check a single page for overflow — returns { px } or null */
   const checkPageOverflow = useCallback(
     (pageIndex: number): { px: number; capacity: boolean } | null => {
       if (!currentTemplate || pageIndex < 0 || pageIndex >= pages.length) return null;
@@ -338,21 +338,11 @@ export default function EditorPanel() {
         return null;
       }
 
-      // 1. Capacity-based overflow (maxCategories limits)
-      // Only check capacity when there are multiple pages — with a single page
-      // there's nowhere to move categories, so the check is meaningless.
-      const variant = currentTemplate.pageVariants.find((v) => v.id === page.variantId);
-      const capacity = getVariantCategoryCapacity(variant);
-      console.log(
-        `[Overflow] Page ${pageIndex}: variantId=${page.variantId}, categories=${page.categoryIds.length}, capacity=${capacity}, totalPages=${pages.length}, categoryIds=`, page.categoryIds,
-      );
-      if (pages.length > 1 && page.categoryIds.length > capacity) {
-        console.log(`[Overflow] Page ${pageIndex}: CAPACITY OVERFLOW (${page.categoryIds.length} > ${capacity})`);
-        return { px: 0, capacity: true };
-      }
-
-      // 2. DOM-based overflow (content taller than page)
+      // DOM-based overflow only — measure actual rendered content vs page height
       const px = measurePageOverflow(currentTemplate, pageIndex);
+      console.log(
+        `[Overflow] Page ${pageIndex}: categories=${page.categoryIds.length}, overflow=${px}px`,
+      );
       if (px > 10) {
         console.log(`[Overflow] Page ${pageIndex}: PIXEL OVERFLOW ${Math.round(px)}px`);
         return { px: Math.round(px), capacity: false };
