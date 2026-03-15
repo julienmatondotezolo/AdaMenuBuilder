@@ -100,6 +100,10 @@ export const nl: TranslationKeys = {
     noCategoriesYet: "Nog geen categorieën of pagina's",
     addCategoryToStart: "Voeg een categorie toe om te beginnen",
     searchPlaceholder: "Zoek categorieën & items...",
+    searchMenuItems: "Zoek menu-items...",
+    categoryNamePlaceholder: "Categorienaam (bijv. Desserts)",
+    itemName: "Itemnaam",
+    itemDescription: "Beschrijving",
   },
 
   aiChat: {
@@ -116,6 +120,7 @@ export const nl: TranslationKeys = {
     changesApplied: "Wijzigingen toegepast",
     changesRejected: "Wijzigingen afgewezen",
     thinking: "Nadenken...",
+    promptPlaceholder: "Vraag me alles — items toevoegen, prijzen wijzigen, uw menu vertalen...",
   },
 
   publishDiff: {
@@ -172,6 +177,9 @@ export const nl: TranslationKeys = {
     french: "Frans",
     dutch: "Nederlands",
     aiLanguageNote: "De AI-assistent zal antwoorden in de door u geselecteerde taal.",
+    enterCurrentPassword: "Voer huidig wachtwoord in",
+    enterNewPassword: "Voer nieuw wachtwoord in",
+    confirmNewPassword: "Bevestig nieuw wachtwoord",
     roles: {
       admin: "Beheerder",
       owner: "Eigenaar",

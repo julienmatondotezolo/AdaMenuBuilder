@@ -3,6 +3,7 @@ import { Mic, MicOff, ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { Button, cn } from "ada-design-system";
 import { useMenu } from "../context/MenuContext";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n";
 
 interface AIPromptBarProps {
   menuId?: string;
@@ -10,6 +11,7 @@ interface AIPromptBarProps {
 
 export default function AIPromptBar({ menuId: _menuId }: AIPromptBarProps) {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const { aiMode, setAiMode, setPendingAiMessage } = useMenu();
   const [input, setInput] = useState("");
   const [loading, _setLoading] = useState(false);
@@ -136,7 +138,7 @@ export default function AIPromptBar({ menuId: _menuId }: AIPromptBarProps) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
-          placeholder="Ask me anything — add items, change prices, translate your menu..."
+          placeholder={t("aiChat.promptPlaceholder")}
           className="w-full bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground resize-none leading-relaxed"
           style={{ maxHeight: 100 }}
           disabled={loading}

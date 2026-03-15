@@ -204,7 +204,7 @@ export default function Dashboard() {
             <Select value={selectedRestaurantId} onValueChange={setSelectedRestaurantId}>
               <SelectTrigger className="w-[180px] h-8 text-xs">
                 <Store className="w-3.5 h-3.5 mr-1.5" />
-                <SelectValue placeholder="Restaurant" />
+                <SelectValue placeholder={t("dashboard.restaurant")} />
               </SelectTrigger>
               <SelectContent>
                 {restaurants.map((r) => (

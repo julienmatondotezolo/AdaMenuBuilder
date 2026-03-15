@@ -955,7 +955,7 @@ export default function EditorPanel() {
           <Search className="absolute left-3 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search menu items..."
+            placeholder={t("editorPanel.searchMenuItems")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-10 rounded-lg text-sm bg-card text-foreground placeholder:text-muted-foreground outline-none"
@@ -1238,7 +1238,7 @@ export default function EditorPanel() {
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Category name (e.g. Desserts)"
+              placeholder={t("editorPanel.categoryNamePlaceholder")}
               className="flex-1"
             />
             <Button

@@ -121,6 +121,7 @@ function MenuSide({
   diff: DiffResult;
   side: "previous" | "current";
 }) {
+  const { t } = useTranslation();
   if (!menu) {
     return (
       <div className="flex-1 min-w-0">
@@ -156,7 +157,7 @@ function MenuSide({
               : "text-foreground"
           }`}
         >
-          {menu.title || "Untitled Menu"}
+          {menu.title || t("menuEditor.untitledMenu")}
         </div>
 
         {/* Categories */}
@@ -207,7 +208,7 @@ function MenuSide({
                   {cat.name}
                 </span>
                 <span className="text-[10px] text-muted-foreground ml-auto">
-                  {cat.items.length} items
+                  {cat.items.length} {t("publishDiff.items")}
                 </span>
               </div>
 

@@ -98,6 +98,10 @@ export const en = {
     noCategoriesYet: "No categories or pages yet",
     addCategoryToStart: "Add a category to get started",
     searchPlaceholder: "Search categories & items...",
+    searchMenuItems: "Search menu items...",
+    categoryNamePlaceholder: "Category name (e.g. Desserts)",
+    itemName: "Item name",
+    itemDescription: "Description",
   },
 
   aiChat: {
@@ -114,6 +118,7 @@ export const en = {
     changesApplied: "Changes applied",
     changesRejected: "Changes rejected",
     thinking: "Thinking...",
+    promptPlaceholder: "Ask me anything — add items, change prices, translate your menu...",
   },
 
   publishDiff: {
@@ -170,6 +175,9 @@ export const en = {
     french: "French",
     dutch: "Dutch",
     aiLanguageNote: "The AI assistant will respond in your selected language.",
+    enterCurrentPassword: "Enter current password",
+    enterNewPassword: "Enter new password",
+    confirmNewPassword: "Confirm new password",
     roles: {
       admin: "Administrator",
       owner: "Owner",

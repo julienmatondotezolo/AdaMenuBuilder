@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Input, Badge, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
+import { useTranslation } from "../../i18n";
 import type { MenuItem } from "../../types/menu";
 
 interface MenuItemCardProps {
@@ -23,6 +24,7 @@ export default function MenuItemCard({
 }: MenuItemCardProps) {
   const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem, aiModifiedIds } =
     useMenu();
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const isSelected = selectedItemId === item.id;
   const [editName, setEditName] = useState(item.name);
@@ -127,7 +129,7 @@ export default function MenuItemCard({
                   onChange={(e) => setEditName(e.target.value)}
                   onKeyDown={handleKeyDown}
                   className="flex-1 font-semibold text-sm"
-                  placeholder="Item name"
+                  placeholder={t("editorPanel.itemName")}
                 />
                 <div className="flex items-center">
                   <span className="text-sm text-muted-foreground mr-1">€</span>
@@ -150,11 +152,11 @@ export default function MenuItemCard({
                 }}
                 rows={2}
                 className="w-full text-xs text-muted-foreground border border-input rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring resize-none bg-background"
-                placeholder="Description"
+                placeholder={t("editorPanel.itemDescription")}
               />
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSave} className="text-xs">
-                  Save
+                  {t("common.save")}
                 </Button>
                 <Button
                   variant="secondary"
@@ -168,7 +170,7 @@ export default function MenuItemCard({
                   }}
                   className="text-xs"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </div>
             </div>

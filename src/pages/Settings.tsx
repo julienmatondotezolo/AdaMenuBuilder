@@ -162,7 +162,7 @@ export default function Settings() {
                     type={showCurrentPassword ? "text" : "password"}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
+                    placeholder={t("settings.enterCurrentPassword")}
                     required
                   />
                   <button
@@ -184,7 +184,7 @@ export default function Settings() {
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder={t("settings.enterNewPassword")}
                     required
                   />
                   <button
@@ -205,7 +205,7 @@ export default function Settings() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
+                  placeholder={t("settings.confirmNewPassword")}
                   required
                 />
               </div>

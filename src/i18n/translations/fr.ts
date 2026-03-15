@@ -100,6 +100,10 @@ export const fr: TranslationKeys = {
     noCategoriesYet: "Aucune catégorie ou page pour l'instant",
     addCategoryToStart: "Ajoutez une catégorie pour commencer",
     searchPlaceholder: "Rechercher catégories et articles...",
+    searchMenuItems: "Rechercher des éléments...",
+    categoryNamePlaceholder: "Nom de catégorie (ex. Desserts)",
+    itemName: "Nom de l'article",
+    itemDescription: "Description",
   },
 
   aiChat: {
@@ -116,6 +120,7 @@ export const fr: TranslationKeys = {
     changesApplied: "Changements appliqués",
     changesRejected: "Changements rejetés",
     thinking: "Réflexion...",
+    promptPlaceholder: "Demandez-moi n'importe quoi — ajouter des articles, modifier les prix, traduire votre menu...",
   },
 
   publishDiff: {
@@ -172,6 +177,9 @@ export const fr: TranslationKeys = {
     french: "Français",
     dutch: "Néerlandais",
     aiLanguageNote: "L'assistant IA répondra dans la langue sélectionnée.",
+    enterCurrentPassword: "Entrez le mot de passe actuel",
+    enterNewPassword: "Entrez le nouveau mot de passe",
+    confirmNewPassword: "Confirmez le nouveau mot de passe",
     roles: {
       admin: "Administrateur",
       owner: "Propriétaire",
