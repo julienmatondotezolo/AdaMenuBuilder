@@ -1504,6 +1504,7 @@ export default function EditorPanel() {
             <div className="space-y-2">
               {swapDialog.targetCategoryIds.map((catId) => {
                 const cat = menuData.categories.find((c) => c.id === catId);
+                console.log(`[Swap] Looking up catId=${catId}, found=${!!cat}, name=${cat?.name}, allIds=`, menuData.categories.map(c => c.id));
                 return (
                   <button
                     key={catId}
