@@ -68,12 +68,12 @@ export default function EmbedMenu() {
         }
 
         setData({
-          menuData: menu,
+          menuData: menu.data,
           webLayoutMobile: tpl.webLayoutMobile,
           webLayoutDesktop: tpl.webLayoutDesktop,
           colors: tpl.colors,
           fonts: tpl.fonts,
-          templateName: tpl.name || "Menu",
+          templateName: tpl.name || menu.title || "Menu",
         });
       } catch {
         setError("Failed to load menu.");
