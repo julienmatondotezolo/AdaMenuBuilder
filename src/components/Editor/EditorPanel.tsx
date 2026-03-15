@@ -333,12 +333,14 @@ export default function EditorPanel() {
       const page = pages[pageIndex];
 
       // 1. Capacity-based overflow (maxCategories limits)
+      // Only check capacity when there are multiple pages — with a single page
+      // there's nowhere to move categories, so the check is meaningless.
       const variant = currentTemplate.pageVariants.find((v) => v.id === page.variantId);
       const capacity = getVariantCategoryCapacity(variant);
       console.log(
-        `[Overflow] Page ${pageIndex}: variantId=${page.variantId}, categories=${page.categoryIds.length}, capacity=${capacity}, categoryIds=`, page.categoryIds,
+        `[Overflow] Page ${pageIndex}: variantId=${page.variantId}, categories=${page.categoryIds.length}, capacity=${capacity}, totalPages=${pages.length}, categoryIds=`, page.categoryIds,
       );
-      if (page.categoryIds.length > capacity) {
+      if (pages.length > 1 && page.categoryIds.length > capacity) {
         console.log(`[Overflow] Page ${pageIndex}: CAPACITY OVERFLOW (${page.categoryIds.length} > ${capacity})`);
         return { px: 0, capacity: true };
       }
