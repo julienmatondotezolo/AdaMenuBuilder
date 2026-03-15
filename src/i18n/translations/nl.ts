@@ -118,6 +118,15 @@ export const nl: TranslationKeys = {
     itemDescription: "Beschrijving",
   },
 
+  overflow: {
+    title: "Pagina Overloop",
+    capacityMessage: "op Pagina {{page}} overschrijdt het maximale aantal categorieën van de sjabloonindeling.",
+    pixelMessage: "op Pagina {{page}} veroorzaakt een overloop van {{px}}px.",
+    moveToPage: "Verplaatsen naar Pagina {{page}} — {{name}}",
+    createNewPage: "Nieuwe pagina aanmaken en verplaatsen",
+    keepAnyway: "Toch op deze pagina houden",
+  },
+
   aiChat: {
     menuAssistant: "Menu Assistent",
     clearHistory: "Geschiedenis wissen",

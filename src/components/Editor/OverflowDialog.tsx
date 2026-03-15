@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowRight, Plus, X, ShieldAlert } from "lucide-react";
+import { useTranslation } from "../../i18n";
 
 interface OverflowDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ export default function OverflowDialog({
   onMoveToPage,
   onCreateNewPage,
 }: OverflowDialogProps) {
+  const { t } = useTranslation();
   if (!open) return null;
 
   return (
@@ -46,17 +48,20 @@ export default function OverflowDialog({
             <AlertTriangle className="w-5 h-5" style={{ color: "#b45309" }} />
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-foreground">Page Overflow</h3>
+            <h3 className="font-bold text-foreground">{t("overflow.title")}</h3>
             <p className="text-sm text-muted-foreground mt-1">
               {capacityOverflow ? (
                 <>
-                  <strong>{categoryName}</strong> on Page {pageIndex + 1} exceeds
-                  the maximum categories allowed by the template layout.
+                  <strong>{categoryName}</strong>{" "}
+                  {t("overflow.capacityMessage")
+                    .replace("{{page}}", String(pageIndex + 1))}
                 </>
               ) : (
                 <>
-                  <strong>{categoryName}</strong> on Page {pageIndex + 1} causes
-                  content to overflow by <strong>{overflowPx}px</strong>.
+                  <strong>{categoryName}</strong>{" "}
+                  {t("overflow.pixelMessage")
+                    .replace("{{page}}", String(pageIndex + 1))
+                    .replace("{{px}}", String(overflowPx))}
                 </>
               )}
             </p>
@@ -91,7 +96,9 @@ export default function OverflowDialog({
               }}
             >
               <ArrowRight className="w-4 h-4 text-primary shrink-0" />
-              Move to Page {p.index + 1} — {p.name}
+              {t("overflow.moveToPage")
+                .replace("{{page}}", String(p.index + 1))
+                .replace("{{name}}", p.name)}
             </button>
           ))}
 
@@ -111,7 +118,7 @@ export default function OverflowDialog({
             }}
           >
             <Plus className="w-4 h-4 shrink-0" style={{ color: "hsl(142 71% 45%)" }} />
-            Create new page & move there
+            {t("overflow.createNewPage")}
           </button>
 
           {/* Keep anyway — red warning style */}
@@ -133,7 +140,7 @@ export default function OverflowDialog({
             }}
           >
             <ShieldAlert className="w-4 h-4 shrink-0" />
-            Keep on this page anyway
+            {t("overflow.keepAnyway")}
           </button>
         </div>
       </div>

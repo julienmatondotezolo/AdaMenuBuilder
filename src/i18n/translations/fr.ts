@@ -118,6 +118,15 @@ export const fr: TranslationKeys = {
     itemDescription: "Description",
   },
 
+  overflow: {
+    title: "Débordement de Page",
+    capacityMessage: "sur la Page {{page}} dépasse le nombre maximum de catégories autorisé par le modèle.",
+    pixelMessage: "sur la Page {{page}} provoque un débordement de {{px}}px.",
+    moveToPage: "Déplacer vers Page {{page}} — {{name}}",
+    createNewPage: "Créer une nouvelle page et y déplacer",
+    keepAnyway: "Garder sur cette page quand même",
+  },
+
   aiChat: {
     menuAssistant: "Assistant Menu",
     clearHistory: "Effacer l'historique",

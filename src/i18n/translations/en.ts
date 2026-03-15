@@ -116,6 +116,15 @@ export const en = {
     itemDescription: "Description",
   },
 
+  overflow: {
+    title: "Page Overflow",
+    capacityMessage: "on Page {{page}} exceeds the maximum categories allowed by the template layout.",
+    pixelMessage: "on Page {{page}} causes content to overflow by {{px}}px.",
+    moveToPage: "Move to Page {{page}} — {{name}}",
+    createNewPage: "Create new page & move there",
+    keepAnyway: "Keep on this page anyway",
+  },
+
   aiChat: {
     menuAssistant: "Menu Assistant",
     clearHistory: "Clear history",

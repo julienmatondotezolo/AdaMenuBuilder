@@ -77,8 +77,15 @@ function measurePageOverflow(
   const el = document.querySelector(
     `[data-menu-preview][data-page-index="${pageIndex}"]`,
   ) as HTMLElement | null;
-  if (!el) return 0;
-  return Math.max(0, el.scrollHeight - pageHeight);
+  if (!el) {
+    console.log(`[Overflow] Page ${pageIndex}: no preview DOM element found`);
+    return 0;
+  }
+  const overflow = Math.max(0, el.scrollHeight - pageHeight);
+  console.log(
+    `[Overflow] Page ${pageIndex}: scrollHeight=${el.scrollHeight}px, pageHeight=${pageHeight}px (${template.format.height}mm), overflow=${overflow}px`,
+  );
+  return overflow;
 }
 
 /* ── Template Selector (simplified — just dropdown) ──────────────────── */
@@ -328,16 +335,22 @@ export default function EditorPanel() {
       // 1. Capacity-based overflow (maxCategories limits)
       const variant = currentTemplate.pageVariants.find((v) => v.id === page.variantId);
       const capacity = getVariantCategoryCapacity(variant);
+      console.log(
+        `[Overflow] Page ${pageIndex}: variantId=${page.variantId}, categories=${page.categoryIds.length}, capacity=${capacity}, categoryIds=`, page.categoryIds,
+      );
       if (page.categoryIds.length > capacity) {
+        console.log(`[Overflow] Page ${pageIndex}: CAPACITY OVERFLOW (${page.categoryIds.length} > ${capacity})`);
         return { px: 0, capacity: true };
       }
 
       // 2. DOM-based overflow (content taller than page)
       const px = measurePageOverflow(currentTemplate, pageIndex);
       if (px > 10) {
+        console.log(`[Overflow] Page ${pageIndex}: PIXEL OVERFLOW ${Math.round(px)}px`);
         return { px: Math.round(px), capacity: false };
       }
 
+      console.log(`[Overflow] Page ${pageIndex}: no overflow detected`);
       return null;
     },
     [currentTemplate, pages],
