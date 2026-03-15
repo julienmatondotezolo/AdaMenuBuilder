@@ -127,6 +127,9 @@ export const nl: TranslationKeys = {
     keepAnyway: "Toch op deze pagina houden",
     pageFull: "Pagina {{page}} is vol (max {{max}} categorieën). Toegevoegd aan Pagina {{target}}.",
     pageFullNewPage: "Pagina {{page}} is vol (max {{max}} categorieën). Pagina {{target}} aangemaakt voor deze categorie.",
+    pageFullTitle: "Pagina Vol",
+    pageFullDescription: "Pagina {{page}} kan maximaal {{max}} categorieën bevatten. Wissel met een bestaande categorie of annuleer.",
+    swapWith: "Wisselen met",
   },
 
   aiChat: {

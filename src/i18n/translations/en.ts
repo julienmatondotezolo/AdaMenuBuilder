@@ -125,6 +125,9 @@ export const en = {
     keepAnyway: "Keep on this page anyway",
     pageFull: "Page {{page}} is full (max {{max}} categories). Added to Page {{target}} instead.",
     pageFullNewPage: "Page {{page}} is full (max {{max}} categories). Created Page {{target}} for this category.",
+    pageFullTitle: "Page Full",
+    pageFullDescription: "Page {{page}} can only hold {{max}} categories. Swap with an existing category or cancel.",
+    swapWith: "Swap with",
   },
 
   aiChat: {

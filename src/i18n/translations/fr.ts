@@ -127,6 +127,9 @@ export const fr: TranslationKeys = {
     keepAnyway: "Garder sur cette page quand même",
     pageFull: "Page {{page}} est pleine (max {{max}} catégories). Ajouté à la Page {{target}}.",
     pageFullNewPage: "Page {{page}} est pleine (max {{max}} catégories). Page {{target}} créée pour cette catégorie.",
+    pageFullTitle: "Page Pleine",
+    pageFullDescription: "La Page {{page}} ne peut contenir que {{max}} catégories. Échangez avec une catégorie existante ou annulez.",
+    swapWith: "Échanger avec",
   },
 
   aiChat: {

@@ -9,6 +9,7 @@ import {
   Type,
   Palette,
   AlertTriangle,
+  ArrowLeftRight,
 } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
@@ -327,6 +328,26 @@ export default function EditorPanel() {
     return () => clearTimeout(timer);
   }, [capacityNotice]);
 
+  /* ── Drag capacity (swap) dialog state ────────────────────────── */
+  const pendingSwapRef = useRef<{
+    draggedCategoryId: string;
+    draggedCategoryName: string;
+    sourcePageId: string;
+    targetPageId: string;
+    targetPageIndex: number;
+    capacity: number;
+    targetCategoryIds: string[];
+  } | null>(null);
+  const [swapDialog, setSwapDialog] = useState<{
+    draggedCategoryId: string;
+    draggedCategoryName: string;
+    sourcePageId: string;
+    targetPageId: string;
+    targetPageIndex: number;
+    capacity: number;
+    targetCategoryIds: string[];
+  } | null>(null);
+
   /* ── Overflow dialog state ─────────────────────────────────────── */
   const [overflowDialog, setOverflowDialog] = useState<{
     categoryId: string;
@@ -566,6 +587,27 @@ export default function EditorPanel() {
       }));
 
       if (sourcePage?.id !== targetPageId) {
+        // Check capacity before allowing the move
+        const targetPage = pages.find((p) => p.id === targetPageId);
+        const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage?.variantId);
+        const capacity = getVariantCategoryCapacity(targetVariant);
+
+        if (capacity !== Infinity && targetPage && targetPage.categoryIds.length >= capacity) {
+          // Page is full — queue swap dialog for dragEnd
+          const cat = menuData.categories.find((c) => c.id === activeId);
+          const targetIdx = pages.indexOf(targetPage);
+          pendingSwapRef.current = {
+            draggedCategoryId: activeId,
+            draggedCategoryName: cat?.name || "Category",
+            sourcePageId: sourcePage?.id || "",
+            targetPageId,
+            targetPageIndex: targetIdx,
+            capacity,
+            targetCategoryIds: [...targetPage.categoryIds],
+          };
+          return; // Don't move — swap dialog will handle it
+        }
+
         setPages((prev) => {
           const cleaned = prev.map((p) => ({
             ...p,
@@ -629,32 +671,67 @@ export default function EditorPanel() {
               }),
             );
           } else {
-            // Cross-page: move to target page at position of overId
-            setPages((prev) => {
-              const cleaned = prev.map((p) => ({
-                ...p,
-                categoryIds: p.categoryIds.filter((cid) => cid !== activeId),
-              }));
-              return cleaned.map((p) => {
+            // Cross-page: check capacity before moving
+            const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage.variantId);
+            const capacity = getVariantCategoryCapacity(targetVariant);
+
+            if (capacity !== Infinity && targetPage.categoryIds.length >= capacity) {
+              // Page is full — queue swap dialog
+              const cat = menuData.categories.find((c) => c.id === activeId);
+              const targetIdx = pages.indexOf(targetPage);
+              pendingSwapRef.current = {
+                draggedCategoryId: activeId,
+                draggedCategoryName: cat?.name || "Category",
+                sourcePageId: sourcePage.id,
+                targetPageId: targetPage.id,
+                targetPageIndex: targetIdx,
+                capacity,
+                targetCategoryIds: [...targetPage.categoryIds],
+              };
+            } else {
+              setPages((prev) => {
+                const cleaned = prev.map((p) => ({
+                  ...p,
+                  categoryIds: p.categoryIds.filter((cid) => cid !== activeId),
+                }));
+                return cleaned.map((p) => {
+                  if (p.id !== targetPage.id) return p;
+                  const idx = p.categoryIds.indexOf(overId);
+                  const newIds = [...p.categoryIds];
+                  newIds.splice(idx, 0, activeId);
+                  return { ...p, categoryIds: newIds };
+                });
+              });
+            }
+          }
+        } else if (!sourcePage && targetPage) {
+          // From unassigned to page — check capacity
+          const targetVariant = currentTemplate?.pageVariants.find((v) => v.id === targetPage.variantId);
+          const capacity = getVariantCategoryCapacity(targetVariant);
+
+          if (capacity !== Infinity && targetPage.categoryIds.length >= capacity) {
+            const cat = menuData.categories.find((c) => c.id === activeId);
+            const targetIdx = pages.indexOf(targetPage);
+            pendingSwapRef.current = {
+              draggedCategoryId: activeId,
+              draggedCategoryName: cat?.name || "Category",
+              sourcePageId: "",
+              targetPageId: targetPage.id,
+              targetPageIndex: targetIdx,
+              capacity,
+              targetCategoryIds: [...targetPage.categoryIds],
+            };
+          } else {
+            setPages((prev) =>
+              prev.map((p) => {
                 if (p.id !== targetPage.id) return p;
                 const idx = p.categoryIds.indexOf(overId);
                 const newIds = [...p.categoryIds];
                 newIds.splice(idx, 0, activeId);
                 return { ...p, categoryIds: newIds };
-              });
-            });
+              }),
+            );
           }
-        } else if (!sourcePage && targetPage) {
-          // From unassigned to page at position of overId
-          setPages((prev) =>
-            prev.map((p) => {
-              if (p.id !== targetPage.id) return p;
-              const idx = p.categoryIds.indexOf(overId);
-              const newIds = [...p.categoryIds];
-              newIds.splice(idx, 0, activeId);
-              return { ...p, categoryIds: newIds };
-            }),
-          );
         }
       }
       return;
@@ -739,9 +816,14 @@ export default function EditorPanel() {
       }
     }
 
-    // Category — everything handled in dragOver already, just check overflow
+    // Category — check for pending swap dialog or overflow
     if (wasCategory) {
-      setTimeout(() => checkOverflowAfterDrop(activeId), 350);
+      if (pendingSwapRef.current) {
+        setSwapDialog(pendingSwapRef.current);
+        pendingSwapRef.current = null;
+      } else {
+        setTimeout(() => checkOverflowAfterDrop(activeId), 350);
+      }
     }
   };
 
@@ -1384,6 +1466,112 @@ export default function EditorPanel() {
         onMoveToPage={handleOverflowMoveToPage}
         onCreateNewPage={handleOverflowCreatePage}
       />
+
+      {/* Swap Dialog — shown when dragging to a full page */}
+      {swapDialog && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          onClick={() => setSwapDialog(null)}
+        >
+          <div
+            className="bg-card rounded-xl shadow-2xl border border-border p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: "hsl(232 100% 66% / 0.12)" }}
+              >
+                <ArrowLeftRight className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-foreground">{t("overflow.pageFullTitle")}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t("overflow.pageFullDescription")
+                    .replace("{{page}}", String(swapDialog.targetPageIndex + 1))
+                    .replace("{{max}}", String(swapDialog.capacity))}
+                </p>
+              </div>
+              <button
+                onClick={() => setSwapDialog(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {swapDialog.targetCategoryIds.map((catId) => {
+                const cat = menuData.categories.find((c) => c.id === catId);
+                return (
+                  <button
+                    key={catId}
+                    onClick={() => {
+                      // Swap: move dragged category to target page, move this category to source page
+                      setPages((prev) => {
+                        return prev.map((p) => {
+                          if (p.id === swapDialog.targetPageId) {
+                            return {
+                              ...p,
+                              categoryIds: p.categoryIds.map((cid) =>
+                                cid === catId ? swapDialog.draggedCategoryId : cid,
+                              ),
+                            };
+                          }
+                          if (p.id === swapDialog.sourcePageId) {
+                            return {
+                              ...p,
+                              categoryIds: p.categoryIds.map((cid) =>
+                                cid === swapDialog.draggedCategoryId ? catId : cid,
+                              ),
+                            };
+                          }
+                          return p;
+                        });
+                      });
+                      setSwapDialog(null);
+                      setTimeout(measureAllOverflows, 400);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-foreground transition-colors text-left"
+                    style={{
+                      backgroundColor: "hsl(232 100% 66% / 0.06)",
+                      border: "1px solid hsl(232 100% 66% / 0.15)",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "hsl(232 100% 66% / 0.12)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "hsl(232 100% 66% / 0.06)";
+                    }}
+                  >
+                    <ArrowLeftRight className="w-4 h-4 text-primary shrink-0" />
+                    {t("overflow.swapWith")} <strong>{cat?.name || catId}</strong>
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setSwapDialog(null)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: "hsl(220 13% 91% / 0.5)",
+                  border: "1px solid hsl(220 13% 91%)",
+                  color: "hsl(220 9% 46%)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(220 13% 91% / 0.8)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "hsl(220 13% 91% / 0.5)";
+                }}
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
