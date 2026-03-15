@@ -26,12 +26,12 @@ export default function WebCartBar({ cart, colors, fonts, currency, borderRadius
   return (
     <div
       style={{
-        position: "sticky",
+        position: "fixed",
         bottom: 0,
         left: 0,
         right: 0,
         padding: `12px ${contentPaddingX}px`,
-        paddingBottom: 20,
+        paddingBottom: `calc(20px + env(safe-area-inset-bottom, 0px))`,
         zIndex: 30,
         backgroundColor: colors.background,
       }}

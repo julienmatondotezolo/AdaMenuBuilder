@@ -164,7 +164,7 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           display: "flex",
           flexDirection: "column",
           gap: spacing.sectionGap,
-          paddingBottom: orderingEnabled && cart.length > 0 ? 0 : undefined,
+          paddingBottom: orderingEnabled && cart.length > 0 ? 80 : undefined,
         }}
       >
         {blocks.map((block) => {
@@ -227,10 +227,9 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
         <button
           onClick={(e) => { e.stopPropagation(); scrollToTop(); }}
           style={{
-            position: "sticky",
-            bottom: orderingEnabled && cart.length > 0 ? 80 : 16,
-            float: "right",
-            marginRight: 16,
+            position: "fixed",
+            bottom: orderingEnabled && cart.length > 0 ? `calc(80px + env(safe-area-inset-bottom, 0px))` : 16,
+            right: 16,
             width: 36,
             height: 36,
             borderRadius: "50%",
