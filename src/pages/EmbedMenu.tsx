@@ -118,7 +118,7 @@ export default function EmbedMenu() {
   }
 
   return (
-    <div style={{ width: "100%", minHeight: "100vh", overflow: "auto" }}>
+    <div style={{ width: "100%", height: "100vh", overflow: "hidden" }}>
       <WebMenuRenderer
         webLayout={activeLayout}
         menuData={data.menuData}

@@ -12,6 +12,7 @@ import WebFooterBlock from "./webBlocks/WebFooterBlock";
 import WebCartBar, { type CartItem } from "./webBlocks/WebCartBar";
 import WebCartView from "./webBlocks/WebCartView";
 import WebLanguageSwitcher from "./webBlocks/WebLanguageSwitcher";
+import { loadTemplateFonts } from "../../data/fonts";
 
 interface Props {
   webLayout: WebLayout;
@@ -93,6 +94,11 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
 
   const orderingEnabled = qrOrderConfig?.enabled ?? false;
   const currency = qrOrderConfig?.currency ?? "€";
+
+  // Load template fonts (for public pages like embed/QR that don't go through the editor)
+  useEffect(() => {
+    loadTemplateFonts(fonts.heading, fonts.body);
+  }, [fonts.heading, fonts.body]);
 
   useEffect(() => {
     setScrollContainer(scrollRef.current);
