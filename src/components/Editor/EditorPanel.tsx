@@ -81,14 +81,8 @@ function measurePageOverflow(
   const el = document.querySelector(
     `[data-menu-preview][data-page-index="${pageIndex}"]`,
   ) as HTMLElement | null;
-  if (!el) {
-    console.log(`[Overflow] Page ${pageIndex}: no preview DOM element found`);
-    return 0;
-  }
+  if (!el) return 0;
   const overflow = Math.max(0, el.scrollHeight - pageHeight);
-  console.log(
-    `[Overflow] Page ${pageIndex}: scrollHeight=${el.scrollHeight}px, pageHeight=${pageHeight}px (${template.format.height}mm), overflow=${overflow}px`,
-  );
   return overflow;
 }
 
@@ -386,22 +380,14 @@ export default function EditorPanel() {
       const page = pages[pageIndex];
 
       // Skip overflow checks on empty pages — nothing can overflow
-      if (page.categoryIds.length === 0) {
-        console.log(`[Overflow] Page ${pageIndex}: empty page, skipping`);
-        return null;
-      }
+      if (page.categoryIds.length === 0) return null;
 
       // DOM-based overflow only — measure actual rendered content vs page height
       const px = measurePageOverflow(currentTemplate, pageIndex);
-      console.log(
-        `[Overflow] Page ${pageIndex}: categories=${page.categoryIds.length}, overflow=${px}px`,
-      );
       if (px > 10) {
-        console.log(`[Overflow] Page ${pageIndex}: PIXEL OVERFLOW ${Math.round(px)}px`);
         return { px: Math.round(px), capacity: false };
       }
 
-      console.log(`[Overflow] Page ${pageIndex}: no overflow detected`);
       return null;
     },
     [currentTemplate, pages],
@@ -964,25 +950,27 @@ export default function EditorPanel() {
     } else {
       // Delete page only — redistribute categories respecting capacity
       setPages((prev) => {
-        const remaining = prev.filter((_, i) => i !== pageIndex);
+        const remaining = prev
+          .filter((_, i) => i !== pageIndex)
+          .map((p) => ({ ...p, categoryIds: [...p.categoryIds] }));
         let overflow: string[] = [];
 
         for (const catId of catIds) {
           const targetPage = remaining.find((p) => {
-            const variant = currentTemplate?.variants?.find((v) => v.id === p.variantId);
+            const variant = currentTemplate?.pageVariants.find((v) => v.id === p.variantId);
             const cap = getVariantCategoryCapacity(variant);
             return p.categoryIds.length < cap;
           });
 
           if (targetPage) {
-            targetPage.categoryIds = [...targetPage.categoryIds, catId];
+            targetPage.categoryIds.push(catId);
           } else {
             overflow.push(catId);
           }
         }
 
         if (overflow.length > 0) {
-          const defaultVariantId = currentTemplate?.variants?.[0]?.id ?? "";
+          const defaultVariantId = currentTemplate?.pageVariants[0]?.id ?? "";
           remaining.push({
             id: `page-${Date.now()}-overflow`,
             variantId: defaultVariantId,
@@ -995,6 +983,11 @@ export default function EditorPanel() {
 
         return remaining;
       });
+
+      // Schedule overflow checks for each moved category so the popup triggers if needed
+      for (const catId of catIds) {
+        setTimeout(() => scheduleOverflowCheck(catId), 500);
+      }
     }
 
     if (activePageIndex >= pages.length - 1) {
