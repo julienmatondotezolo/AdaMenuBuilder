@@ -17,6 +17,7 @@ import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
 import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
+import { syncTemplatesFromBackend } from "../services/templateSync";
 import type { MenuData } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
 import { mmToPx } from "../types/template";
@@ -39,9 +40,41 @@ export default function MenuEditor() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("paper");
   const initialized = useRef(false);
+  const thumbnailRef = useRef<HTMLDivElement>(null);
 
   // Live-query the template
   const template = useTemplateById(templateId || undefined);
+
+  // Sync templates from backend if template is missing locally
+  const templateSynced = useRef(false);
+  useEffect(() => {
+    if (!templateId || template || !token || templateSynced.current) return;
+    templateSynced.current = true;
+
+    // First check if any local template has this as a remoteId
+    async function resolveTemplate() {
+      const allTemplates = await db.templates.toArray();
+      const match = allTemplates.find((t) =>
+        t.remoteIds && Object.values(t.remoteIds).includes(templateId!)
+      );
+      if (match) {
+        setTemplateId(match.id);
+        return;
+      }
+
+      // Not found locally — sync from backend then try again
+      await syncTemplatesFromBackend(token!);
+      const synced = await db.templates.toArray();
+      const syncedMatch = synced.find((t) =>
+        t.remoteIds && Object.values(t.remoteIds).includes(templateId!)
+      );
+      if (syncedMatch) {
+        setTemplateId(syncedMatch.id);
+      }
+    }
+
+    resolveTemplate().catch(() => {});
+  }, [templateId, template, token, setTemplateId]);
 
   // Load menu: try local draft first, then backend
   useEffect(() => {
@@ -129,14 +162,16 @@ export default function MenuEditor() {
     setShowDiffPopup(true);
   }, [id, token, restaurantId]);
 
-  // Capture a small thumbnail of the first preview page
+  // Capture a small thumbnail from the hidden off-screen preview
   const captureThumbnail = useCallback(async (): Promise<string | undefined> => {
-    const el = document.querySelector<HTMLElement>("[data-menu-preview]");
+    const container = thumbnailRef.current;
+    const el = container?.querySelector<HTMLElement>("[data-menu-preview]");
     if (!el) return undefined;
     try {
       const dataUrl = await toPng(el, {
         pixelRatio: 0.5,
         cacheBust: true,
+        skipFonts: true,
         filter: (node: HTMLElement) => {
           if (node instanceof HTMLElement && node.classList?.contains("pointer-events-none") && node.style?.outline) return false;
           return true;
@@ -170,10 +205,13 @@ export default function MenuEditor() {
       // Capture thumbnail before publishing
       const thumbnail = await captureThumbnail();
 
+      // Use remote template ID for cross-machine compatibility
+      const remoteTemplateId = template?.remoteIds?.[restaurantId] || templateId || undefined;
+
       const result = await bulkPublishMenu(token, restaurantId, id, {
         title: menuData.title,
         subtitle: menuData.subtitle || undefined,
-        template_id: templateId || undefined,
+        template_id: remoteTemplateId,
         status: "published",
         categories: menuData.categories.map((cat) => ({
           id: cat.id,
@@ -311,6 +349,23 @@ export default function MenuEditor() {
           onClose={() => setShowPublishSuccess(false)}
         />
       )}
+
+      {/* Hidden off-screen MenuPreview for thumbnail capture */}
+      {template && (
+        <div
+          ref={thumbnailRef}
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            left: "-9999px",
+            top: 0,
+            width: `${mmToPx(template.format.width)}px`,
+            pointerEvents: "none",
+          }}
+        >
+          <MenuPreview template={template} />
+        </div>
+      )}
     </div>
   );
 }
@@ -371,7 +426,6 @@ function PublishSuccessPopup({
                 level="H"
                 fgColor={primaryColor}
                 bgColor="#ffffff"
-                imageSettings={{ src: "", height: 0, width: 0, excavate: false }}
               />
             </div>
             <p className="text-xs text-muted-foreground text-center">
@@ -536,12 +590,18 @@ function getLocalizedName(names: { language: string; name: string }[], lang = "e
   return match?.name || names[0]?.name || "";
 }
 
+function getLocalizedDescription(descriptions: { language: string; description: string }[], lang = "en"): string {
+  if (!descriptions || descriptions.length === 0) return "";
+  const match = descriptions.find((d) => d.language === lang);
+  return match?.description || descriptions[0]?.description || "";
+}
+
 function mapBackendItem(item: any) {
   return {
     id: item.id,
     name: getLocalizedName(item.names),
     price: parseFloat(item.price) || 0,
-    description: getLocalizedName(item.descriptions, "en"),
+    description: getLocalizedDescription(item.descriptions, "en"),
     featured: item.featured || false,
   };
 }

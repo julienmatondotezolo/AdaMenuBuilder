@@ -251,6 +251,38 @@ export default function EditorPanel() {
 
   const currentTemplate = useTemplateById(templateId || undefined);
 
+  // When template loads/changes, ensure pages use valid variant IDs
+  const lastResolvedTemplateId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentTemplate || currentTemplate.id === lastResolvedTemplateId.current) return;
+
+    const validVariantIds = new Set(currentTemplate.pageVariants.map((v) => v.id));
+    const defaultVariantId = currentTemplate.pageVariants[0]?.id;
+    if (!defaultVariantId) return;
+
+    if (pages.length === 0) {
+      // No pages yet — create a default page with all categories
+      lastResolvedTemplateId.current = currentTemplate.id;
+      setPages([{
+        id: `page-${Date.now()}`,
+        variantId: defaultVariantId,
+        categoryIds: displayData.categories.map((c) => c.id),
+      }]);
+    } else {
+      const needsUpdate = pages.some((p) => !validVariantIds.has(p.variantId));
+      if (needsUpdate) {
+        lastResolvedTemplateId.current = currentTemplate.id;
+        setPages(pages.map((p) => ({
+          ...p,
+          variantId: validVariantIds.has(p.variantId) ? p.variantId : defaultVariantId,
+        })));
+      } else {
+        // Pages are already valid for this template
+        lastResolvedTemplateId.current = currentTemplate.id;
+      }
+    }
+  }, [currentTemplate, pages, setPages, displayData.categories]);
+
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
