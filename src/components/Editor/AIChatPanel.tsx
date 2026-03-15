@@ -13,6 +13,7 @@ import {
 import { Button, cn } from "ada-design-system";
 import { useMenu } from "../../context/MenuContext";
 import { useAuth } from "../../context/AuthContext";
+import { useTranslation } from "../../i18n";
 import {
   sendAIMessage,
   loadChatHistory,
@@ -28,6 +29,7 @@ interface AIChatPanelProps {
 
 export default function AIChatPanel({ menuId }: AIChatPanelProps) {
   const { token } = useAuth();
+  const { language, t } = useTranslation();
   const {
     menuData,
     setMenuData,
@@ -102,7 +104,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
     setLoading(true);
 
     try {
-      const response = await sendAIMessage(token, message, menuData, menuId, pages, historyForApi);
+      const response = await sendAIMessage(token, message, menuData, menuId, pages, historyForApi, language);
 
       const assistantMsg: ChatMessage = {
         role: "assistant",
@@ -144,7 +146,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
     setLoading(true);
 
     // Call AI API
-    sendAIMessage(token, message, menuData, menuId, pages, historyForApi)
+    sendAIMessage(token, message, menuData, menuId, pages, historyForApi, language)
       .then((response) => {
         const assistantMsg: ChatMessage = {
           role: "assistant",
@@ -641,12 +643,12 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Menu Assistant</span>
+          <span className="text-sm font-semibold text-foreground">{t("aiChat.menuAssistant")}</span>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleClearHistory}
-            title="Clear history"
+            title={t("aiChat.clearHistory")}
             className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
             <Trash className="w-3.5 h-3.5" />
@@ -658,7 +660,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
             onClick={() => setAiMode(false)}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Editor
+            {t("aiChat.backToEditor")}
           </Button>
         </div>
       </div>
@@ -668,9 +670,9 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <Sparkles className="w-10 h-10 mb-4 opacity-20" />
-            <p className="text-sm font-medium">How can I help with your menu?</p>
+            <p className="text-sm font-medium">{t("aiChat.emptyStateMessage")}</p>
             <p className="text-xs mt-2 max-w-[300px] leading-relaxed opacity-70">
-              Try: "Add a desserts category with 3 items" or "Translate everything to French" or "Make all pasta prices €14"
+              {t("aiChat.emptyStateHint")}
             </p>
           </div>
         )}
@@ -694,7 +696,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
               {msg.actions && msg.actions.length > 0 && (
                 <div className="mt-2.5 space-y-1">
                   <div className="text-[11px] font-medium uppercase tracking-wide opacity-60 mb-1.5">
-                    Proposed changes
+                    {t("aiChat.proposedChanges")}
                   </div>
                   {msg.actions.map((action, j) => (
                     <div
@@ -721,7 +723,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
                         onClick={() => handleAccept(i)}
                       >
                         <Check className="w-3.5 h-3.5" />
-                        Apply
+                        {t("aiChat.apply")}
                       </Button>
                       <Button
                         variant="outline"
@@ -733,9 +735,9 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
                         onClick={() => handlePreview(i)}
                       >
                         {previewingMsgIndex === i ? (
-                          <><EyeOff className="w-3.5 h-3.5" /> Stop</>
+                          <><EyeOff className="w-3.5 h-3.5" /> {t("aiChat.stop")}</>
                         ) : (
-                          <><Eye className="w-3.5 h-3.5" /> Preview</>
+                          <><Eye className="w-3.5 h-3.5" /> {t("aiChat.preview")}</>
                         )}
                       </Button>
                       <Button
@@ -745,7 +747,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
                         onClick={() => handleReject(i)}
                       >
                         <XCircle className="w-3.5 h-3.5" />
-                        Reject
+                        {t("aiChat.reject")}
                       </Button>
                     </div>
                   )}
@@ -753,14 +755,14 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
                   {msg.status === "accepted" && (
                     <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-emerald-500/20 text-emerald-600 text-xs">
                       <Check className="w-3.5 h-3.5" />
-                      Changes applied
+                      {t("aiChat.changesApplied")}
                     </div>
                   )}
 
                   {msg.status === "rejected" && (
                     <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-red-500/20 text-red-400 text-xs">
                       <XCircle className="w-3.5 h-3.5" />
-                      Changes rejected
+                      {t("aiChat.changesRejected")}
                     </div>
                   )}
                 </div>
@@ -774,7 +776,7 @@ export default function AIChatPanel({ menuId }: AIChatPanelProps) {
             <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Thinking...
+                {t("aiChat.thinking")}
               </div>
             </div>
           </div>

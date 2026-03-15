@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import TemplateGallery from "./pages/TemplateGallery";
 import TemplateEditor from "./pages/TemplateEditor";
 import MenuEditor from "./pages/MenuEditor";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
@@ -60,6 +62,10 @@ function App() {
               </MenuProvider>
             }
           />
+          {(isAdmin || user?.role === "owner" || user?.role === "manager") && (
+            <Route path="/analytics" element={<Analytics />} />
+          )}
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

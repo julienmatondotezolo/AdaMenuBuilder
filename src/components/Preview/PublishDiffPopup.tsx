@@ -1,6 +1,7 @@
 import { X, ArrowRight, Plus, Minus, Pencil } from "lucide-react";
 import { Button } from "ada-design-system";
 import type { MenuData, Category, MenuItem } from "../../types/menu";
+import { useTranslation } from "../../i18n";
 
 interface PublishDiffPopupProps {
   previousMenu: MenuData | null;
@@ -127,7 +128,7 @@ function MenuSide({
           {label}
         </div>
         <div className="flex items-center justify-center h-40 text-sm text-muted-foreground bg-muted/30 rounded-lg border border-dashed border-border">
-          First publish — no previous version
+          {label}
         </div>
       </div>
     );
@@ -251,6 +252,7 @@ export default function PublishDiffPopup({
   onCancel,
   publishing,
 }: PublishDiffPopupProps) {
+  const { t } = useTranslation();
   const diff = computeDiff(previousMenu, currentMenu);
   const hasChanges =
     !previousMenu ||
@@ -274,11 +276,11 @@ export default function PublishDiffPopup({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Review Changes</h2>
+            <h2 className="text-lg font-bold text-foreground">{t("publishDiff.reviewChanges")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {previousMenu
-                ? `${totalChanges} change${totalChanges !== 1 ? "s" : ""} since last publish`
-                : "First time publishing this menu"}
+                ? `${totalChanges} ${totalChanges !== 1 ? t("publishDiff.changes") : t("publishDiff.change")} ${t("publishDiff.sinceLastPublish")}`
+                : t("publishDiff.firstPublish")}
             </p>
           </div>
           <button
@@ -293,13 +295,13 @@ export default function PublishDiffPopup({
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {!hasChanges && previousMenu ? (
             <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-              No changes detected since last publish.
+              {t("publishDiff.noChanges")}
             </div>
           ) : (
             <div className="flex gap-4">
               <MenuSide
                 menu={previousMenu}
-                label="Previously Published"
+                label={t("publishDiff.previouslyPublished")}
                 diff={diff}
                 side="previous"
               />
@@ -308,7 +310,7 @@ export default function PublishDiffPopup({
               </div>
               <MenuSide
                 menu={currentMenu}
-                label="Current Version"
+                label={t("publishDiff.currentVersion")}
                 diff={diff}
                 side="current"
               />
@@ -320,15 +322,15 @@ export default function PublishDiffPopup({
             <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <div className="w-2.5 h-2.5 rounded-sm bg-green-200" />
-                Added
+                {t("publishDiff.added")}
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <div className="w-2.5 h-2.5 rounded-sm bg-red-200" />
-                Removed
+                {t("publishDiff.removed")}
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <div className="w-2.5 h-2.5 rounded-sm bg-blue-200" />
-                Modified
+                {t("publishDiff.modified")}
               </div>
             </div>
           )}
@@ -337,10 +339,10 @@ export default function PublishDiffPopup({
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border shrink-0">
           <Button variant="outline" size="sm" onClick={onCancel} disabled={publishing}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button size="sm" onClick={onConfirm} disabled={publishing}>
-            {publishing ? "Publishing..." : "Confirm and Publish"}
+            {publishing ? t("menuEditor.publishing") : t("publishDiff.confirmAndPublish")}
           </Button>
         </div>
       </div>

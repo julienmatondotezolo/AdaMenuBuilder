@@ -7,6 +7,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useTemplateById } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n";
 import { db, type MenuDraft } from "../db/dexie";
 import Header from "../components/Header";
 import EditorPanel from "../components/Editor/EditorPanel";
@@ -29,6 +30,7 @@ export default function MenuEditor() {
   const restaurantId = searchParams.get("restaurant") || "";
   const navigate = useNavigate();
   const { token } = useAuth();
+  const { t } = useTranslation();
   const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem, aiMode } = useMenu();
   const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
   const [_backendMenu, setBackendMenu] = useState<BackendMenu | null>(null);
@@ -100,16 +102,22 @@ export default function MenuEditor() {
         const draftTime = draft ? new Date(draft.updatedAt).getTime() : 0;
         const backendTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
 
-        if (draft && draftTime > backendTime) {
-          // Local draft is newer — use it (user has unpublished local changes)
+        // Verify draft template still exists locally before trusting it
+        let draftTemplateValid = false;
+        if (draft?.templateId) {
+          const localTemplate = await db.templates.get(draft.templateId);
+          draftTemplateValid = !!localTemplate;
+        }
+
+        if (draft && draftTime > backendTime && draftTemplateValid) {
+          // Local draft is newer and template is valid — use it
           setMenuData(draft.data);
           setTemplateId(draft.templateId);
           setPages(draft.pages);
           setLastSaved(draft.updatedAt);
         } else {
-          // Backend is newer or no draft — use backend data
+          // Backend is newer, no draft, or draft template is gone — use backend data
           if (draft) {
-            // Remove stale draft
             await db.drafts.delete(id!);
           }
           setMenuData(built);
@@ -145,8 +153,10 @@ export default function MenuEditor() {
   }, [id, token, restaurantId]);
 
   // Auto-save draft to IndexedDB on changes
+  // Skip saving if template hasn't resolved yet (templateId is set but template is null)
   useEffect(() => {
     if (!initialized.current || !id || !restaurantId) return;
+    if (templateId && !template) return; // template still resolving from remote ID
     const timeout = setTimeout(() => {
       const now = new Date().toISOString();
       const draft: MenuDraft = {
@@ -293,7 +303,7 @@ export default function MenuEditor() {
       <div className="flex items-center justify-center h-full text-muted-foreground">
         <div className="text-center">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
-          <p>Loading menu...</p>
+          <p>{t("menuEditor.loadingMenu")}</p>
         </div>
       </div>
     );
@@ -305,13 +315,13 @@ export default function MenuEditor() {
         <Card className="max-w-sm">
           <CardContent className="flex flex-col items-center py-12 text-center">
             <Trash2 className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <p className="text-lg font-medium text-foreground">Menu Deleted</p>
+            <p className="text-lg font-medium text-foreground">{t("menuEditor.menuDeleted")}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              This menu has been removed and is no longer accessible.
+              {t("menuEditor.menuDeletedDescription")}
             </p>
             <Button variant="outline" size="sm" className="mt-6" onClick={() => navigate("/")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              {t("menuEditor.backToDashboard")}
             </Button>
           </CardContent>
         </Card>
@@ -326,7 +336,7 @@ export default function MenuEditor() {
           <p>{error}</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate("/")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            {t("menuEditor.backToDashboard")}
           </Button>
         </div>
       </div>
@@ -428,6 +438,7 @@ function PublishSuccessPopup({
   primaryColor: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
 
@@ -447,9 +458,9 @@ function PublishSuccessPopup({
       <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Menu Published</h2>
+            <h2 className="text-lg font-bold text-foreground">{t("menuEditor.menuPublished")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Your menu is now live and accessible
+              {t("menuEditor.menuPublishedDescription")}
             </p>
           </div>
           <button
@@ -476,13 +487,13 @@ function PublishSuccessPopup({
               />
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Scan to view your menu
+              {t("menuEditor.scanToView")}
             </p>
           </div>
 
           {/* QR URL */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">Menu URL</Label>
+            <Label className="text-xs font-medium text-muted-foreground">{t("menuEditor.menuUrl")}</Label>
             <div className="flex items-center gap-2 bg-muted/30 rounded-lg border border-border px-3 py-2.5">
               <span className="flex-1 text-xs text-muted-foreground truncate font-mono">
                 {qrUrl}
@@ -501,7 +512,7 @@ function PublishSuccessPopup({
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Embed</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("menuEditor.embed")}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -509,7 +520,7 @@ function PublishSuccessPopup({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <Code className="w-3.5 h-3.5 text-muted-foreground" />
-              <Label className="text-xs font-medium text-muted-foreground">Embed on your website</Label>
+              <Label className="text-xs font-medium text-muted-foreground">{t("menuEditor.embedOnWebsite")}</Label>
             </div>
             <div className="relative bg-muted/30 rounded-lg border border-border px-3 py-2.5">
               <pre className="text-[11px] text-muted-foreground font-mono whitespace-pre-wrap break-all leading-relaxed pr-8">
@@ -525,7 +536,7 @@ function PublishSuccessPopup({
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Paste this code into your website. The menu automatically adapts to mobile and desktop screens.
+              {t("menuEditor.embedHelp")}
             </p>
           </div>
         </div>
@@ -536,10 +547,10 @@ function PublishSuccessPopup({
 
 // ── Full-screen preview ─────────────────────────────────────────────────────
 
-const PREVIEW_MODES = [
-  { id: "paper" as PreviewMode, label: "Paper", icon: FileText },
-  { id: "mobile" as PreviewMode, label: "Mobile", icon: Smartphone },
-  { id: "desktop" as PreviewMode, label: "Desktop", icon: Monitor },
+const PREVIEW_MODE_KEYS: { id: PreviewMode; labelKey: string; icon: typeof FileText }[] = [
+  { id: "paper", labelKey: "menuEditor.paper", icon: FileText },
+  { id: "mobile", labelKey: "menuEditor.mobile", icon: Smartphone },
+  { id: "desktop", labelKey: "menuEditor.desktop", icon: Monitor },
 ];
 
 function FullScreenPreview({
@@ -555,6 +566,7 @@ function FullScreenPreview({
   menuData: MenuData;
   template?: MenuTemplate;
 }) {
+  const { t } = useTranslation();
   const activeWebLayout =
     previewMode === "desktop"
       ? template?.webLayoutDesktop
@@ -565,12 +577,12 @@ function FullScreenPreview({
       {/* Header with view switcher */}
       <header className="h-12 flex items-center justify-between px-4 bg-background border-b border-border shrink-0">
         <span className="text-sm font-semibold text-foreground">
-          Preview: {menuData.title || "Menu"}
+          {t("menuEditor.preview")}: {menuData.title || "Menu"}
         </span>
 
         {/* View switcher */}
         <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-          {PREVIEW_MODES.map(({ id, label, icon: Icon }) => (
+          {PREVIEW_MODE_KEYS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
               onClick={() => onModeChange(id)}
@@ -582,7 +594,7 @@ function FullScreenPreview({
               )}
             >
               <Icon className="w-3.5 h-3.5" />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -618,8 +630,8 @@ function FullScreenPreview({
               </DeviceMockup>
             ) : (
               <div className="text-center text-muted-foreground">
-                <p className="text-sm">No {previewMode} web layout configured.</p>
-                <p className="text-xs mt-1">Set it up in the Template Editor first.</p>
+                <p className="text-sm">{t("menuEditor.noWebLayout")}</p>
+                <p className="text-xs mt-1">{t("menuEditor.setupInTemplateEditor")}</p>
               </div>
             )}
           </>

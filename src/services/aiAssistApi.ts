@@ -43,7 +43,8 @@ export async function sendAIMessage(
   menuData: unknown,
   menuId?: string,
   pages?: unknown[],
-  chatHistory?: ChatMessage[]
+  chatHistory?: ChatMessage[],
+  language?: string
 ): Promise<AIAssistResponse> {
   const res = await fetch(`${API_URL}/api/v1/ai/menu-assist`, {
     method: "POST",
@@ -51,7 +52,7 @@ export async function sendAIMessage(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ message, menuData, menuId, pages, chatHistory }),
+    body: JSON.stringify({ message, menuData, menuId, pages, chatHistory, language }),
   });
 
   if (!res.ok) {

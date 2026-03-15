@@ -34,6 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useMenu } from "../../context/MenuContext";
 import { useAuth } from "../../context/AuthContext";
+import { useTranslation } from "../../i18n";
 import { useTemplates, useTemplateById } from "../../db/hooks";
 import CategorySection from "./CategorySection";
 import EditorCard from "./EditorCard";
@@ -245,6 +246,7 @@ export default function EditorPanel() {
     aiPreviewNewIds,
   } = useMenu();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isAdmin = user?.role === "admin";
 
   // When AI preview is active, use preview data for display
@@ -992,7 +994,7 @@ export default function EditorPanel() {
         {isAdmin && (
           <EditorCard
             icon={<Palette className="w-4 h-4" />}
-            title="Template"
+            title={t("editorPanel.template")}
             defaultCollapsed
             collapseSignal={collapseSignal}
             expandSignal={expandSignal}
@@ -1014,7 +1016,7 @@ export default function EditorPanel() {
                   (e.currentTarget as HTMLElement).style.opacity = "0.8";
                 }}
               >
-                Edit template settings →
+                {t("editorPanel.editTemplateSettings")} →
               </a>
             )}
           </EditorCard>
@@ -1025,14 +1027,14 @@ export default function EditorPanel() {
         {/* Menu Header Editor — hidden when active page variant disables header */}
         {activeVariantHeaderVisible && <EditorCard
           icon={<Type className="w-4 h-4" />}
-          title="Menu Header"
+          title={t("editorPanel.menuHeader")}
           defaultCollapsed
           collapseSignal={collapseSignal}
           expandSignal={expandSignal}
         >
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Subtitle
+              {t("editorPanel.subtitle")}
             </label>
             <input
               type="text"
@@ -1040,7 +1042,7 @@ export default function EditorPanel() {
               onChange={(e) =>
                 setMenuData((prev) => ({ ...prev, subtitle: e.target.value }))
               }
-              placeholder="e.g. SUMMER COLLECTION"
+              placeholder={t("editorPanel.subtitlePlaceholder")}
               className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
               style={{ border: "1px solid hsl(220 13% 91%)" }}
               onFocus={(e) => {
@@ -1053,7 +1055,7 @@ export default function EditorPanel() {
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Restaurant Name
+              {t("editorPanel.restaurantName")}
             </label>
             <input
               type="text"
@@ -1077,7 +1079,7 @@ export default function EditorPanel() {
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Established Year
+              {t("editorPanel.establishedYear")}
             </label>
             <input
               type="text"
@@ -1183,7 +1185,7 @@ export default function EditorPanel() {
             }}
           >
             <Plus className="w-4 h-4" />
-            Add Page
+            {t("editorPanel.addPage")}
           </button>}
 
           {/* Drag Overlay */}

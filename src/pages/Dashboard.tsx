@@ -35,12 +35,14 @@ import { useTemplates } from "../db/hooks";
 import { useAuth } from "../context/AuthContext";
 import { fetchRestaurants, type Restaurant } from "../services/templateApi";
 import { fetchMenus, createBackendMenu, deleteBackendMenu, disableBackendMenu, enableBackendMenu, type BackendMenu } from "../services/menuApi";
+import { useTranslation } from "../i18n";
 
 export default function Dashboard() {
   const templates = useTemplates();
   const navigate = useNavigate();
   const { token, user } = useAuth();
 
+  const { t } = useTranslation();
   const isAdmin = user?.role === "admin";
 
   // Restaurant state
@@ -123,7 +125,7 @@ export default function Dashboard() {
       await loadMenus();
       navigate(`/menus/${menu.id}/edit?restaurant=${targetRestaurantId}`);
     } catch (err: any) {
-      alert(err.message || "Failed to create menu");
+      alert(err.message || t("errors.failedCreateMenu"));
     } finally {
       setCreating(false);
     }
@@ -135,21 +137,21 @@ export default function Dashboard() {
 
     if (isAdmin) {
       // Admin: hard delete
-      if (!confirm("Permanently delete this menu? This cannot be undone.")) return;
+      if (!confirm(t("confirmations.permanentDelete"))) return;
       try {
         await deleteBackendMenu(token, menu.restaurant_id, menu.id);
         await loadMenus();
       } catch (err: any) {
-        alert(err.message || "Failed to delete menu");
+        alert(err.message || t("errors.failedDeleteMenu"));
       }
     } else {
       // Owner: soft delete (disable)
-      if (!confirm("Remove this menu? It will be hidden from your list.")) return;
+      if (!confirm(t("confirmations.removeMenu"))) return;
       try {
         await disableBackendMenu(token, menu.restaurant_id, menu.id);
         await loadMenus();
       } catch (err: any) {
-        alert(err.message || "Failed to remove menu");
+        alert(err.message || t("errors.failedRemoveMenu"));
       }
     }
   };
@@ -161,7 +163,7 @@ export default function Dashboard() {
       await enableBackendMenu(token, menu.restaurant_id, menu.id);
       await loadMenus();
     } catch (err: any) {
-      alert(err.message || "Failed to re-enable menu");
+      alert(err.message || t("errors.failedReEnableMenu"));
     }
   };
 
@@ -194,7 +196,7 @@ export default function Dashboard() {
       <header className="h-14 flex items-center justify-between px-6 bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-bold text-foreground">My Menus</h1>
+          <h1 className="text-lg font-bold text-foreground">{t("dashboard.myMenus")}</h1>
         </div>
         <div className="flex items-center gap-2">
           {/* Restaurant filter (non-admin with multiple restaurants) */}
@@ -214,7 +216,7 @@ export default function Dashboard() {
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => navigate("/templates")}>
               <LayoutTemplate className="w-4 h-4 mr-2" />
-              Templates
+              {t("dashboard.templates")}
             </Button>
           )}
           <Button size="sm" onClick={() => {
@@ -223,7 +225,7 @@ export default function Dashboard() {
             setShowNewMenu(true);
           }}>
             <Plus className="w-4 h-4 mr-2" />
-            New Menu
+            {t("dashboard.newMenu")}
           </Button>
         </div>
       </header>
@@ -232,18 +234,18 @@ export default function Dashboard() {
       <Dialog open={showNewMenu} onOpenChange={setShowNewMenu}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create New Menu</DialogTitle>
-            <DialogDescription>Give your menu a name and choose a template to start.</DialogDescription>
+            <DialogTitle>{t("createMenuDialog.title")}</DialogTitle>
+            <DialogDescription>{t("createMenuDialog.description")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label htmlFor="menu-title">Menu Title</Label>
+              <Label htmlFor="menu-title">{t("createMenuDialog.menuTitle")}</Label>
               <Input
                 id="menu-title"
                 autoFocus
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="e.g. Summer Dinner Menu"
+                placeholder={t("createMenuDialog.menuTitlePlaceholder")}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateMenu()}
               />
             </div>
@@ -251,10 +253,10 @@ export default function Dashboard() {
             {/* Restaurant selector — admin sees all, non-admin with multiple sees their restaurants */}
             {(isAdmin || restaurants.length > 1) && (
               <div className="space-y-2">
-                <Label>Restaurant</Label>
+                <Label>{t("createMenuDialog.restaurant")}</Label>
                 <Select value={createRestaurantId} onValueChange={setCreateRestaurantId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select restaurant" />
+                    <SelectValue placeholder={t("createMenuDialog.selectRestaurant")} />
                   </SelectTrigger>
                   <SelectContent>
                     {restaurants.map((r) => (
@@ -266,10 +268,10 @@ export default function Dashboard() {
             )}
 
             <div className="space-y-2">
-              <Label>Template</Label>
+              <Label>{t("createMenuDialog.template")}</Label>
               <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a template (optional)" />
+                  <SelectValue placeholder={t("createMenuDialog.chooseTemplate")} />
                 </SelectTrigger>
                 <SelectContent>
                   {templates?.map((t) => (
@@ -284,9 +286,9 @@ export default function Dashboard() {
             <div className="flex gap-2 pt-2">
               <Button onClick={handleCreateMenu} disabled={!newTitle.trim() || creating}>
                 {creating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {creating ? "Creating..." : "Create Menu"}
+                {creating ? t("createMenuDialog.creating") : t("createMenuDialog.createMenu")}
               </Button>
-              <Button variant="outline" onClick={() => setShowNewMenu(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowNewMenu(false)}>{t("createMenuDialog.cancel")}</Button>
             </div>
           </div>
         </DialogContent>
@@ -302,15 +304,15 @@ export default function Dashboard() {
           <Card className="max-w-md mx-auto mt-12">
             <CardContent className="flex flex-col items-center py-12 text-center">
               <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-              <p className="text-lg font-medium text-muted-foreground">No menus yet</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">Create your first menu to get started</p>
+              <p className="text-lg font-medium text-muted-foreground">{t("dashboard.noMenusYet")}</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">{t("dashboard.createFirstMenu")}</p>
               <Button size="sm" className="mt-6" onClick={() => {
                 setSelectedTemplateId(templates?.[0]?.id || "");
                 setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
                 setShowNewMenu(true);
               }}>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Menu
+                {t("dashboard.createMenu")}
               </Button>
             </CardContent>
           </Card>
@@ -342,7 +344,7 @@ export default function Dashboard() {
             >
               <CardContent className="flex flex-col items-center justify-center gap-3 py-16">
                 <Plus className="w-8 h-8 text-muted-foreground/40" />
-                <span className="text-sm font-medium text-muted-foreground">New Menu</span>
+                <span className="text-sm font-medium text-muted-foreground">{t("dashboard.newMenu")}</span>
               </CardContent>
             </Card>
           </div>
@@ -367,6 +369,7 @@ interface MenuCardProps {
 }
 
 function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, onEnable, formatDate }: MenuCardProps) {
+  const { t } = useTranslation();
   const isDisabled = menu.disabled;
 
   return (
@@ -379,7 +382,7 @@ function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropd
         {isDisabled && (
           <div className="absolute top-2 left-2 z-10">
             <Badge variant="destructive" className="text-[10px]">
-              <EyeOff className="w-3 h-3 mr-1" /> Disabled
+              <EyeOff className="w-3 h-3 mr-1" /> {t("dashboard.disabled")}
             </Badge>
           </div>
         )}
@@ -425,7 +428,7 @@ function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropd
           </div>
           <div className="flex items-center gap-1.5 ml-2 shrink-0">
             <Badge variant={menu.status === "published" ? "default" : "secondary"}>
-              {menu.status === "published" ? "Published" : "Draft"}
+              {menu.status === "published" ? t("dashboard.published") : t("dashboard.draft")}
             </Badge>
             <div className="relative">
               <Button
@@ -438,15 +441,15 @@ function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropd
               {isDropdownOpen && (
                 <Card className="absolute right-0 top-8 z-50 w-36 py-1 shadow-lg" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                   <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
-                    <Pencil className="w-3 h-3" /> Edit
+                    <Pencil className="w-3 h-3" /> {t("dashboard.edit")}
                   </button>
                   {isAdmin && isDisabled && onEnable && (
                     <button onClick={onEnable} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
-                      <RotateCcw className="w-3 h-3" /> Re-enable
+                      <RotateCcw className="w-3 h-3" /> {t("dashboard.reEnable")}
                     </button>
                   )}
                   <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
-                    <Trash2 className="w-3 h-3" /> {isAdmin ? "Delete" : "Remove"}
+                    <Trash2 className="w-3 h-3" /> {isAdmin ? t("dashboard.delete") : t("dashboard.remove")}
                   </button>
                 </Card>
               )}

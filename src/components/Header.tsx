@@ -13,6 +13,7 @@ import { Button } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
 import { useMenu } from "../context/MenuContext";
 import type { MenuTemplate } from "../types/template";
+import { useTranslation } from "../i18n";
 
 interface HeaderProps {
   template?: MenuTemplate;
@@ -24,6 +25,7 @@ interface HeaderProps {
 
 export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing }: HeaderProps) {
   const { menuData, setMenuData, clearSelection } = useMenu();
+  const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(menuData.title || "");
@@ -136,7 +138,7 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
           ) : (
             <>
               <span className="font-semibold text-foreground text-sm">
-                {menuData.title || "Untitled Menu"}
+                {menuData.title || t("menuEditor.untitledMenu")}
               </span>
               <button
                 onClick={handleStartEdit}
@@ -159,7 +161,7 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
           <div className="flex items-center gap-1 mt-0.5">
             <Clock className="w-3 h-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">
-              Saved: {savedText}
+              {t("menuEditor.saved")} {savedText}
             </span>
           </div>
         )}
@@ -169,7 +171,7 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
       <div className="flex-1 flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={onPreview}>
           <Eye className="w-4 h-4" />
-          Preview
+          {t("menuEditor.preview")}
         </Button>
 
         <Button
@@ -184,7 +186,7 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
           ) : (
             <Download className="w-4 h-4" />
           )}
-          {downloading ? "Generating…" : "Download"}
+          {downloading ? t("menuEditor.generating") : t("menuEditor.download")}
         </Button>
 
         <Button size="sm" className="flex items-center gap-2" onClick={onPublish} disabled={publishing}>
@@ -193,7 +195,7 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
           ) : (
             <Rocket className="w-4 h-4" />
           )}
-          {publishing ? "Publishing…" : "Publish"}
+          {publishing ? t("menuEditor.publishing") : t("menuEditor.publish")}
         </Button>
       </div>
     </header>

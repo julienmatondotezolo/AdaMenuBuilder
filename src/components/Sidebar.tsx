@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn, AdaLogo, Avatar, AvatarFallback } from "ada-design-system";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n";
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -66,11 +67,11 @@ function Tooltip({
 
 /* ── Nav items config ────────────────────────────────────────────────────── */
 
-const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: Home, path: "/", adminOnly: false },
-  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/templates", adminOnly: true },
-  { id: "analytics", label: "Analytics", icon: BarChart3, path: "#", adminOnly: false },
-  { id: "settings", label: "Settings", icon: Settings, path: "#", adminOnly: false },
+const NAV_ITEMS: { id: string; labelKey: string; icon: typeof Home; path: string; adminOnly: boolean; roles?: string[] }[] = [
+  { id: "dashboard", labelKey: "sidebar.dashboard", icon: Home, path: "/", adminOnly: false },
+  { id: "templates", labelKey: "sidebar.templates", icon: LayoutTemplate, path: "/templates", adminOnly: true },
+  { id: "analytics", labelKey: "sidebar.analytics", icon: BarChart3, path: "/analytics", adminOnly: false, roles: ["admin", "owner", "manager"] },
+  { id: "settings", labelKey: "sidebar.settings", icon: Settings, path: "/settings", adminOnly: false },
 ];
 
 /* ── Sidebar width constants ─────────────────────────────────────────────── */
@@ -86,6 +87,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   /* Close user menu on outside click */
@@ -159,7 +161,7 @@ export default function Sidebar() {
               "font-semibold text-[13px] text-gray-900 whitespace-nowrap transition-opacity duration-200",
               collapsed ? "opacity-0" : "opacity-100",
             )}>
-              Menu Builder <span className="text-blue-600 font-bold">AI</span>
+              {t("sidebar.appName").replace(" AI", "")} <span className="text-blue-600 font-bold">AI</span>
             </span>
           </div>
         </div>
@@ -223,7 +225,7 @@ export default function Sidebar() {
                   className="w-full text-left px-2.5 py-2 text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2.5 rounded-md transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  Sign out
+                  {t("sidebar.signOut")}
                 </button>
               </div>
             </div>
@@ -236,10 +238,15 @@ export default function Sidebar() {
         {/* ═══ Navigation ════════════════════════════════════════════════ */}
         <nav className="flex-1 py-2 px-2">
           <div className="space-y-0.5">
-            {NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === "admin").map((item) => {
+            {NAV_ITEMS.filter((item) => {
+              if (item.adminOnly && user?.role !== "admin") return false;
+              if (item.roles && !item.roles.includes(user?.role || "")) return false;
+              return true;
+            }).map((item) => {
               const active = item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path);
+              const label = t(item.labelKey);
               return (
-                <Tooltip key={item.id} label={item.label} show={collapsed}>
+                <Tooltip key={item.id} label={label} show={collapsed}>
                   <button
                     onClick={() => { if (item.path !== "#") navigate(item.path); }}
                     className={cn(
@@ -262,7 +269,7 @@ export default function Sidebar() {
                         active ? "font-semibold" : "font-medium",
                       )}
                     >
-                      {item.label}
+                      {label}
                     </span>
                   </button>
                 </Tooltip>
@@ -273,7 +280,7 @@ export default function Sidebar() {
 
         {/* ═══ Footer: Logout ════════════════════════════════════════════ */}
         <div className="border-t border-gray-100 py-2 px-2">
-          <Tooltip label="Sign out" show={collapsed}>
+          <Tooltip label={t("sidebar.signOut")} show={collapsed}>
             <button
               onClick={handleLogout}
               className="flex items-center w-full gap-2.5 px-2.5 py-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
@@ -282,7 +289,7 @@ export default function Sidebar() {
               <span className={cn(
                 "text-[13px] font-medium whitespace-nowrap transition-opacity duration-200",
                 collapsed ? "opacity-0" : "opacity-100",
-              )}>Sign out</span>
+              )}>{t("sidebar.signOut")}</span>
             </button>
           </Tooltip>
         </div>

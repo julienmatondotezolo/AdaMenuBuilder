@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { LanguageProvider } from "./i18n";
 import ProtectedRoute from "./components/ProtectedRoute";
 import App from "./App";
 import AuthCallback from "./pages/AuthCallback";
@@ -18,6 +19,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
+      <LanguageProvider>
       <AuthProvider>
         <Routes>
           {/* Public routes */}
@@ -37,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
           />
         </Routes>
       </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   </StrictMode>,
 );
