@@ -775,12 +775,17 @@ export default function TemplateEditor() {
       // Refresh status
       const s = await fetchPublishStatus(token, template.name);
       setPublishStatus(s);
-      // Update local publish tracking
+      // Update local publish tracking + remoteIds
       if (id) {
+        const remoteIds: Record<string, string> = {};
+        for (const [rid, info] of Object.entries(s)) {
+          remoteIds[rid] = info.id;
+        }
         await updateTemplate(id, {
           publishedAt: new Date().toISOString(),
           publishedHash: getTemplateHash(template),
           hasLocalChanges: false,
+          remoteIds,
         });
       }
     } catch (err: any) {
@@ -857,10 +862,15 @@ export default function TemplateEditor() {
       const s = await fetchPublishStatus(token, template.name);
       setPublishStatus(s);
       if (id) {
+        const remoteIds: Record<string, string> = {};
+        for (const [rid, info] of Object.entries(s)) {
+          remoteIds[rid] = info.id;
+        }
         await updateTemplate(id, {
           publishedAt: new Date().toISOString(),
           publishedHash: getTemplateHash(template),
           hasLocalChanges: false,
+          remoteIds,
         });
       }
     } catch (err: any) {

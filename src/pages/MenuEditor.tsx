@@ -17,6 +17,7 @@ import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
 import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
+import { fetchPublishStatus } from "../services/templateApi";
 import { syncTemplatesFromBackend } from "../services/templateSync";
 import type { MenuData } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
@@ -207,7 +208,27 @@ export default function MenuEditor() {
       const thumbnail = await captureThumbnail();
 
       // Use remote template ID for cross-machine compatibility
-      const remoteTemplateId = template?.remoteIds?.[restaurantId] || templateId || undefined;
+      let remoteTemplateId = template?.remoteIds?.[restaurantId];
+
+      // If no remoteId mapping, look up via publish status
+      if (!remoteTemplateId && template && token) {
+        try {
+          const status = await fetchPublishStatus(token, template.name);
+          if (status[restaurantId]) {
+            remoteTemplateId = status[restaurantId].id;
+            // Save remoteIds for future use
+            const remoteIds = { ...template.remoteIds };
+            for (const [rid, info] of Object.entries(status)) {
+              remoteIds[rid] = info.id;
+            }
+            await db.templates.update(template.id, { remoteIds });
+          }
+        } catch {}
+      }
+
+      if (!remoteTemplateId) {
+        remoteTemplateId = templateId || undefined;
+      }
 
       const result = await bulkPublishMenu(token, restaurantId, id, {
         title: menuData.title,
