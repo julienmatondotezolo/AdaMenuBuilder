@@ -86,46 +86,47 @@ export default function MenuEditor() {
 
     async function load() {
       try {
-        // Check for local draft first
-        const draft = await db.drafts.get(id!);
-        if (draft) {
-          setMenuData(draft.data);
-          setTemplateId(draft.templateId);
-          setPages(draft.pages);
-          setLastSaved(draft.updatedAt);
-          initialized.current = true;
-          setLoading(false);
-
-          // Still fetch backend menu for metadata + snapshot for diff
-          try {
-            const data = await fetchCompleteMenu(token!, restaurantId, id!);
-            setBackendMenu(data);
-            setPreviousMenuData(buildMenuData(data));
-          } catch {}
-          return;
-        }
-
-        // No local draft — fetch from backend
+        // Always fetch from backend first
         const data = await fetchCompleteMenu(token!, restaurantId, id!);
         setBackendMenu(data);
 
         const built = buildMenuData(data);
         setPreviousMenuData(built);
-        setMenuData(built);
 
-        if (data.template_id) {
-          setTemplateId(data.template_id);
+        // Check for local draft — use it only if it's newer than backend
+        const draft = await db.drafts.get(id!);
+        const draftTime = draft ? new Date(draft.updatedAt).getTime() : 0;
+        const backendTime = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+
+        if (draft && draftTime > backendTime) {
+          // Local draft is newer — use it (user has unpublished local changes)
+          setMenuData(draft.data);
+          setTemplateId(draft.templateId);
+          setPages(draft.pages);
+          setLastSaved(draft.updatedAt);
+        } else {
+          // Backend is newer or no draft — use backend data
+          if (draft) {
+            // Remove stale draft
+            await db.drafts.delete(id!);
+          }
+          setMenuData(built);
+
+          if (data.template_id) {
+            setTemplateId(data.template_id);
+          }
+
+          if (data.pages && data.pages.length > 0) {
+            setPages(data.pages.map((p: any) => ({
+              id: p.id,
+              variantId: p.variant_id,
+              categoryIds: p.category_ids || [],
+            })));
+          }
+
+          setLastSaved(data.updated_at);
         }
 
-        if (data.pages && data.pages.length > 0) {
-          setPages(data.pages.map((p: any) => ({
-            id: p.id,
-            variantId: p.variant_id,
-            categoryIds: p.category_ids || [],
-          })));
-        }
-
-        setLastSaved(data.updated_at);
         initialized.current = true;
       } catch (err: any) {
         setError(err.message || "Failed to load menu");
