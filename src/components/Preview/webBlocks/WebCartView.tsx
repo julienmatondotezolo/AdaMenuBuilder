@@ -65,24 +65,22 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
     try {
       const customerType = selectedMode ? modeToCustomerType[selectedMode] : "dine_in";
       const displayName = customerName.trim() || (tableNumber ? `Table ${tableNumber}` : "Guest");
+      const orderNumber = `QR-${Date.now().toString().slice(-6)}`;
 
       const body = {
-        menu_id: menuId || "",
-        source: "qr_code" as const,
-        referrer: window.location.href,
+        source: "qr_code",
+        order_number: orderNumber,
         customer_name: displayName,
         customer_type: customerType,
-        table_number: tableNumber || undefined,
         special_instructions: specialInstructions.trim() || undefined,
-        order_items: cart.map((item) => ({
-          menu_item_id: item.id,
+        items: cart.map((item) => ({
           name: item.name,
           quantity: item.quantity,
-          price: item.price,
+          estimated_time: 10,
         })),
       };
 
-      const res = await fetch(`${KDS_API_URL}/api/v1/restaurants/${restaurantId}/orders/ada-menu`, {
+      const res = await fetch(`${KDS_API_URL}/api/v1/restaurants/${restaurantId}/orders/incoming`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
