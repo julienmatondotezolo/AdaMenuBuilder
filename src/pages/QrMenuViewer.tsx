@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Spinner } from "ada-design-system";
 import { db } from "../db/dexie";
 import type { MenuData } from "../types/menu";
@@ -15,6 +15,7 @@ interface QrMenuData {
   fonts: FontScheme;
   templateName: string;
   qrOrderConfig?: QrOrderConfig;
+  restaurantId?: string;
 }
 
 /**
@@ -24,6 +25,8 @@ interface QrMenuData {
  */
 export default function QrMenuViewer() {
   const { menuId } = useParams<{ menuId: string }>();
+  const [searchParams] = useSearchParams();
+  const tableNumber = searchParams.get("table") || undefined;
   const { t } = useTranslation();
   const [data, setData] = useState<QrMenuData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,7 @@ export default function QrMenuViewer() {
                 fonts: localTemplate.fonts,
                 templateName: localTemplate.name,
                 qrOrderConfig: localTemplate.qrOrderConfig,
+                restaurantId: localMenu.restaurantId,
               });
               setLoading(false);
               return;
@@ -90,6 +94,7 @@ export default function QrMenuViewer() {
           fonts: tpl.fonts,
           templateName: tpl.name || menu.title || "Menu",
           qrOrderConfig: tpl.qrOrderConfig,
+          restaurantId: menu.restaurantId,
         });
       } catch {
         setError("failed");
@@ -140,6 +145,9 @@ export default function QrMenuViewer() {
         templateName={data.templateName}
         mode="mobile"
         qrOrderConfig={data.qrOrderConfig}
+        menuId={menuId}
+        restaurantId={data.restaurantId}
+        tableNumber={tableNumber}
         fullscreen
         t={t}
       />

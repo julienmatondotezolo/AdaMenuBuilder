@@ -40,6 +40,7 @@ interface PageCardProps {
   isNewPage?: boolean;
   newPageLabel?: string;
   aiNewIds?: Set<string>;
+  canEdit?: boolean;
 }
 
 export default function PageCard({
@@ -64,6 +65,7 @@ export default function PageCard({
   isNewPage,
   newPageLabel,
   aiNewIds,
+  canEdit = true,
 }: PageCardProps) {
   const { menuData, setMenuData, duplicateCategory, setPages } = useMenu();
   const variant = template?.pageVariants.find((v) => v.id === page.variantId);
@@ -291,7 +293,7 @@ export default function PageCard({
             )}
 
             {/* Edit button (pen) — only visible when active/selected, RIGHT of name */}
-            {isActive && (
+            {isActive && canEdit && (
               <button
                 onClick={handleStartEdit}
                 className="shrink-0 p-0.5 rounded transition-colors text-muted-foreground"
@@ -328,7 +330,7 @@ export default function PageCard({
             </span>
 
             {/* Delete page button — visible when active */}
-            {isActive && totalPages > 1 && onRemove && (
+            {isActive && canEdit && totalPages > 1 && onRemove && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -382,9 +384,10 @@ export default function PageCard({
                   expandSignal={expandSignal}
                   dragCollapseSignal={dragCollapseSignal}
                   dragRestoreSignal={dragRestoreSignal}
-                  onDuplicate={handleDuplicateCategory}
+                  onDuplicate={canEdit ? handleDuplicateCategory : undefined}
                   onContentChanged={onContentChanged}
                   aiNewIds={aiNewIds}
+                  canEdit={canEdit}
                 />
               ))}
             </div>
@@ -467,7 +470,7 @@ export default function PageCard({
                   <p className="text-xs text-muted-foreground italic">
                     Image is locked by the template and cannot be changed. Edit the template to update it.
                   </p>
-                ) : (
+                ) : canEdit ? (
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
                       Image URL
@@ -492,7 +495,7 @@ export default function PageCard({
                       }}
                     />
                   </div>
-                )}
+                ) : null}
                 <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1 block">
                     Label
@@ -500,11 +503,12 @@ export default function PageCard({
                   <input
                     type="text"
                     value={menuData.highlightLabel}
-                    onChange={(e) =>
+                    readOnly={!canEdit}
+                    onChange={canEdit ? (e) =>
                       setMenuData((prev) => ({
                         ...prev,
                         highlightLabel: e.target.value,
-                      }))
+                      })) : undefined
                     }
                     placeholder="e.g. TODAY'S HIGHLIGHT"
                     className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
@@ -524,11 +528,12 @@ export default function PageCard({
                   <input
                     type="text"
                     value={menuData.highlightTitle}
-                    onChange={(e) =>
+                    readOnly={!canEdit}
+                    onChange={canEdit ? (e) =>
                       setMenuData((prev) => ({
                         ...prev,
                         highlightTitle: e.target.value,
-                      }))
+                      })) : undefined
                     }
                     placeholder="e.g. The Nordic Atlantic Salmon"
                     className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"

@@ -13,6 +13,7 @@ interface MenuItemCardProps {
   isDraggingActive: boolean;
   isOverlay?: boolean;
   isAiNew?: boolean;
+  canEdit?: boolean;
 }
 
 export default function MenuItemCard({
@@ -21,6 +22,7 @@ export default function MenuItemCard({
   isDraggingActive,
   isOverlay,
   isAiNew,
+  canEdit = true,
 }: MenuItemCardProps) {
   const { addItem, removeItem, updateItem, setHover, clearHover, dragState, selectedItemId, selectItem, aiModifiedIds } =
     useMenu();
@@ -38,7 +40,7 @@ export default function MenuItemCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled: isOverlay });
+  } = useSortable({ id: item.id, disabled: isOverlay || !canEdit });
 
   const style = isOverlay
     ? {}
@@ -105,18 +107,20 @@ export default function MenuItemCard({
     >
       <div className="flex gap-3 p-3">
         {/* Drag handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          className={cn(
-            "flex items-start pt-1 shrink-0 text-muted-foreground/25 transition-colors",
-            "hover:text-muted-foreground cursor-grab",
-            isDragging && "cursor-grabbing"
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="w-4 h-4" />
-        </div>
+        {canEdit && (
+          <div
+            {...attributes}
+            {...listeners}
+            className={cn(
+              "flex items-start pt-1 shrink-0 text-muted-foreground/25 transition-colors",
+              "hover:text-muted-foreground cursor-grab",
+              isDragging && "cursor-grabbing"
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -205,8 +209,8 @@ export default function MenuItemCard({
                 </p>
               )}
 
-              {/* Action buttons — only when selected */}
-              {isSelected && (
+              {/* Action buttons — only when selected and can edit */}
+              {isSelected && canEdit && (
                 <div className="flex items-center gap-1.5 mt-2.5">
                   <button
                     onClick={(e) => {

@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { ColorScheme, FontScheme, QrOrderConfig, OrderMode } from "../../../types/template";
 import type { CartItem } from "./WebCartBar";
 
+const KDS_API_URL = import.meta.env.VITE_KDS_API_URL || "https://api-kds.adasystems.app";
+
 interface Props {
   cart: CartItem[];
   colors: ColorScheme;
@@ -11,15 +13,25 @@ interface Props {
   contentPaddingX: number;
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onClose: () => void;
+  onClearCart?: () => void;
+  menuId?: string;
+  restaurantId?: string;
+  tableNumber?: string;
   fullscreen?: boolean;
   t?: (key: string) => string;
 }
 
-export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, fullscreen, t }: Props) {
+type OrderStatus = "idle" | "sending" | "success" | "error";
+
+export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, onClearCart, menuId, restaurantId, tableNumber, fullscreen, t }: Props) {
   const currency = qrOrderConfig.currency || "\u20AC";
   const enabledModes = (Object.keys(qrOrderConfig.modes) as OrderMode[]).filter((m) => qrOrderConfig.modes[m]);
   const [selectedMode, setSelectedMode] = useState<OrderMode | null>(enabledModes[0] ?? null);
-  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderStatus, setOrderStatus] = useState<OrderStatus>("idle");
+  const [orderNumber, setOrderNumber] = useState<string>("");
+  const [orderError, setOrderError] = useState<string>("");
+  const [customerName, setCustomerName] = useState("");
+  const [specialInstructions, setSpecialInstructions] = useState("");
 
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -33,7 +45,65 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
     "delivery":    { label: tr("qrMenu.delivery", "Delivery"),   icon: "M14 18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18h6a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14M17 18a2 2 0 1 1-4 0M7 18a2 2 0 1 1-4 0" },
   };
 
-  if (orderPlaced) {
+  // Map frontend order modes to KDS customer_type
+  const modeToCustomerType: Record<OrderMode, string> = {
+    "send-to-kds": "dine_in",
+    "takeaway": "takeaway",
+    "delivery": "delivery",
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!restaurantId) {
+      setOrderError(tr("qrMenu.orderErrorNoRestaurant", "Restaurant not configured for ordering."));
+      setOrderStatus("error");
+      return;
+    }
+
+    setOrderStatus("sending");
+    setOrderError("");
+
+    try {
+      const customerType = selectedMode ? modeToCustomerType[selectedMode] : "dine_in";
+      const displayName = customerName.trim() || (tableNumber ? `Table ${tableNumber}` : "Guest");
+
+      const body = {
+        menu_id: menuId || "",
+        source: "qr_code" as const,
+        referrer: window.location.href,
+        customer_name: displayName,
+        customer_type: customerType,
+        table_number: tableNumber || undefined,
+        special_instructions: specialInstructions.trim() || undefined,
+        order_items: cart.map((item) => ({
+          menu_item_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      };
+
+      const res = await fetch(`${KDS_API_URL}/api/v1/restaurants/${restaurantId}/orders/ada-menu`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || `Order failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      setOrderNumber(data.order?.order_number || "");
+      setOrderStatus("success");
+      onClearCart?.();
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : "Failed to place order");
+      setOrderStatus("error");
+    }
+  };
+
+  if (orderStatus === "success") {
     const confirmationMessage = selectedMode === "delivery"
       ? tr("qrMenu.deliveryMessage", "We'll deliver it to you.")
       : selectedMode === "takeaway"
@@ -71,13 +141,18 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           <div style={{ fontFamily: fonts.heading, fontSize: 22, fontWeight: 700, color: colors.text, marginBottom: 8 }}>
             {tr("qrMenu.orderConfirmed", "Order Confirmed!")}
           </div>
+          {orderNumber && (
+            <div style={{ fontFamily: fonts.body, fontSize: 16, fontWeight: 600, color: colors.primary, marginBottom: 8 }}>
+              #{orderNumber}
+            </div>
+          )}
           <div style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, lineHeight: 1.5 }}>
             {tr("qrMenu.orderReadySoon", "Your order will be ready soon.")}
             <br />{confirmationMessage}
           </div>
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); setOrderPlaced(false); onClose(); }}
+          onClick={(e) => { e.stopPropagation(); setOrderStatus("idle"); onClose(); }}
           style={{
             width: "100%",
             maxWidth: 280,
@@ -97,6 +172,19 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
       </div>
     );
   }
+
+  const inputStyle = {
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: borderRadius || 8,
+    border: `1px solid ${colors.muted}30`,
+    backgroundColor: colors.muted + "08",
+    color: colors.text,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box" as const,
+  };
 
   return (
     <div style={{
@@ -142,6 +230,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           </div>
           <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted }}>
             {totalItems} {totalItems === 1 ? tr("qrMenu.item", "item") : tr("qrMenu.items", "items")}
+            {tableNumber && ` · ${tr("qrMenu.table", "Table")} ${tableNumber}`}
           </div>
         </div>
       </div>
@@ -277,6 +366,38 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
             </div>
           </div>
         )}
+
+        {/* Customer name (optional) */}
+        {cart.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontFamily: fonts.body, fontSize: 12, fontWeight: 600, color: colors.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+              {tr("qrMenu.customerName", "Your Name")} <span style={{ fontWeight: 400, textTransform: "none" }}>({tr("qrMenu.optional", "optional")})</span>
+            </div>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder={tr("qrMenu.customerNamePlaceholder", "Enter your name...")}
+              style={inputStyle}
+            />
+          </div>
+        )}
+
+        {/* Special instructions */}
+        {cart.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontFamily: fonts.body, fontSize: 12, fontWeight: 600, color: colors.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+              {tr("qrMenu.specialInstructions", "Special Instructions")} <span style={{ fontWeight: 400, textTransform: "none" }}>({tr("qrMenu.optional", "optional")})</span>
+            </div>
+            <textarea
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              placeholder={tr("qrMenu.specialInstructionsPlaceholder", "Allergies, preferences...")}
+              rows={2}
+              style={{ ...inputStyle, resize: "none" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Bottom: total + place order */}
@@ -286,6 +407,22 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           borderTop: `1px solid ${colors.muted}20`,
           flexShrink: 0,
         }}>
+          {/* Error message */}
+          {orderStatus === "error" && orderError && (
+            <div style={{
+              padding: "10px 14px",
+              marginBottom: 12,
+              borderRadius: borderRadius || 8,
+              backgroundColor: "#fee2e2",
+              color: "#dc2626",
+              fontFamily: fonts.body,
+              fontSize: 13,
+              fontWeight: 500,
+            }}>
+              {orderError}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <span style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted }}>{tr("qrMenu.total", "Total")}</span>
             <span style={{ fontFamily: fonts.heading, fontSize: 22, fontWeight: 700, color: colors.text }}>
@@ -293,22 +430,27 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
             </span>
           </div>
           <button
-            onClick={(e) => { e.stopPropagation(); setOrderPlaced(true); }}
+            onClick={(e) => { e.stopPropagation(); handlePlaceOrder(); }}
+            disabled={orderStatus === "sending"}
             style={{
               width: "100%",
               padding: "15px 24px",
-              backgroundColor: colors.primary,
+              backgroundColor: orderStatus === "sending" ? colors.muted : colors.primary,
               color: "#fff",
               border: "none",
               borderRadius: borderRadius || 12,
-              cursor: "pointer",
+              cursor: orderStatus === "sending" ? "not-allowed" : "pointer",
               fontFamily: fonts.body,
               fontSize: 16,
               fontWeight: 700,
               boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
+              opacity: orderStatus === "sending" ? 0.7 : 1,
+              transition: "all 0.15s",
             }}
           >
-            {tr("qrMenu.placeOrder", "Place Order")}
+            {orderStatus === "sending"
+              ? tr("qrMenu.sendingOrder", "Sending Order...")
+              : tr("qrMenu.placeOrder", "Place Order")}
           </button>
         </div>
       )}

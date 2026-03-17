@@ -244,6 +244,19 @@ export const nl: TranslationKeys = {
     language: "Taal",
     searchMenu: "Zoeken in het menu...",
     noItemsFound: "Geen items gevonden voor \"{{query}}\"",
+    table: "Tafel",
+    customerName: "Uw Naam",
+    customerNamePlaceholder: "Voer uw naam in...",
+    optional: "optioneel",
+    specialInstructions: "Speciale Instructies",
+    specialInstructionsPlaceholder: "Allergieën, voorkeuren...",
+    sendingOrder: "Bestelling verzenden...",
+    orderErrorNoRestaurant: "Restaurant niet geconfigureerd voor bestellingen.",
+  },
+
+  permissions: {
+    viewOnly: "Alleen bekijken",
+    viewOnlyDescription: "U heeft alleen leestoegang tot dit menu. Neem contact op met een beheerder of manager om wijzigingen aan te brengen.",
   },
 
   common: {

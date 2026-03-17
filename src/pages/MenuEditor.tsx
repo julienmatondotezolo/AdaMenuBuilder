@@ -18,6 +18,7 @@ import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
 import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
+import { canEditMenu } from "../utils/permissions";
 import { fetchPublishStatus } from "../services/templateApi";
 import { syncTemplatesFromBackend } from "../services/templateSync";
 import type { MenuData } from "../types/menu";
@@ -29,7 +30,7 @@ export default function MenuEditor() {
   const [searchParams] = useSearchParams();
   const restaurantId = searchParams.get("restaurant") || "";
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const { menuData, setMenuData, templateId, setTemplateId, pages, setPages, selectItem, aiMode } = useMenu();
   const [lastSaved, setLastSaved] = useState<string | undefined>(undefined);
@@ -45,6 +46,8 @@ export default function MenuEditor() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("paper");
   const initialized = useRef(false);
   const thumbnailRef = useRef<HTMLDivElement>(null);
+
+  const canEdit = canEditMenu(user?.role);
 
   // Live-query the template
   const template = useTemplateById(templateId || undefined);
@@ -364,6 +367,7 @@ export default function MenuEditor() {
         onPreview={() => { selectItem(null); setShowPreview(true); }}
         onPublish={handlePublish}
         publishing={publishing}
+        canEdit={canEdit}
       />
 
       <main className="flex-1 flex overflow-hidden">
@@ -372,7 +376,7 @@ export default function MenuEditor() {
           className="w-[440px] shrink-0 bg-white"
           style={{ boxShadow: "2px 0 8px rgba(0,0,0,0.06)" }}
         >
-          {aiMode ? <AIChatPanel menuId={id} /> : <EditorPanel />}
+          {aiMode ? <AIChatPanel menuId={id} /> : <EditorPanel canEdit={canEdit} />}
         </div>
 
         {/* Preview */}

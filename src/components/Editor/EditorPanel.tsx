@@ -12,6 +12,7 @@ import {
   ArrowLeftRight,
   Trash2,
   ArrowRightLeft,
+  Eye,
 } from "lucide-react";
 import { Button, Input } from "ada-design-system";
 import {
@@ -232,7 +233,7 @@ function TemplateSelector({
 
 /* ── Main Editor Panel ───────────────────────────────────────────────── */
 
-export default function EditorPanel() {
+export default function EditorPanel({ canEdit = true }: { canEdit?: boolean }) {
   const {
     menuData,
     setMenuData,
@@ -1133,6 +1134,17 @@ export default function EditorPanel() {
         </p>
       </div>
 
+      {/* View-only banner for staff */}
+      {!canEdit && (
+        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ backgroundColor: "hsl(220 14% 96%)", borderColor: "hsl(220 13% 88%)" }}>
+          <Eye className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div>
+            <span className="text-xs font-semibold text-foreground">{t("permissions.viewOnly")}</span>
+            <p className="text-[10px] text-muted-foreground">{t("permissions.viewOnlyDescription")}</p>
+          </div>
+        </div>
+      )}
+
       {/* Menu title + fold/unfold */}
       <div className="px-4 pt-3 pb-2 shrink-0 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
@@ -1253,9 +1265,10 @@ export default function EditorPanel() {
             <input
               type="text"
               value={menuData.subtitle}
-              onChange={(e) =>
+              readOnly={!canEdit}
+              onChange={canEdit ? (e) =>
                 setMenuData((prev) => ({ ...prev, subtitle: e.target.value }))
-              }
+              : undefined}
               placeholder={t("editorPanel.subtitlePlaceholder")}
               className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
               style={{ border: "1px solid hsl(220 13% 91%)" }}
@@ -1274,12 +1287,13 @@ export default function EditorPanel() {
             <input
               type="text"
               value={menuData.restaurantName}
-              onChange={(e) =>
+              readOnly={!canEdit}
+              onChange={canEdit ? (e) =>
                 setMenuData((prev) => ({
                   ...prev,
                   restaurantName: e.target.value,
                 }))
-              }
+              : undefined}
               placeholder="e.g. Lumière Dining"
               className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
               style={{ border: "1px solid hsl(220 13% 91%)" }}
@@ -1298,12 +1312,13 @@ export default function EditorPanel() {
             <input
               type="text"
               value={menuData.established}
-              onChange={(e) =>
+              readOnly={!canEdit}
+              onChange={canEdit ? (e) =>
                 setMenuData((prev) => ({
                   ...prev,
                   established: e.target.value,
                 }))
-              }
+              : undefined}
               placeholder="e.g. 2024"
               className="w-full h-9 rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground outline-none px-3"
               style={{ border: "1px solid hsl(220 13% 91%)" }}
@@ -1365,8 +1380,8 @@ export default function EditorPanel() {
                 overflowPx={pageOverflows.get(pageIndex) ?? 0}
                 isDraggingCategory={isDraggingCategory}
                 onActivate={() => setActivePageIndex(pageIndex)}
-                onRemove={isAiPreview ? undefined : () => removePage(pageIndex)}
-                onChangeVariant={isAiPreview ? undefined : (v) => changePageVariant(pageIndex, v)}
+                onRemove={isAiPreview || !canEdit ? undefined : () => removePage(pageIndex)}
+                onChangeVariant={isAiPreview || !canEdit ? undefined : (v) => changePageVariant(pageIndex, v)}
                 onAddItem={() => {
                   /* handled by CategorySection */
                 }}
@@ -1379,6 +1394,7 @@ export default function EditorPanel() {
                 isNewPage={isNewPage(page.id)}
                 newPageLabel={isNewPage(page.id) ? `Page ${pages.length + displayPages.filter((p, i) => i <= pageIndex && isNewPage(p.id)).length}` : undefined}
                 aiNewIds={isAiPreview ? aiPreviewNewIds : undefined}
+                canEdit={canEdit}
               />
             ))}
           </div>
@@ -1397,7 +1413,7 @@ export default function EditorPanel() {
           )}
 
           {/* Add Page button */}
-          {!isAiPreview && <button
+          {!isAiPreview && canEdit && <button
             onClick={addPage}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium text-muted-foreground transition-colors"
             style={{ border: "2px dashed hsl(220 13% 88%)", marginTop: "24px" }}
@@ -1458,7 +1474,7 @@ export default function EditorPanel() {
       </div>
 
       {/* Fixed bottom — Create New Category */}
-      <div className="shrink-0 px-4 py-3 border-t border-border bg-background">
+      {canEdit && <div className="shrink-0 px-4 py-3 border-t border-border bg-background">
         {isAddingCategory ? (
           <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-card">
             <Input
@@ -1499,7 +1515,7 @@ export default function EditorPanel() {
             Create New Category
           </Button>
         )}
-      </div>
+      </div>}
 
       {/* Overflow Dialog */}
       <OverflowDialog

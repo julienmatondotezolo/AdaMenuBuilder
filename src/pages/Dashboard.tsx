@@ -36,6 +36,7 @@ import { useAuth } from "../context/AuthContext";
 import { fetchRestaurants, type Restaurant } from "../services/templateApi";
 import { fetchMenus, createBackendMenu, deleteBackendMenu, disableBackendMenu, enableBackendMenu, type BackendMenu } from "../services/menuApi";
 import { useTranslation } from "../i18n";
+import { canEditMenu } from "../utils/permissions";
 
 export default function Dashboard() {
   const templates = useTemplates();
@@ -44,6 +45,7 @@ export default function Dashboard() {
 
   const { t } = useTranslation();
   const isAdmin = user?.role === "admin";
+  const canEdit = canEditMenu(user?.role);
 
   // Restaurant state
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -219,14 +221,16 @@ export default function Dashboard() {
               {t("dashboard.templates")}
             </Button>
           )}
-          <Button size="sm" onClick={() => {
-            setSelectedTemplateId(templates?.[0]?.id || "");
-            setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
-            setShowNewMenu(true);
-          }}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t("dashboard.newMenu")}
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => {
+              setSelectedTemplateId(templates?.[0]?.id || "");
+              setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
+              setShowNewMenu(true);
+            }}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t("dashboard.newMenu")}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -323,6 +327,7 @@ export default function Dashboard() {
                 key={menu.id}
                 menu={menu}
                 isAdmin={isAdmin}
+                canEdit={canEdit}
                 restaurantName={isAdmin ? getRestaurantName(menu.restaurant_id) : undefined}
                 isDropdownOpen={openDropdown === menu.id}
                 onToggleDropdown={() => setOpenDropdown(openDropdown === menu.id ? null : menu.id)}
@@ -334,19 +339,21 @@ export default function Dashboard() {
             ))}
 
             {/* New menu card */}
-            <Card
-              className="cursor-pointer border-2 border-dashed transition-colors hover:border-primary/40"
-              onClick={() => {
-                setSelectedTemplateId(templates?.[0]?.id || "");
-                setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
-                setShowNewMenu(true);
-              }}
-            >
-              <CardContent className="flex flex-col items-center justify-center gap-3 py-16">
-                <Plus className="w-8 h-8 text-muted-foreground/40" />
-                <span className="text-sm font-medium text-muted-foreground">{t("dashboard.newMenu")}</span>
-              </CardContent>
-            </Card>
+            {canEdit && (
+              <Card
+                className="cursor-pointer border-2 border-dashed transition-colors hover:border-primary/40"
+                onClick={() => {
+                  setSelectedTemplateId(templates?.[0]?.id || "");
+                  setCreateRestaurantId(isAdmin ? restaurants[0]?.id || "" : selectedRestaurantId);
+                  setShowNewMenu(true);
+                }}
+              >
+                <CardContent className="flex flex-col items-center justify-center gap-3 py-16">
+                  <Plus className="w-8 h-8 text-muted-foreground/40" />
+                  <span className="text-sm font-medium text-muted-foreground">{t("dashboard.newMenu")}</span>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </main>
@@ -359,6 +366,7 @@ export default function Dashboard() {
 interface MenuCardProps {
   menu: BackendMenu;
   isAdmin: boolean;
+  canEdit: boolean;
   restaurantName?: string;
   isDropdownOpen: boolean;
   onToggleDropdown: () => void;
@@ -368,7 +376,7 @@ interface MenuCardProps {
   formatDate: (iso: string) => string;
 }
 
-function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, onEnable, formatDate }: MenuCardProps) {
+function MenuCard({ menu, isAdmin, canEdit, restaurantName, isDropdownOpen, onToggleDropdown, onEdit, onDelete, onEnable, formatDate }: MenuCardProps) {
   const { t } = useTranslation();
   const isDisabled = menu.disabled;
 
@@ -430,30 +438,32 @@ function MenuCard({ menu, isAdmin, restaurantName, isDropdownOpen, onToggleDropd
             <Badge variant={menu.status === "published" ? "default" : "secondary"}>
               {menu.status === "published" ? t("dashboard.published") : t("dashboard.draft")}
             </Badge>
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleDropdown(); }}
-              >
-                <MoreVertical className="w-4 h-4" />
-              </Button>
-              {isDropdownOpen && (
-                <Card className="absolute right-0 top-8 z-50 w-36 py-1 shadow-lg" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                  <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
-                    <Pencil className="w-3 h-3" /> {t("dashboard.edit")}
-                  </button>
-                  {isAdmin && isDisabled && onEnable && (
-                    <button onClick={onEnable} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
-                      <RotateCcw className="w-3 h-3" /> {t("dashboard.reEnable")}
+            {canEdit && (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleDropdown(); }}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+                {isDropdownOpen && (
+                  <Card className="absolute right-0 top-8 z-50 w-36 py-1 shadow-lg" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                    <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
+                      <Pencil className="w-3 h-3" /> {t("dashboard.edit")}
                     </button>
-                  )}
-                  <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
-                    <Trash2 className="w-3 h-3" /> {isAdmin ? t("dashboard.delete") : t("dashboard.remove")}
-                  </button>
-                </Card>
-              )}
-            </div>
+                    {isAdmin && isDisabled && onEnable && (
+                      <button onClick={onEnable} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-muted transition-colors">
+                        <RotateCcw className="w-3 h-3" /> {t("dashboard.reEnable")}
+                      </button>
+                    )}
+                    <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
+                      <Trash2 className="w-3 h-3" /> {isAdmin ? t("dashboard.delete") : t("dashboard.remove")}
+                    </button>
+                  </Card>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

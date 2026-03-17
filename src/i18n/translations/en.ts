@@ -242,6 +242,19 @@ export const en = {
     language: "Language",
     searchMenu: "Search menu...",
     noItemsFound: "No items found for \"{{query}}\"",
+    table: "Table",
+    customerName: "Your Name",
+    customerNamePlaceholder: "Enter your name...",
+    optional: "optional",
+    specialInstructions: "Special Instructions",
+    specialInstructionsPlaceholder: "Allergies, preferences...",
+    sendingOrder: "Sending Order...",
+    orderErrorNoRestaurant: "Restaurant not configured for ordering.",
+  },
+
+  permissions: {
+    viewOnly: "View Only",
+    viewOnlyDescription: "You have read-only access to this menu. Contact an admin or manager to make changes.",
   },
 
   common: {

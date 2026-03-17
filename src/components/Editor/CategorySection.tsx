@@ -30,6 +30,7 @@ interface CategorySectionProps {
   onDuplicate?: (categoryId: string) => void;
   onContentChanged?: (categoryId: string) => void;
   aiNewIds?: Set<string>;
+  canEdit?: boolean;
 }
 
 export default function CategorySection({
@@ -45,6 +46,7 @@ export default function CategorySection({
   onDuplicate,
   onContentChanged,
   aiNewIds,
+  canEdit = true,
 }: CategorySectionProps) {
   const {
     addItem,
@@ -93,7 +95,7 @@ export default function CategorySection({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: category.id, disabled: isOverlay });
+  } = useSortable({ id: category.id, disabled: isOverlay || !canEdit });
 
   const { setNodeRef: setDroppableRef, isOver: isItemsOver } = useDroppable({
     id: `${category.id}-items`,
@@ -220,11 +222,13 @@ export default function CategorySection({
         {...listeners}
       >
         {/* Drag handle icon */}
-        <span
-          className={cn("shrink-0", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
-        >
-          <GripVertical className="w-4 h-4" />
-        </span>
+        {canEdit && (
+          <span
+            className={cn("shrink-0", isExpanded ? "text-white/60" : "text-muted-foreground/50")}
+          >
+            <GripVertical className="w-4 h-4" />
+          </span>
+        )}
 
         {/* Name or Edit input */}
         {isEditingName ? (
@@ -303,7 +307,7 @@ export default function CategorySection({
         )}
 
         {/* Edit button (pencil) — always white when expanded */}
-        {!isEditingName && (
+        {!isEditingName && canEdit && (
           <button
             onClick={handleStartEdit}
             className={cn(
@@ -364,6 +368,7 @@ export default function CategorySection({
                 categoryId={category.id}
                 isDraggingActive={isDraggingActive}
                 isAiNew={aiNewIds?.has(item.id) ?? false}
+                canEdit={canEdit}
               />
             ))}
 
@@ -380,16 +385,18 @@ export default function CategorySection({
             )}
 
             {/* + Add Item */}
-            <button
-              onClick={handleAddItem}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-sm font-semibold text-muted-foreground border border-dashed border-border bg-muted/30 transition-colors"
-              style={{ borderColor: 'hsl(220 13% 91%)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.4)'; e.currentTarget.style.color = 'hsl(232 100% 66%)'; e.currentTarget.style.backgroundColor = 'hsl(232 100% 66% / 0.04)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; e.currentTarget.style.color = ''; e.currentTarget.style.backgroundColor = ''; }}
-            >
-              <Plus className="w-4 h-4" />
-              Add Item
-            </button>
+            {canEdit && (
+              <button
+                onClick={handleAddItem}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-sm font-semibold text-muted-foreground border border-dashed border-border bg-muted/30 transition-colors"
+                style={{ borderColor: 'hsl(220 13% 91%)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'hsl(232 100% 66% / 0.4)'; e.currentTarget.style.color = 'hsl(232 100% 66%)'; e.currentTarget.style.backgroundColor = 'hsl(232 100% 66% / 0.04)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'hsl(220 13% 91%)'; e.currentTarget.style.color = ''; e.currentTarget.style.backgroundColor = ''; }}
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </button>
+            )}
           </div>
         </SortableContext>
       )}

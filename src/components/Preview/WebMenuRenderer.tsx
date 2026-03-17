@@ -22,6 +22,9 @@ interface Props {
   templateName?: string;
   mode?: "mobile" | "desktop";
   qrOrderConfig?: QrOrderConfig;
+  menuId?: string;
+  restaurantId?: string;
+  tableNumber?: string;
   selectedBlockId?: string | null;
   onSelectBlock?: (id: string | null) => void;
   fullscreen?: boolean;
@@ -83,7 +86,7 @@ function RenderBlock({
   }
 }
 
-export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, selectedBlockId, onSelectBlock, fullscreen, t }: Props) {
+export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, templateName, mode, qrOrderConfig, menuId, restaurantId, tableNumber, selectedBlockId, onSelectBlock, fullscreen, t }: Props) {
   const { blocks, spacing, borderRadius } = webLayout;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
@@ -140,6 +143,10 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
     setShowCart(true);
   }, []);
 
+  const handleClearCart = useCallback(() => {
+    setCart([]);
+  }, []);
+
   const hasStickyNav = blocks.some((b) => b.type === "category-nav" && b.sticky);
 
   return (
@@ -170,6 +177,10 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
           contentPaddingX={spacing.contentPaddingX}
           onUpdateQuantity={handleUpdateQuantity}
           onClose={() => setShowCart(false)}
+          onClearCart={handleClearCart}
+          menuId={menuId}
+          restaurantId={restaurantId}
+          tableNumber={tableNumber}
           fullscreen={fullscreen}
           t={t}
         />

@@ -21,9 +21,10 @@ interface HeaderProps {
   onPreview?: () => void;
   onPublish?: () => void;
   publishing?: boolean;
+  canEdit?: boolean;
 }
 
-export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing }: HeaderProps) {
+export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing, canEdit = true }: HeaderProps) {
   const { menuData, setMenuData, clearSelection } = useMenu();
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
@@ -140,20 +141,22 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
               <span className="font-semibold text-foreground text-sm">
                 {menuData.title || t("menuEditor.untitledMenu")}
               </span>
-              <button
-                onClick={handleStartEdit}
-                className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground transition-colors"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)";
-                  e.currentTarget.style.color = "hsl(224 71% 4%)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "";
-                  e.currentTarget.style.color = "";
-                }}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
+              {canEdit && (
+                <button
+                  onClick={handleStartEdit}
+                  className="w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground transition-colors"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "hsl(220 14% 93%)";
+                    e.currentTarget.style.color = "hsl(224 71% 4%)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "";
+                    e.currentTarget.style.color = "";
+                  }}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -189,14 +192,16 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
           {downloading ? t("menuEditor.generating") : t("menuEditor.download")}
         </Button>
 
-        <Button size="sm" className="flex items-center gap-2" onClick={onPublish} disabled={publishing}>
-          {publishing ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Rocket className="w-4 h-4" />
-          )}
-          {publishing ? t("menuEditor.publishing") : t("menuEditor.publish")}
-        </Button>
+        {canEdit && (
+          <Button size="sm" className="flex items-center gap-2" onClick={onPublish} disabled={publishing}>
+            {publishing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Rocket className="w-4 h-4" />
+            )}
+            {publishing ? t("menuEditor.publishing") : t("menuEditor.publish")}
+          </Button>
+        )}
       </div>
     </header>
   );

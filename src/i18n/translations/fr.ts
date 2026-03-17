@@ -244,6 +244,19 @@ export const fr: TranslationKeys = {
     language: "Langue",
     searchMenu: "Rechercher dans le menu...",
     noItemsFound: "Aucun article trouvé pour \"{{query}}\"",
+    table: "Table",
+    customerName: "Votre Nom",
+    customerNamePlaceholder: "Entrez votre nom...",
+    optional: "optionnel",
+    specialInstructions: "Instructions Spéciales",
+    specialInstructionsPlaceholder: "Allergies, préférences...",
+    sendingOrder: "Envoi de la commande...",
+    orderErrorNoRestaurant: "Restaurant non configuré pour les commandes.",
+  },
+
+  permissions: {
+    viewOnly: "Lecture seule",
+    viewOnlyDescription: "Vous avez un accès en lecture seule à ce menu. Contactez un administrateur ou un gérant pour apporter des modifications.",
   },
 
   common: {
