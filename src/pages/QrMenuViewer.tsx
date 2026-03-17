@@ -55,7 +55,7 @@ export default function QrMenuViewer() {
                 fonts: localTemplate.fonts,
                 templateName: localTemplate.name,
                 qrOrderConfig: localTemplate.qrOrderConfig,
-                restaurantId: localMenu.restaurantId,
+                restaurantId: (localMenu as any).restaurantId,
               });
               setLoading(false);
               return;
