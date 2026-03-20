@@ -46,6 +46,25 @@ export default function QrMenuViewer() {
       return;
     }
 
+    // Fetch restaurantId from API and backfill local menu if missing
+    async function resolveRestaurantId(localMenu?: { id: string; restaurantId?: string }): Promise<string | undefined> {
+      if (localMenu?.restaurantId) return localMenu.restaurantId;
+
+      try {
+        const res = await fetch(`${API_URL}/api/v1/public/menus/${menuId}`);
+        if (!res.ok) return undefined;
+        const json = await res.json();
+        const rid = json.data?.menu?.restaurantId;
+        // Backfill local menu so future loads are instant
+        if (rid && localMenu) {
+          await db.menus.update(localMenu.id, { restaurantId: rid });
+        }
+        return rid;
+      } catch {
+        return undefined;
+      }
+    }
+
     async function loadMenu() {
       try {
         // Try local IndexedDB first
@@ -55,6 +74,7 @@ export default function QrMenuViewer() {
           if (localTemplate) {
             const webLayout = localTemplate.webLayoutQr || localTemplate.webLayoutMobile;
             if (webLayout) {
+              const restaurantId = await resolveRestaurantId(localMenu);
               setData({
                 menuData: localMenu.data,
                 webLayout,
@@ -62,7 +82,7 @@ export default function QrMenuViewer() {
                 fonts: localTemplate.fonts,
                 templateName: localTemplate.name,
                 qrOrderConfig: localTemplate.qrOrderConfig,
-                restaurantId: localMenu.restaurantId,
+                restaurantId,
               });
               setLoading(false);
               return;
