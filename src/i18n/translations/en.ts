@@ -252,6 +252,12 @@ export const en = {
     orderErrorNoRestaurant: "Restaurant not configured for ordering.",
     noTableSelected: "No table selected",
     scanTableQr: "Please scan the QR code at your table to place an order.",
+    orderTracking: "Order Tracking",
+    statusCurrent: "Current status",
+    status_new: "Order Received",
+    status_preparing: "Preparing",
+    status_ready: "Ready",
+    status_completed: "Completed",
   },
 
   permissions: {

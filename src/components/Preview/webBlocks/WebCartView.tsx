@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ColorScheme, FontScheme, QrOrderConfig, OrderMode } from "../../../types/template";
 import type { CartItem } from "./WebCartBar";
 
@@ -23,20 +23,33 @@ interface Props {
 
 type OrderStatus = "idle" | "sending" | "success" | "error";
 
+// KDS status steps in order
+const STATUS_STEPS = ["new", "preparing", "ready", "completed"] as const;
+type KdsStatus = typeof STATUS_STEPS[number];
+
+const STATUS_LABELS: Record<KdsStatus, { en: string; fr: string; nl: string }> = {
+  new:       { en: "Order Received",  fr: "Commande reçue",     nl: "Bestelling ontvangen" },
+  preparing: { en: "Preparing",       fr: "En préparation",     nl: "In bereiding" },
+  ready:     { en: "Ready",           fr: "Prêt",               nl: "Klaar" },
+  completed: { en: "Completed",       fr: "Terminé",            nl: "Afgerond" },
+};
+
 export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, onClearCart, menuId, restaurantId, tableNumber, fullscreen, t }: Props) {
   const currency = qrOrderConfig.currency || "\u20AC";
   const enabledModes = (Object.keys(qrOrderConfig.modes) as OrderMode[]).filter((m) => qrOrderConfig.modes[m]);
   const [selectedMode, setSelectedMode] = useState<OrderMode | null>(enabledModes[0] ?? null);
   const [orderStatus, setOrderStatus] = useState<OrderStatus>("idle");
   const [orderNumber, setOrderNumber] = useState<string>("");
+  const [orderId, setOrderId] = useState<string>("");
   const [orderError, setOrderError] = useState<string>("");
   const [customerName, setCustomerName] = useState("");
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [kdsStatus, setKdsStatus] = useState<KdsStatus>("new");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Translation helpers with fallbacks
   const tr = (key: string, fallback: string) => t ? t(key) : fallback;
 
   const ORDER_MODE_LABELS: Record<OrderMode, { label: string; icon: string }> = {
@@ -45,12 +58,38 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
     "delivery":    { label: tr("qrMenu.delivery", "Delivery"),   icon: "M14 18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2M15 18h6a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14M17 18a2 2 0 1 1-4 0M7 18a2 2 0 1 1-4 0" },
   };
 
-  // Map frontend order modes to KDS customer_type
   const modeToCustomerType: Record<OrderMode, string> = {
     "send-to-kds": "dine_in",
     "takeaway": "takeaway",
     "delivery": "delivery",
   };
+
+  // Poll for order status updates
+  useEffect(() => {
+    if (orderStatus !== "success" || !orderId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`${KDS_API_URL}/api/v1/orders/${orderId}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status && STATUS_STEPS.includes(data.status)) {
+          setKdsStatus(data.status);
+        }
+        // Stop polling when completed
+        if (data.status === "completed" || data.status === "cancelled") {
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch { /* ignore polling errors */ }
+    };
+
+    poll(); // immediate first check
+    pollRef.current = setInterval(poll, 5000); // every 5s
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [orderStatus, orderId]);
 
   const handlePlaceOrder = async () => {
     if (!restaurantId) {
@@ -65,11 +104,11 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
     try {
       const customerType = selectedMode ? modeToCustomerType[selectedMode] : "dine_in";
       const displayName = customerName.trim() || (tableNumber ? `Table ${tableNumber}` : "Guest");
-      const orderNumber = `QR-${Date.now().toString().slice(-6)}`;
+      const genOrderNumber = `QR-${Date.now().toString().slice(-6)}`;
 
       const body = {
         source: "qr_code",
-        order_number: orderNumber,
+        order_number: genOrderNumber,
         customer_name: displayName,
         customer_type: customerType,
         special_instructions: specialInstructions.trim() || undefined,
@@ -93,6 +132,8 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
 
       const data = await res.json();
       setOrderNumber(data.order?.order_number || "");
+      setOrderId(data.order?.id || "");
+      setKdsStatus("new");
       setOrderStatus("success");
       onClearCart?.();
     } catch (err) {
@@ -101,12 +142,9 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
     }
   };
 
+  // ─── Order Tracking Screen ─────────────────────────────────────────────
   if (orderStatus === "success") {
-    const confirmationMessage = selectedMode === "delivery"
-      ? tr("qrMenu.deliveryMessage", "We'll deliver it to you.")
-      : selectedMode === "takeaway"
-        ? tr("qrMenu.takeawayMessage", "You can pick it up shortly.")
-        : tr("qrMenu.dineInMessage", "Preparing your order now.");
+    const currentStepIndex = STATUS_STEPS.indexOf(kdsStatus);
 
     return (
       <div style={{
@@ -116,61 +154,149 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         zIndex: 50,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: contentPaddingX,
-        gap: 20,
+        overflow: "hidden",
       }}>
-        {/* Checkmark circle */}
+        {/* Header */}
         <div style={{
-          width: 80,
-          height: 80,
-          borderRadius: "50%",
-          backgroundColor: colors.primary + "15",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          padding: `20px ${contentPaddingX}px 16px`,
+          borderBottom: `1px solid ${colors.muted}20`,
+          flexShrink: 0,
+          textAlign: "center",
         }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: fonts.heading, fontSize: 22, fontWeight: 700, color: colors.text, marginBottom: 8 }}>
-            {tr("qrMenu.orderConfirmed", "Order Confirmed!")}
+          <div style={{ fontFamily: fonts.heading, fontSize: 20, fontWeight: 700, color: colors.text }}>
+            {tr("qrMenu.orderTracking", "Order Tracking")}
           </div>
           {orderNumber && (
-            <div style={{ fontFamily: fonts.body, fontSize: 16, fontWeight: 600, color: colors.primary, marginBottom: 8 }}>
+            <div style={{ fontFamily: fonts.body, fontSize: 14, fontWeight: 600, color: colors.primary, marginTop: 4 }}>
               #{orderNumber}
             </div>
           )}
-          <div style={{ fontFamily: fonts.body, fontSize: 14, color: colors.muted, lineHeight: 1.5 }}>
-            {tr("qrMenu.orderReadySoon", "Your order will be ready soon.")}
-            <br />{confirmationMessage}
-          </div>
+          {tableNumber && (
+            <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 2 }}>
+              {tr("qrMenu.table", "Table")} {tableNumber}
+            </div>
+          )}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); setOrderStatus("idle"); onClose(); }}
-          style={{
-            width: "100%",
-            maxWidth: 280,
-            padding: "14px 24px",
-            backgroundColor: colors.primary,
-            color: "#fff",
-            border: "none",
-            borderRadius: borderRadius || 12,
-            cursor: "pointer",
-            fontFamily: fonts.body,
-            fontSize: 15,
-            fontWeight: 600,
-          }}
-        >
-          {tr("qrMenu.backToMenu", "Back to Menu")}
-        </button>
+
+        {/* Status tracker */}
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: `32px ${contentPaddingX}px`,
+          gap: 0,
+        }}>
+          {STATUS_STEPS.map((step, i) => {
+            const isActive = i <= currentStepIndex;
+            const isCurrent = i === currentStepIndex;
+            const isLast = i === STATUS_STEPS.length - 1;
+            const label = STATUS_LABELS[step];
+            const displayLabel = tr(`qrMenu.status_${step}`, label.en);
+
+            return (
+              <div key={step} style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+                {/* Step indicator + connector line */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 32 }}>
+                  <div style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    backgroundColor: isActive ? colors.primary : colors.muted + "20",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.3s",
+                    boxShadow: isCurrent ? `0 0 0 4px ${colors.primary}25` : "none",
+                  }}>
+                    {isActive ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: colors.muted + "40" }} />
+                    )}
+                  </div>
+                  {!isLast && (
+                    <div style={{
+                      width: 2,
+                      height: 40,
+                      backgroundColor: i < currentStepIndex ? colors.primary : colors.muted + "20",
+                      transition: "all 0.3s",
+                    }} />
+                  )}
+                </div>
+
+                {/* Label */}
+                <div style={{ paddingTop: 5 }}>
+                  <div style={{
+                    fontFamily: fonts.body,
+                    fontSize: 15,
+                    fontWeight: isCurrent ? 700 : 500,
+                    color: isActive ? colors.text : colors.muted,
+                    transition: "all 0.3s",
+                  }}>
+                    {displayLabel}
+                  </div>
+                  {isCurrent && step !== "completed" && (
+                    <div style={{
+                      fontFamily: fonts.body,
+                      fontSize: 12,
+                      color: colors.primary,
+                      marginTop: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}>
+                      <span style={{
+                        display: "inline-block",
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        backgroundColor: colors.primary,
+                        animation: "pulse 1.5s ease-in-out infinite",
+                      }} />
+                      {tr("qrMenu.statusCurrent", "Current status")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pulse animation */}
+        <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }`}</style>
+
+        {/* Bottom button */}
+        <div style={{
+          padding: `12px ${contentPaddingX}px 24px`,
+          borderTop: `1px solid ${colors.muted}20`,
+          flexShrink: 0,
+        }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setOrderStatus("idle"); onClose(); }}
+            style={{
+              width: "100%",
+              padding: "15px 24px",
+              backgroundColor: colors.primary,
+              color: "#fff",
+              border: "none",
+              borderRadius: borderRadius || 12,
+              cursor: "pointer",
+              fontFamily: fonts.body,
+              fontSize: 16,
+              fontWeight: 700,
+            }}
+          >
+            {tr("qrMenu.backToMenu", "Back to Menu")}
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ─── Cart View ─────────────────────────────────────────────────────────
   const inputStyle = {
     width: "100%",
     padding: "12px 14px",

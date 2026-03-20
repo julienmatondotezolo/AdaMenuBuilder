@@ -254,6 +254,12 @@ export const fr: TranslationKeys = {
     orderErrorNoRestaurant: "Restaurant non configuré pour les commandes.",
     noTableSelected: "Aucune table sélectionnée",
     scanTableQr: "Veuillez scanner le QR code à votre table pour passer une commande.",
+    orderTracking: "Suivi de Commande",
+    statusCurrent: "Statut actuel",
+    status_new: "Commande reçue",
+    status_preparing: "En préparation",
+    status_ready: "Prêt",
+    status_completed: "Terminé",
   },
 
   permissions: {

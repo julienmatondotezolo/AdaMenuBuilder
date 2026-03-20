@@ -254,6 +254,12 @@ export const nl: TranslationKeys = {
     orderErrorNoRestaurant: "Restaurant niet geconfigureerd voor bestellingen.",
     noTableSelected: "Geen tafel geselecteerd",
     scanTableQr: "Scan de QR-code aan uw tafel om een bestelling te plaatsen.",
+    orderTracking: "Bestelling Volgen",
+    statusCurrent: "Huidige status",
+    status_new: "Bestelling ontvangen",
+    status_preparing: "In bereiding",
+    status_ready: "Klaar",
+    status_completed: "Afgerond",
   },
 
   permissions: {
