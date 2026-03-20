@@ -252,6 +252,8 @@ export const nl: TranslationKeys = {
     specialInstructionsPlaceholder: "Allergieën, voorkeuren...",
     sendingOrder: "Bestelling verzenden...",
     orderErrorNoRestaurant: "Restaurant niet geconfigureerd voor bestellingen.",
+    noTableSelected: "Geen tafel geselecteerd",
+    scanTableQr: "Scan de QR-code aan uw tafel om een bestelling te plaatsen.",
   },
 
   permissions: {

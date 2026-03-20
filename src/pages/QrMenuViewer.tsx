@@ -26,7 +26,8 @@ interface QrMenuData {
 export default function QrMenuViewer() {
   const { menuId } = useParams<{ menuId: string }>();
   const [searchParams] = useSearchParams();
-  const tableNumber = searchParams.get("table") || undefined;
+  const rawTable = searchParams.get("table")?.trim();
+  const tableNumber = rawTable || undefined;
   const { t } = useTranslation();
   const [data, setData] = useState<QrMenuData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,12 @@ export default function QrMenuViewer() {
   useEffect(() => {
     if (!menuId) {
       setError("no_id");
+      setLoading(false);
+      return;
+    }
+
+    if (!tableNumber) {
+      setError("no_table");
       setLoading(false);
       return;
     }
@@ -115,20 +122,35 @@ export default function QrMenuViewer() {
   }
 
   if (error || !data) {
-    const errorMessage = error === "no_layout"
-      ? t("qrMenu.noWebLayout")
-      : error === "failed"
-        ? t("qrMenu.failedToLoad")
-        : t("qrMenu.menuNotFound");
+    const isNoTable = error === "no_table";
+    const errorMessage = isNoTable
+      ? t("qrMenu.noTableSelected")
+      : error === "no_layout"
+        ? t("qrMenu.noWebLayout")
+        : error === "failed"
+          ? t("qrMenu.failedToLoad")
+          : t("qrMenu.menuNotFound");
+
+    const subtitle = isNoTable
+      ? t("qrMenu.scanTableQr")
+      : t("qrMenu.menuUnavailable");
 
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", backgroundColor: "#fafafa", padding: 24 }}>
         <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+          {isNoTable && (
+            <div style={{ fontSize: 48, marginBottom: 16 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M7 7h.01M7 12h.01M12 7h.01M12 12h.01M17 7h.01M17 12h.01M7 17h.01M12 17h.01M17 17h.01" />
+              </svg>
+            </div>
+          )}
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: "#333" }}>
             {errorMessage}
           </h2>
-          <p style={{ fontSize: 14, color: "#888" }}>
-            {t("qrMenu.menuUnavailable")}
+          <p style={{ fontSize: 14, color: "#888", lineHeight: 1.5 }}>
+            {subtitle}
           </p>
         </div>
       </div>

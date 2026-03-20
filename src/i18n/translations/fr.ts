@@ -252,6 +252,8 @@ export const fr: TranslationKeys = {
     specialInstructionsPlaceholder: "Allergies, préférences...",
     sendingOrder: "Envoi de la commande...",
     orderErrorNoRestaurant: "Restaurant non configuré pour les commandes.",
+    noTableSelected: "Aucune table sélectionnée",
+    scanTableQr: "Veuillez scanner le QR code à votre table pour passer une commande.",
   },
 
   permissions: {

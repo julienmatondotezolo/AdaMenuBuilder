@@ -250,6 +250,8 @@ export const en = {
     specialInstructionsPlaceholder: "Allergies, preferences...",
     sendingOrder: "Sending Order...",
     orderErrorNoRestaurant: "Restaurant not configured for ordering.",
+    noTableSelected: "No table selected",
+    scanTableQr: "Please scan the QR code at your table to place an order.",
   },
 
   permissions: {
