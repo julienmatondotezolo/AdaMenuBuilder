@@ -67,7 +67,35 @@ export default function QrMenuViewer() {
 
     async function loadMenu() {
       try {
-        // Try local IndexedDB first
+        // Always fetch from API first (ensures fresh data after menu edits)
+        try {
+          const res = await fetch(`${API_URL}/api/v1/public/menus/${menuId}`);
+          if (res.ok) {
+            const json = await res.json();
+            const menu = json.data?.menu;
+            const tpl = json.data?.template;
+
+            if (menu && tpl) {
+              const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile;
+              if (webLayout) {
+                setData({
+                  menuData: menu.data,
+                  webLayout,
+                  colors: tpl.colors,
+                  fonts: tpl.fonts,
+                  templateName: tpl.name || menu.title || "Menu",
+                  qrOrderConfig: tpl.qrOrderConfig,
+                  restaurantId: menu.restaurantId,
+                });
+                return;
+              }
+            }
+          }
+        } catch {
+          // API unreachable — fall through to local IndexedDB
+        }
+
+        // Fall back to local IndexedDB (offline / API down)
         const localMenu = await db.menus.get(menuId!);
         if (localMenu) {
           const localTemplate = await db.templates.get(localMenu.templateId);
@@ -84,45 +112,12 @@ export default function QrMenuViewer() {
                 qrOrderConfig: localTemplate.qrOrderConfig,
                 restaurantId,
               });
-              setLoading(false);
               return;
             }
           }
         }
 
-        // Fall back to backend API (for public access)
-        const res = await fetch(`${API_URL}/api/v1/public/menus/${menuId}`);
-        if (!res.ok) {
-          setError("not_found");
-          setLoading(false);
-          return;
-        }
-        const json = await res.json();
-        const menu = json.data?.menu;
-        const tpl = json.data?.template;
-
-        if (!menu || !tpl) {
-          setError("not_found");
-          setLoading(false);
-          return;
-        }
-
-        const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile;
-        if (!webLayout) {
-          setError("no_layout");
-          setLoading(false);
-          return;
-        }
-
-        setData({
-          menuData: menu.data,
-          webLayout,
-          colors: tpl.colors,
-          fonts: tpl.fonts,
-          templateName: tpl.name || menu.title || "Menu",
-          qrOrderConfig: tpl.qrOrderConfig,
-          restaurantId: menu.restaurantId,
-        });
+        setError("not_found");
       } catch {
         setError("failed");
       } finally {
