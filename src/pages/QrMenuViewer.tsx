@@ -62,7 +62,7 @@ export default function QrMenuViewer() {
                 fonts: localTemplate.fonts,
                 templateName: localTemplate.name,
                 qrOrderConfig: localTemplate.qrOrderConfig,
-                restaurantId: (localMenu as any).restaurantId,
+                restaurantId: localMenu.restaurantId,
               });
               setLoading(false);
               return;

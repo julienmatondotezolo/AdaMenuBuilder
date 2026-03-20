@@ -32,6 +32,12 @@ class AdaMenuDB extends Dexie {
       templates: "id, isBuiltIn, updatedAt",
       drafts: "id, restaurantId, updatedAt",
     });
+
+    this.version(3).stores({
+      menus: "id, restaurantId, templateId, status, updatedAt",
+      templates: "id, isBuiltIn, updatedAt",
+      drafts: "id, restaurantId, updatedAt",
+    });
   }
 }
 

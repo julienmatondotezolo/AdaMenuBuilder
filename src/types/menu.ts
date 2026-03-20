@@ -42,6 +42,7 @@ export type MenuStatus = "draft" | "published";
 export interface Menu {
   id: string;
   title: string;
+  restaurantId?: string;
   templateId: string;
   status: MenuStatus;
   data: MenuData;
