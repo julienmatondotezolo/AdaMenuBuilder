@@ -345,7 +345,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           borderTop: `1px solid ${colors.muted}20`,
           flexShrink: 0,
         }}>
-          {kdsStatus === "completed" ? (
+          {kdsStatus === "completed" && (
             <button
               onClick={(e) => { e.stopPropagation(); clearActiveOrder(); setOrderStatus("idle"); onClose(); }}
               style={{
@@ -362,24 +362,6 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
               }}
             >
               {tr("qrMenu.newOrder", "Place New Order")}
-            </button>
-          ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
-              style={{
-                width: "100%",
-                padding: "15px 24px",
-                backgroundColor: colors.muted + "20",
-                color: colors.text,
-                border: "none",
-                borderRadius: borderRadius || 12,
-                cursor: "pointer",
-                fontFamily: fonts.body,
-                fontSize: 16,
-                fontWeight: 700,
-              }}
-            >
-              {tr("qrMenu.backToMenu", "Back to Menu")}
             </button>
           )}
         </div>
