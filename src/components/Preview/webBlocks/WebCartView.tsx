@@ -34,6 +34,44 @@ const STATUS_LABELS: Record<KdsStatus, { en: string; fr: string; nl: string }> =
   completed: { en: "Completed",       fr: "Terminé",            nl: "Afgerond" },
 };
 
+// localStorage key for persisting active order
+const ACTIVE_ORDER_KEY = "adakds_active_order";
+
+interface ActiveOrder {
+  orderId: string;
+  orderNumber: string;
+  kdsStatus: KdsStatus;
+  menuId?: string;
+  tableNumber?: string;
+  placedAt: number;
+}
+
+function getActiveOrder(menuId?: string, tableNumber?: string): ActiveOrder | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_ORDER_KEY);
+    if (!raw) return null;
+    const order: ActiveOrder = JSON.parse(raw);
+    // Only restore if same menu + table context
+    if (order.menuId !== menuId || order.tableNumber !== tableNumber) return null;
+    // Expire after 4 hours
+    if (Date.now() - order.placedAt > 4 * 60 * 60 * 1000) {
+      localStorage.removeItem(ACTIVE_ORDER_KEY);
+      return null;
+    }
+    return order;
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveOrder(order: ActiveOrder) {
+  try { localStorage.setItem(ACTIVE_ORDER_KEY, JSON.stringify(order)); } catch {}
+}
+
+function clearActiveOrder() {
+  try { localStorage.removeItem(ACTIVE_ORDER_KEY); } catch {}
+}
+
 export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, onClearCart, menuId, restaurantId, tableNumber, fullscreen, t }: Props) {
   const currency = qrOrderConfig.currency || "\u20AC";
   const enabledModes = (Object.keys(qrOrderConfig.modes) as OrderMode[]).filter((m) => qrOrderConfig.modes[m]);
@@ -46,6 +84,17 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [kdsStatus, setKdsStatus] = useState<KdsStatus>("new");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Restore active order from localStorage on mount
+  useEffect(() => {
+    const active = getActiveOrder(menuId, tableNumber);
+    if (active && active.kdsStatus !== "completed") {
+      setOrderId(active.orderId);
+      setOrderNumber(active.orderNumber);
+      setKdsStatus(active.kdsStatus);
+      setOrderStatus("success");
+    }
+  }, [menuId, tableNumber]);
 
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -75,9 +124,19 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         const data = await res.json();
         if (data.status && STATUS_STEPS.includes(data.status)) {
           setKdsStatus(data.status);
+          // Update persisted status
+          if (data.status === "completed") {
+            clearActiveOrder();
+          } else {
+            const active = getActiveOrder(menuId, tableNumber);
+            if (active) {
+              saveActiveOrder({ ...active, kdsStatus: data.status });
+            }
+          }
         }
         // Stop polling when completed
         if (data.status === "completed" || data.status === "cancelled") {
+          if (data.status === "cancelled") clearActiveOrder();
           if (pollRef.current) clearInterval(pollRef.current);
         }
       } catch { /* ignore polling errors */ }
@@ -131,11 +190,23 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
       }
 
       const data = await res.json();
-      setOrderNumber(data.order?.order_number || "");
-      setOrderId(data.order?.id || "");
+      const newOrderNumber = data.order?.order_number || "";
+      const newOrderId = data.order?.id || "";
+      setOrderNumber(newOrderNumber);
+      setOrderId(newOrderId);
       setKdsStatus("new");
       setOrderStatus("success");
       onClearCart?.();
+
+      // Persist active order to localStorage
+      saveActiveOrder({
+        orderId: newOrderId,
+        orderNumber: newOrderNumber,
+        kdsStatus: "new",
+        menuId,
+        tableNumber,
+        placedAt: Date.now(),
+      });
     } catch (err) {
       setOrderError(err instanceof Error ? err.message : "Failed to place order");
       setOrderStatus("error");
@@ -274,23 +345,43 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           borderTop: `1px solid ${colors.muted}20`,
           flexShrink: 0,
         }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); setOrderStatus("idle"); onClose(); }}
-            style={{
-              width: "100%",
-              padding: "15px 24px",
-              backgroundColor: colors.primary,
-              color: "#fff",
-              border: "none",
-              borderRadius: borderRadius || 12,
-              cursor: "pointer",
-              fontFamily: fonts.body,
-              fontSize: 16,
-              fontWeight: 700,
-            }}
-          >
-            {tr("qrMenu.backToMenu", "Back to Menu")}
-          </button>
+          {kdsStatus === "completed" ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); clearActiveOrder(); setOrderStatus("idle"); onClose(); }}
+              style={{
+                width: "100%",
+                padding: "15px 24px",
+                backgroundColor: colors.primary,
+                color: "#fff",
+                border: "none",
+                borderRadius: borderRadius || 12,
+                cursor: "pointer",
+                fontFamily: fonts.body,
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            >
+              {tr("qrMenu.newOrder", "Place New Order")}
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              style={{
+                width: "100%",
+                padding: "15px 24px",
+                backgroundColor: colors.muted + "20",
+                color: colors.text,
+                border: "none",
+                borderRadius: borderRadius || 12,
+                cursor: "pointer",
+                fontFamily: fonts.body,
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            >
+              {tr("qrMenu.backToMenu", "Back to Menu")}
+            </button>
+          )}
         </div>
       </div>
     );

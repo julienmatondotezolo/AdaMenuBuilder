@@ -258,6 +258,7 @@ export const en = {
     status_preparing: "Preparing",
     status_ready: "Ready",
     status_completed: "Completed",
+    newOrder: "Place New Order",
   },
 
   permissions: {

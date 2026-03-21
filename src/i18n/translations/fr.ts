@@ -260,6 +260,7 @@ export const fr: TranslationKeys = {
     status_preparing: "En préparation",
     status_ready: "Prêt",
     status_completed: "Terminé",
+    newOrder: "Nouvelle Commande",
   },
 
   permissions: {

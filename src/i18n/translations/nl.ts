@@ -260,6 +260,7 @@ export const nl: TranslationKeys = {
     status_preparing: "In bereiding",
     status_ready: "Klaar",
     status_completed: "Afgerond",
+    newOrder: "Nieuwe Bestelling",
   },
 
   permissions: {
