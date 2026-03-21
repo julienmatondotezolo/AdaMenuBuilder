@@ -93,7 +93,21 @@ export default function WebMenuRenderer({ webLayout, menuData, colors, fonts, te
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [showCart, setShowCart] = useState(false);
+  const [showCart, setShowCart] = useState(() => {
+    // Auto-open cart if there's an active (non-completed) order in localStorage
+    try {
+      const raw = localStorage.getItem("adakds_active_order");
+      if (raw) {
+        const order = JSON.parse(raw);
+        if (order.menuId === menuId && order.tableNumber === tableNumber
+            && order.kdsStatus !== "completed"
+            && Date.now() - order.placedAt < 4 * 60 * 60 * 1000) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  });
 
   const orderingEnabled = qrOrderConfig?.enabled ?? false;
   const currency = qrOrderConfig?.currency ?? "€";
