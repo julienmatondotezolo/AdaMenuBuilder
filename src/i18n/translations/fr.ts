@@ -91,6 +91,11 @@ export const fr: TranslationKeys = {
     getQrAndEmbed: "Obtenir le Code QR et le Code d'Intégration",
     qrCode: "Code QR",
     phone: "Téléphone",
+    numberOfTables: "Nombre de tables",
+    downloadQrSheet: "Télécharger la feuille QR (PDF)",
+    qrSheetHelp: "Imprime tous les QR des tables sur une seule page A4 pour le personnel.",
+    generatingQrSheet: "Génération...",
+    qrSheetTableLabel: "Table",
   },
 
   editorPanel: {
