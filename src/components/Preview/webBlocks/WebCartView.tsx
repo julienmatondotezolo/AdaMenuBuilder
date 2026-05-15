@@ -162,7 +162,8 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
 
     try {
       const customerType = selectedMode ? modeToCustomerType[selectedMode] : "dine_in";
-      const displayName = customerName.trim() || (tableNumber ? `Table ${tableNumber}` : "Guest");
+      const trimmedName = customerName.trim();
+      const displayName = trimmedName || (tableNumber ? `Table ${tableNumber}` : "Guest");
       const genOrderNumber = `QR-${Date.now().toString().slice(-6)}`;
 
       const body = {
@@ -170,6 +171,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         order_number: genOrderNumber,
         customer_name: displayName,
         customer_type: customerType,
+        table_number: tableNumber || undefined,
         special_instructions: specialInstructions.trim() || undefined,
         items: cart.map((item) => ({
           name: item.name,
