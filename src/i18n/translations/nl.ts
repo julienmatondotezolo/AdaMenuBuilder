@@ -91,6 +91,11 @@ export const nl: TranslationKeys = {
     getQrAndEmbed: "QR-code & Insluitcode Ophalen",
     qrCode: "QR-code",
     phone: "Telefoon",
+    numberOfTables: "Aantal tafels",
+    downloadQrSheet: "QR-blad downloaden (PDF)",
+    qrSheetHelp: "Drukt alle tafel-QR-codes af op één A4-pagina als referentie voor het personeel.",
+    generatingQrSheet: "Genereren...",
+    qrSheetTableLabel: "Tafel",
   },
 
   editorPanel: {

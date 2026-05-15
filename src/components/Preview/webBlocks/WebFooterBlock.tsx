@@ -22,16 +22,6 @@ export default function WebFooterBlock({ block, menuData, colors, fonts, content
       <div style={{ fontFamily: fonts.heading, fontSize: 16, fontWeight: 600, color: colors.text, marginBottom: 8 }}>
         {menuData.restaurantName}
       </div>
-      {block.showAddress && (
-        <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginBottom: 4 }}>
-          123 Example Street, City
-        </div>
-      )}
-      {block.showPhone && (
-        <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginBottom: 4 }}>
-          +1 (555) 123-4567
-        </div>
-      )}
       {block.customText && (
         <div style={{ fontFamily: fonts.body, fontSize: 12, color: colors.muted, marginTop: 8 }}>
           {block.customText}

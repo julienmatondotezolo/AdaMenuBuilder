@@ -7,6 +7,16 @@ import type { WebLayout, ColorScheme, FontScheme, QrOrderConfig } from "../types
 import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import { useTranslation } from "../i18n";
 import { API_URL } from "../config/api";
+import { createDefaultWebLayout } from "../data/defaultWebLayout";
+
+// Default ordering config used when a template (typically a built-in) doesn't
+// define one. Mirrors the default in TemplateEditor when adding a QR layout.
+const DEFAULT_QR_ORDER_CONFIG: QrOrderConfig = {
+  enabled: true,
+  modes: { takeaway: true, "send-to-kds": true, delivery: false },
+  currency: "€",
+  showItemImages: false,
+};
 
 interface QrMenuData {
   menuData: MenuData;
@@ -76,19 +86,19 @@ export default function QrMenuViewer() {
             const tpl = json.data?.template;
 
             if (menu && tpl) {
-              const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile;
-              if (webLayout) {
-                setData({
-                  menuData: menu.data,
-                  webLayout,
-                  colors: tpl.colors,
-                  fonts: tpl.fonts,
-                  templateName: tpl.name || menu.title || "Menu",
-                  qrOrderConfig: tpl.qrOrderConfig,
-                  restaurantId: menu.restaurantId,
-                });
-                return;
-              }
+              // Fall back to a default QR layout if the template doesn't define one
+              // (built-in templates don't currently include webLayoutQr).
+              const webLayout = tpl.webLayoutQr || tpl.webLayoutMobile || createDefaultWebLayout("qr");
+              setData({
+                menuData: menu.data,
+                webLayout,
+                colors: tpl.colors,
+                fonts: tpl.fonts,
+                templateName: tpl.name || menu.title || "Menu",
+                qrOrderConfig: tpl.qrOrderConfig ?? DEFAULT_QR_ORDER_CONFIG,
+                restaurantId: menu.restaurantId,
+              });
+              return;
             }
           }
         } catch {
@@ -100,20 +110,18 @@ export default function QrMenuViewer() {
         if (localMenu) {
           const localTemplate = await db.templates.get(localMenu.templateId);
           if (localTemplate) {
-            const webLayout = localTemplate.webLayoutQr || localTemplate.webLayoutMobile;
-            if (webLayout) {
-              const restaurantId = await resolveRestaurantId(localMenu);
-              setData({
-                menuData: localMenu.data,
-                webLayout,
-                colors: localTemplate.colors,
-                fonts: localTemplate.fonts,
-                templateName: localTemplate.name,
-                qrOrderConfig: localTemplate.qrOrderConfig,
-                restaurantId,
-              });
-              return;
-            }
+            const webLayout = localTemplate.webLayoutQr || localTemplate.webLayoutMobile || createDefaultWebLayout("qr");
+            const restaurantId = await resolveRestaurantId(localMenu);
+            setData({
+              menuData: localMenu.data,
+              webLayout,
+              colors: localTemplate.colors,
+              fonts: localTemplate.fonts,
+              templateName: localTemplate.name,
+              qrOrderConfig: localTemplate.qrOrderConfig ?? DEFAULT_QR_ORDER_CONFIG,
+              restaurantId,
+            });
+            return;
           }
         }
 

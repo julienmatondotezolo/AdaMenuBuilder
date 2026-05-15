@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toPng } from "html-to-image";
 import { ArrowLeft, Loader2, X, FileText, Smartphone, Monitor, Copy, Check, Code, Trash2 } from "lucide-react";
-import { Button, Card, CardContent, Label, cn } from "ada-design-system";
+import { Button, Card, CardContent, Input, Label, cn } from "ada-design-system";
 import { QRCodeSVG } from "qrcode.react";
 import { useTemplateById } from "../db/hooks";
 import { useMenu } from "../context/MenuContext";
@@ -21,6 +21,7 @@ import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../service
 import { canEditMenu } from "../utils/permissions";
 import { fetchPublishStatus } from "../services/templateApi";
 import { syncTemplatesFromBackend } from "../services/templateSync";
+import { generateQrSheetPdf } from "../utils/qrSheetPdf";
 import type { MenuData } from "../types/menu";
 import type { MenuTemplate } from "../types/template";
 import { mmToPx } from "../types/template";
@@ -178,7 +179,15 @@ export default function MenuEditor() {
 
   // Open diff popup before publishing
   const handlePublish = useCallback(() => {
-    if (!id || !token || !restaurantId) return;
+    const missing: string[] = [];
+    if (!id) missing.push("menu ID");
+    if (!token) missing.push("auth token");
+    if (!restaurantId) missing.push("restaurant access");
+    if (missing.length > 0) {
+      console.warn("[Publish blocked]", { id, hasToken: !!token, restaurantId });
+      alert(`Cannot publish — missing: ${missing.join(", ")}.\nMake sure you're logged in and have access to a restaurant.`);
+      return;
+    }
     setShowDiffPopup(true);
   }, [id, token, restaurantId]);
 
@@ -406,6 +415,7 @@ export default function MenuEditor() {
       {showPublishSuccess && id && (
         <PublishSuccessPopup
           menuId={id}
+          menuTitle={menuData.title || "Menu"}
           primaryColor={template?.colors?.primary || "#4d6aff"}
           onClose={() => setShowPublishSuccess(false)}
         />
@@ -435,16 +445,20 @@ export default function MenuEditor() {
 
 function PublishSuccessPopup({
   menuId,
+  menuTitle,
   primaryColor,
   onClose,
 }: {
   menuId: string;
+  menuTitle: string;
   primaryColor: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [tableCount, setTableCount] = useState(1);
+  const [generating, setGenerating] = useState(false);
 
   const qrUrl = `${window.location.origin}/qr/${menuId}`;
   const embedUrl = `${window.location.origin}/embed/${menuId}`;
@@ -455,6 +469,39 @@ function PublishSuccessPopup({
       setter(true);
       setTimeout(() => setter(false), 2000);
     });
+  };
+
+  const handleTableCountChange = (raw: string) => {
+    if (raw === "") {
+      setTableCount(1);
+      return;
+    }
+    const parsed = parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed < 1) {
+      setTableCount(1);
+      return;
+    }
+    setTableCount(Math.min(50, parsed));
+  };
+
+  const handleDownloadQrSheet = async () => {
+    if (generating) return;
+    const count = Math.min(50, Math.max(1, tableCount || 1));
+    setGenerating(true);
+    try {
+      await generateQrSheetPdf({
+        menuId,
+        menuTitle,
+        tableCount: count,
+        primaryColor,
+        baseUrl: window.location.origin,
+        tableLabel: t("menuEditor.qrSheetTableLabel"),
+      });
+    } catch (err) {
+      console.error("Failed to generate QR sheet PDF", err);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -541,6 +588,52 @@ function PublishSuccessPopup({
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               {t("menuEditor.embedHelp")}
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("menuEditor.qrCode")}</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Per-table QR sheet */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground" htmlFor="qr-sheet-table-count">
+              {t("menuEditor.numberOfTables")}
+            </Label>
+            <Input
+              id="qr-sheet-table-count"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={50}
+              value={tableCount}
+              onChange={(e) => handleTableCountChange(e.target.value)}
+              className="h-9 text-xs"
+            />
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full mt-2"
+              disabled={generating}
+              onClick={handleDownloadQrSheet}
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  {t("menuEditor.generatingQrSheet")}
+                </>
+              ) : (
+                <>
+                  <FileText className="w-3.5 h-3.5 mr-2" />
+                  {t("menuEditor.downloadQrSheet")}
+                </>
+              )}
+            </Button>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {t("menuEditor.qrSheetHelp")}
             </p>
           </div>
         </div>

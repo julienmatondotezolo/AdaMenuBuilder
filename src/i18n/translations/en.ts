@@ -89,6 +89,11 @@ export const en = {
     getQrAndEmbed: "Get QR Code & Embed Code",
     qrCode: "QR Code",
     phone: "Phone",
+    numberOfTables: "Number of tables",
+    downloadQrSheet: "Download QR sheet (PDF)",
+    qrSheetHelp: "Prints all table QRs on a single A4 page for staff reference.",
+    generatingQrSheet: "Generating...",
+    qrSheetTableLabel: "Table",
   },
 
   editorPanel: {

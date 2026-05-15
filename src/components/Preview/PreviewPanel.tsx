@@ -7,7 +7,8 @@ import {
 } from "react";
 import { FileText, Monitor, Smartphone, QrCode, Minus, Plus, Maximize, Copy, Check, Loader2, X, Code, Eye } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn, Button, Switch, Label } from "ada-design-system";
+import { cn, Button, Input, Switch, Label } from "ada-design-system";
+import { generateQrSheetPdf } from "../../utils/qrSheetPdf";
 import AIPromptBar from "../AIPromptBar";
 import { QRCodeSVG } from "qrcode.react";
 import MenuPreview from "./MenuPreview";
@@ -69,6 +70,8 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
   const [publishError, setPublishError] = useState<string | null>(null);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [showPublishPopup, setShowPublishPopup] = useState(false);
+  const [tableCount, setTableCount] = useState(1);
+  const [generatingSheet, setGeneratingSheet] = useState(false);
 
   const qrUrl = menuId ? `${window.location.origin}/qr/${menuId}` : "";
   const embedUrl = menuId ? `${window.location.origin}/embed/${menuId}` : "";
@@ -97,6 +100,33 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
       setter(true);
       setTimeout(() => setter(false), 2000);
     });
+  };
+
+  const handleTableCountChange = (raw: string) => {
+    if (raw === "") { setTableCount(1); return; }
+    const parsed = parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed < 1) { setTableCount(1); return; }
+    setTableCount(Math.min(50, parsed));
+  };
+
+  const handleDownloadQrSheet = async () => {
+    if (generatingSheet || !menuId) return;
+    const count = Math.min(50, Math.max(1, tableCount || 1));
+    setGeneratingSheet(true);
+    try {
+      await generateQrSheetPdf({
+        menuId,
+        menuTitle: menuTitle || menuData?.title || "Menu",
+        tableCount: count,
+        primaryColor: primary,
+        baseUrl: window.location.origin,
+        tableLabel: t("menuEditor.qrSheetTableLabel"),
+      });
+    } catch (err) {
+      console.error("Failed to generate QR sheet PDF", err);
+    } finally {
+      setGeneratingSheet(false);
+    }
   };
 
   const handleTogglePublish = async (publish: boolean) => {
@@ -220,6 +250,47 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
               {t("menuEditor.getQrAndEmbed")}
             </Button>
           )}
+
+          {/* ── Per-table QR sheet ─────────────────────────────────────── */}
+          <div className="w-full bg-card border border-border rounded-lg px-4 py-3 space-y-2">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium" htmlFor="qr-sidebar-table-count">
+                {t("menuEditor.numberOfTables")}
+              </Label>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {t("menuEditor.qrSheetHelp")}
+              </p>
+            </div>
+            <Input
+              id="qr-sidebar-table-count"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={50}
+              value={tableCount}
+              onChange={(e) => handleTableCountChange(e.target.value)}
+              className="h-9 text-sm"
+            />
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full mt-1"
+              disabled={generatingSheet || !menuId}
+              onClick={handleDownloadQrSheet}
+            >
+              {generatingSheet ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  {t("menuEditor.generatingQrSheet")}
+                </>
+              ) : (
+                <>
+                  <FileText className="w-3.5 h-3.5 mr-2" />
+                  {t("menuEditor.downloadQrSheet")}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
