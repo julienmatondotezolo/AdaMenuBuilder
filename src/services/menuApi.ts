@@ -20,6 +20,20 @@ interface CreateMenuPayload {
   status?: "draft" | "published";
 }
 
+/** Admin-only: reassign a menu (and its categories + items) to a different restaurant.
+ *  Server enforces admin role + blocks if the menu is currently published. */
+export async function reassignMenu(token: string, menuId: string, restaurantId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/admin/menus/${menuId}/restaurant`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ restaurant_id: restaurantId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.message || `Reassign failed (${res.status})`);
+  }
+}
+
 /** List menus for a restaurant */
 export async function fetchMenus(token: string, restaurantId: string): Promise<BackendMenu[]> {
   const res = await fetch(`${API_URL}/api/v1/restaurants/${restaurantId}/menus`, {

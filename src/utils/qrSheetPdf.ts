@@ -11,6 +11,8 @@ interface GenerateQrSheetPdfOptions {
   baseUrl: string;
   /** Localized label for "Table" (without trailing number) */
   tableLabel: string;
+  /** Optional — appended to each QR URL for self-documentation. Routing is unaffected. */
+  restaurantId?: string;
 }
 
 /**
@@ -84,11 +86,13 @@ async function renderQrPngs({
   baseUrl,
   menuId,
   fgColor,
+  restaurantId,
 }: {
   count: number;
   baseUrl: string;
   menuId: string;
   fgColor: string;
+  restaurantId?: string;
 }): Promise<string[]> {
   const container = document.createElement("div");
   container.setAttribute("aria-hidden", "true");
@@ -112,7 +116,7 @@ async function renderQrPngs({
         Array.from({ length: count }).map((_, i) =>
           createElement(QRCodeCanvas, {
             key: i,
-            value: `${baseUrl}/qr/${menuId}?table=${i + 1}`,
+            value: `${baseUrl}/qr/${menuId}?table=${i + 1}${restaurantId ? `&restaurant=${restaurantId}` : ""}`,
             size: qrSize,
             level: "H",
             fgColor,
@@ -162,11 +166,12 @@ export async function generateQrSheetPdf({
   primaryColor,
   baseUrl,
   tableLabel,
+  restaurantId,
 }: GenerateQrSheetPdfOptions): Promise<void> {
   const count = Math.min(Math.max(1, Math.floor(tableCount || 1)), 50);
   const fgColor = pickQrForegroundColor(primaryColor);
 
-  const pngs = await renderQrPngs({ count, baseUrl, menuId, fgColor });
+  const pngs = await renderQrPngs({ count, baseUrl, menuId, fgColor, restaurantId });
 
   // A4 portrait in mm: 210 × 297
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });

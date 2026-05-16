@@ -19,7 +19,8 @@ import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
 import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
 import { canEditMenu } from "../utils/permissions";
-import { fetchPublishStatus } from "../services/templateApi";
+import { fetchPublishStatus, fetchRestaurants, type Restaurant } from "../services/templateApi";
+import ReassignMenuDialog from "../components/ReassignMenuDialog";
 import { syncTemplatesFromBackend } from "../services/templateSync";
 import { generateQrSheetPdf } from "../utils/qrSheetPdf";
 import type { MenuData } from "../types/menu";
@@ -49,6 +50,19 @@ export default function MenuEditor() {
   const thumbnailRef = useRef<HTMLDivElement>(null);
 
   const canEdit = canEditMenu(user?.role);
+  const isAdmin = user?.role === "admin";
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [showReassignDialog, setShowReassignDialog] = useState(false);
+  const [effectiveRestaurantId, setEffectiveRestaurantId] = useState<string>(restaurantId);
+
+  useEffect(() => { setEffectiveRestaurantId(restaurantId); }, [restaurantId]);
+
+  useEffect(() => {
+    if (!token || !isAdmin) return;
+    fetchRestaurants(token).then(setRestaurants).catch(() => {});
+  }, [token, isAdmin]);
+
+  const restaurantName = restaurants.find((r) => r.id === effectiveRestaurantId)?.name;
 
   // Live-query the template
   const template = useTemplateById(templateId || undefined);
@@ -377,7 +391,27 @@ export default function MenuEditor() {
         onPublish={handlePublish}
         publishing={publishing}
         canEdit={canEdit}
+        restaurantName={isAdmin ? restaurantName : undefined}
+        isAdmin={isAdmin}
+        onReassignClick={() => setShowReassignDialog(true)}
       />
+
+      {/* Admin-only: reassign menu to a different restaurant */}
+      {isAdmin && id && token && effectiveRestaurantId && (
+        <ReassignMenuDialog
+          open={showReassignDialog}
+          onOpenChange={setShowReassignDialog}
+          menuId={id}
+          menuTitle={menuData.title || "Menu"}
+          currentRestaurantId={effectiveRestaurantId}
+          restaurants={restaurants}
+          token={token}
+          onSuccess={(newRestaurantId) => {
+            setEffectiveRestaurantId(newRestaurantId);
+            navigate(`/menus/${id}/edit?restaurant=${newRestaurantId}`, { replace: true });
+          }}
+        />
+      )}
 
       <main className="flex-1 flex overflow-hidden">
         {/* Left Panel — Editor or AI Chat */}
@@ -393,6 +427,7 @@ export default function MenuEditor() {
           <PreviewPanel
             template={template}
             menuId={id}
+            restaurantId={effectiveRestaurantId}
             previewData={menuData}
             previewMode={previewMode}
             onPreviewModeChange={setPreviewMode}

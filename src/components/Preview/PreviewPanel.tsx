@@ -44,6 +44,7 @@ export type PreviewMode = "paper" | "mobile" | "desktop" | "qr";
 interface PreviewPanelProps {
   template?: MenuTemplate;
   menuId?: string;
+  restaurantId?: string;
   previewData?: MenuData;
   previewMode?: PreviewMode;
   onPreviewModeChange?: (mode: PreviewMode) => void;
@@ -57,9 +58,10 @@ interface QrCodeViewProps {
   colors?: MenuTemplate["colors"];
   menuData?: MenuData;
   template?: MenuTemplate;
+  restaurantId?: string;
 }
 
-function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeViewProps) {
+function QrCodeView({ menuId, menuTitle, colors, menuData, template, restaurantId: propRestaurantId }: QrCodeViewProps) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -73,20 +75,31 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
   const [tableCount, setTableCount] = useState(1);
   const [generatingSheet, setGeneratingSheet] = useState(false);
 
-  const qrUrl = menuId ? `${window.location.origin}/qr/${menuId}` : "";
+  // Append table=1 (required by QrMenuViewer) and restaurant for self-documentation
+  const qrUrl = menuId
+    ? `${window.location.origin}/qr/${menuId}?table=1${restaurantId ? `&restaurant=${restaurantId}` : ""}`
+    : "";
   const embedUrl = menuId ? `${window.location.origin}/embed/${menuId}` : "";
   const embedCode = `<iframe src="${embedUrl}" style="width:100%;height:600px;border:none;border-radius:8px;" allow="fullscreen" loading="lazy"></iframe>`;
   const primary = colors?.primary || "#4d6aff";
 
+  // Prefer the menu's actual restaurant_id passed from the editor;
+  // fall back to fetchRestaurants[0] only if the parent didn't supply one
+  // (legacy paths or non-editor mounts).
   useEffect(() => {
-    if (!token) return;
-    fetchRestaurants(token)
-      .then((restaurants) => {
-        if (restaurants.length > 0) setRestaurantId(restaurants[0].id);
-      })
-      .catch(() => {});
+    if (propRestaurantId) {
+      setRestaurantId(propRestaurantId);
+    } else if (token) {
+      fetchRestaurants(token)
+        .then((restaurants) => {
+          if (restaurants.length > 0) setRestaurantId(restaurants[0].id);
+        })
+        .catch(() => {});
+    }
+  }, [propRestaurantId, token]);
 
-    if (!menuId) return;
+  useEffect(() => {
+    if (!token || !menuId) return;
     getPublishStatus(token, menuId)
       .then(({ published, updatedAt }) => {
         setIsPublished(published);
@@ -121,6 +134,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
         primaryColor: primary,
         baseUrl: window.location.origin,
         tableLabel: t("menuEditor.qrSheetTableLabel"),
+        restaurantId: restaurantId || undefined,
       });
     } catch (err) {
       console.error("Failed to generate QR sheet PDF", err);
@@ -393,7 +407,7 @@ function QrCodeView({ menuId, menuTitle, colors, menuData, template }: QrCodeVie
 
 /* ── Main Preview Panel ──────────────────────────────────────────────── */
 
-export default function PreviewPanel({ template, menuId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
+export default function PreviewPanel({ template, menuId, restaurantId, previewData, previewMode, onPreviewModeChange }: PreviewPanelProps) {
   const { menuData, selectedItemId, activePageIndex, aiMode, aiPreviewData, setAiPreview } = useMenu();
   const { t } = useTranslation();
   const [internalMode, setInternalMode] = useState<PreviewMode>("paper");
@@ -783,6 +797,7 @@ export default function PreviewPanel({ template, menuId, previewData, previewMod
             colors={template?.colors}
             menuData={data}
             template={template}
+            restaurantId={restaurantId}
           />
         </div>
       )}

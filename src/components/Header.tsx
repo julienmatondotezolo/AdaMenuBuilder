@@ -8,6 +8,7 @@ import {
   Check,
   X,
   Clock,
+  Store,
 } from "lucide-react";
 import { Button } from "ada-design-system";
 import { downloadMenuPdf } from "../utils/downloadMenuPdf";
@@ -22,9 +23,12 @@ interface HeaderProps {
   onPublish?: () => void;
   publishing?: boolean;
   canEdit?: boolean;
+  restaurantName?: string;
+  isAdmin?: boolean;
+  onReassignClick?: () => void;
 }
 
-export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing, canEdit = true }: HeaderProps) {
+export default function Header({ template: _template, lastSaved, onPreview, onPublish, publishing, canEdit = true, restaurantName, isAdmin, onReassignClick }: HeaderProps) {
   const { menuData, setMenuData, clearSelection } = useMenu();
   const { t } = useTranslation();
   const [downloading, setDownloading] = useState(false);
@@ -100,8 +104,27 @@ export default function Header({ template: _template, lastSaved, onPreview, onPu
 
   return (
     <header className="h-14 flex items-center px-4 bg-background border-b border-border shrink-0 z-20">
-      {/* LEFT — empty spacer for balance */}
-      <div className="flex-1" />
+      {/* LEFT — Restaurant badge (admin gets a clickable reassign affordance) */}
+      <div className="flex-1 flex items-center">
+        {restaurantName && (
+          isAdmin && onReassignClick ? (
+            <button
+              onClick={onReassignClick}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Reassign menu to a different restaurant"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>{restaurantName}</span>
+              <Pencil className="w-3 h-3 opacity-60" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
+              <Store className="w-3.5 h-3.5" />
+              <span>{restaurantName}</span>
+            </div>
+          )
+        )}
+      </div>
 
       {/* CENTER — Menu name + edit + saved */}
       <div className="flex flex-col items-center justify-center">
