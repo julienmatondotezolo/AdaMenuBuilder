@@ -149,11 +149,13 @@ export async function bulkPublishMenu(
     categories: {
       id: string;
       name: string;
+      hidden?: boolean;
       items: {
         name: string;
         price: number;
         description?: string;
         featured?: boolean;
+        hidden?: boolean;
       }[];
     }[];
     pages: { variant_id: string; category_ids: string[] }[];

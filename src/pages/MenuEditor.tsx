@@ -18,6 +18,7 @@ import WebMenuRenderer from "../components/Preview/WebMenuRenderer";
 import DeviceMockup from "../components/Preview/DeviceMockup";
 import MenuPreview from "../components/Preview/MenuPreview";
 import { fetchCompleteMenu, bulkPublishMenu, type BackendMenu } from "../services/menuApi";
+import { publishMenu, getPublishStatus } from "../services/menuPublishApi";
 import { canEditMenu } from "../utils/permissions";
 import { fetchPublishStatus, fetchRestaurants, type Restaurant } from "../services/templateApi";
 import ReassignMenuDialog from "../components/ReassignMenuDialog";
@@ -279,11 +280,13 @@ export default function MenuEditor() {
         categories: menuData.categories.map((cat) => ({
           id: cat.id,
           name: cat.name,
+          hidden: cat.hidden ?? false,
           items: cat.items.map((item) => ({
             name: item.name,
             price: item.price,
             description: item.description || undefined,
             featured: item.featured || false,
+            hidden: item.hidden ?? false,
           })),
         })),
         pages: pages.map((p) => ({
@@ -312,6 +315,36 @@ export default function MenuEditor() {
         }))
       );
 
+      // Refresh the public-facing snapshot so the QR menu reflects the latest edits.
+      // bulkPublishMenu only writes the live menu_* tables; without this call the
+      // published_menus.menu_data blob the customer sees on /qr/:menuId stays stale.
+      // Only refresh when a snapshot already exists; first-time publishing is handled
+      // by the "Publicly accessible" toggle in PreviewPanel.
+      if (template) {
+        try {
+          const status = await getPublishStatus(token, id);
+          if (status.published) {
+            await publishMenu(token, {
+              menu_id: id,
+              restaurant_id: restaurantId,
+              title: updatedMenuData.title || "Menu",
+              menu_data: updatedMenuData as unknown as Record<string, unknown>,
+              template_data: {
+                colors: template.colors,
+                fonts: template.fonts,
+                webLayoutQr: template.webLayoutQr,
+                webLayoutMobile: template.webLayoutMobile,
+                webLayoutDesktop: template.webLayoutDesktop,
+                qrOrderConfig: template.qrOrderConfig,
+                name: template.name,
+              },
+            });
+          }
+        } catch (snapErr) {
+          console.warn("[Publish] snapshot refresh failed:", snapErr);
+        }
+      }
+
       // Clear local draft after successful publish
       await db.drafts.delete(id);
       setLastSaved(new Date().toISOString());
@@ -322,7 +355,7 @@ export default function MenuEditor() {
     } finally {
       setPublishing(false);
     }
-  }, [id, token, restaurantId, menuData, pages, templateId, captureThumbnail]);
+  }, [id, token, restaurantId, menuData, pages, templateId, captureThumbnail, template]);
 
   if (loading) {
     return (
@@ -452,6 +485,7 @@ export default function MenuEditor() {
           menuId={id}
           menuTitle={menuData.title || "Menu"}
           primaryColor={template?.colors?.primary || "#4d6aff"}
+          restaurantId={effectiveRestaurantId}
           onClose={() => setShowPublishSuccess(false)}
         />
       )}
@@ -482,11 +516,13 @@ function PublishSuccessPopup({
   menuId,
   menuTitle,
   primaryColor,
+  restaurantId,
   onClose,
 }: {
   menuId: string;
   menuTitle: string;
   primaryColor: string;
+  restaurantId?: string;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -495,7 +531,8 @@ function PublishSuccessPopup({
   const [tableCount, setTableCount] = useState(1);
   const [generating, setGenerating] = useState(false);
 
-  const qrUrl = `${window.location.origin}/qr/${menuId}`;
+  // ?table=1 is required by QrMenuViewer; &restaurant is cosmetic (server resolves routing)
+  const qrUrl = `${window.location.origin}/qr/${menuId}?table=1${restaurantId ? `&restaurant=${restaurantId}` : ""}`;
   const embedUrl = `${window.location.origin}/embed/${menuId}`;
   const embedCode = `<iframe src="${embedUrl}" style="width:100%;height:600px;border:none;border-radius:8px;" allow="fullscreen" loading="lazy"></iframe>`;
 
@@ -531,6 +568,7 @@ function PublishSuccessPopup({
         primaryColor,
         baseUrl: window.location.origin,
         tableLabel: t("menuEditor.qrSheetTableLabel"),
+        restaurantId,
       });
     } catch (err) {
       console.error("Failed to generate QR sheet PDF", err);
@@ -794,6 +832,7 @@ function mapBackendItem(item: any) {
     price: parseFloat(item.price) || 0,
     description: getLocalizedDescription(item.descriptions, "en"),
     featured: item.featured || false,
+    hidden: item.hidden || false,
   };
 }
 
@@ -801,6 +840,7 @@ function buildMenuData(data: any): MenuData {
   const categories = (data.categories || []).map((cat: any) => ({
     id: cat.id,
     name: getLocalizedName(cat.names),
+    hidden: cat.hidden || false,
     items: [
       ...(cat.items || []).map(mapBackendItem),
       ...(cat.subcategories || []).flatMap((sub: any) =>
