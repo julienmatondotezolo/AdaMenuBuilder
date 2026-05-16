@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ColorScheme, FontScheme, QrOrderConfig, OrderMode } from "../../../types/template";
 import type { CartItem } from "./WebCartBar";
+import { getDeviceId, getDeviceIdShort } from "../../../utils/deviceId";
 
 const KDS_API_URL = import.meta.env.VITE_KDS_API_URL || "https://api-kds.adasystems.app";
 
@@ -34,8 +35,13 @@ const STATUS_LABELS: Record<KdsStatus, { en: string; fr: string; nl: string }> =
   completed: { en: "Completed",       fr: "Terminé",            nl: "Afgerond" },
 };
 
-// localStorage key for persisting active order
-const ACTIVE_ORDER_KEY = "adakds_active_order";
+// localStorage key prefix for persisting active order
+// Namespaced by device + menu + table so multiple phones at the same table don't overwrite each other's tracking
+const ACTIVE_ORDER_KEY_PREFIX = "adakds_active_order";
+
+function activeOrderKey(menuId?: string, tableNumber?: string): string {
+  return `${ACTIVE_ORDER_KEY_PREFIX}_${getDeviceId()}_${menuId ?? "_"}_${tableNumber ?? "_"}`;
+}
 
 interface ActiveOrder {
   orderId: string;
@@ -43,19 +49,19 @@ interface ActiveOrder {
   kdsStatus: KdsStatus;
   menuId?: string;
   tableNumber?: string;
+  deviceId: string;
   placedAt: number;
 }
 
 function getActiveOrder(menuId?: string, tableNumber?: string): ActiveOrder | null {
   try {
-    const raw = localStorage.getItem(ACTIVE_ORDER_KEY);
+    const key = activeOrderKey(menuId, tableNumber);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const order: ActiveOrder = JSON.parse(raw);
-    // Only restore if same menu + table context
-    if (order.menuId !== menuId || order.tableNumber !== tableNumber) return null;
     // Expire after 4 hours
     if (Date.now() - order.placedAt > 4 * 60 * 60 * 1000) {
-      localStorage.removeItem(ACTIVE_ORDER_KEY);
+      localStorage.removeItem(key);
       return null;
     }
     return order;
@@ -65,11 +71,11 @@ function getActiveOrder(menuId?: string, tableNumber?: string): ActiveOrder | nu
 }
 
 function saveActiveOrder(order: ActiveOrder) {
-  try { localStorage.setItem(ACTIVE_ORDER_KEY, JSON.stringify(order)); } catch {}
+  try { localStorage.setItem(activeOrderKey(order.menuId, order.tableNumber), JSON.stringify(order)); } catch {}
 }
 
-function clearActiveOrder() {
-  try { localStorage.removeItem(ACTIVE_ORDER_KEY); } catch {}
+function clearActiveOrder(menuId?: string, tableNumber?: string) {
+  try { localStorage.removeItem(activeOrderKey(menuId, tableNumber)); } catch {}
 }
 
 export default function WebCartView({ cart, colors, fonts, qrOrderConfig, borderRadius, contentPaddingX, onUpdateQuantity, onClose, onClearCart, menuId, restaurantId, tableNumber, fullscreen, t }: Props) {
@@ -126,7 +132,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
           setKdsStatus(data.status);
           // Update persisted status
           if (data.status === "completed") {
-            clearActiveOrder();
+            clearActiveOrder(menuId, tableNumber);
           } else {
             const active = getActiveOrder(menuId, tableNumber);
             if (active) {
@@ -136,7 +142,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         }
         // Stop polling when completed
         if (data.status === "completed" || data.status === "cancelled") {
-          if (data.status === "cancelled") clearActiveOrder();
+          if (data.status === "cancelled") clearActiveOrder(menuId, tableNumber);
           if (pollRef.current) clearInterval(pollRef.current);
         }
       } catch { /* ignore polling errors */ }
@@ -164,7 +170,9 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
       const customerType = selectedMode ? modeToCustomerType[selectedMode] : "dine_in";
       const trimmedName = customerName.trim();
       const displayName = trimmedName || (tableNumber ? `Table ${tableNumber}` : "Guest");
-      const genOrderNumber = `QR-${Date.now().toString().slice(-6)}`;
+      const deviceId = getDeviceId();
+      const deviceIdShort = getDeviceIdShort();
+      const genOrderNumber = `QR-${deviceIdShort}-${Date.now().toString().slice(-6)}`;
 
       const body = {
         source: "qr_code",
@@ -172,6 +180,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         customer_name: displayName,
         customer_type: customerType,
         table_number: tableNumber || undefined,
+        guest_session_id: deviceId,
         special_instructions: specialInstructions.trim() || undefined,
         items: cart.map((item) => ({
           name: item.name,
@@ -207,6 +216,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         kdsStatus: "new",
         menuId,
         tableNumber,
+        deviceId,
         placedAt: Date.now(),
       });
     } catch (err) {
@@ -349,7 +359,7 @@ export default function WebCartView({ cart, colors, fonts, qrOrderConfig, border
         }}>
           {kdsStatus === "completed" && (
             <button
-              onClick={(e) => { e.stopPropagation(); clearActiveOrder(); setOrderStatus("idle"); onClose(); }}
+              onClick={(e) => { e.stopPropagation(); clearActiveOrder(menuId, tableNumber); setOrderStatus("idle"); onClose(); }}
               style={{
                 width: "100%",
                 padding: "15px 24px",
