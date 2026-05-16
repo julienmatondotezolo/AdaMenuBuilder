@@ -8,6 +8,8 @@ import {
   GripVertical,
   Trash2,
   Copy,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button, Badge, Input, cn } from "ada-design-system";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -206,6 +208,7 @@ export default function CategorySection({
         isHighlighted && !isDraggingActive && "ring-1 ring-primary/20",
         isOverlay && "shadow-xl border-primary/50",
         isAiModified && "ai-skeleton-scan",
+        category.hidden && "opacity-60",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(category.id, "category")}
       onMouseLeave={() => clearHover(category.id)}
@@ -322,6 +325,27 @@ export default function CategorySection({
         )}
 
         <div className="flex-1" />
+
+        {/* Hide/unhide toggle — only when not editing the name */}
+        {!isEditingName && canEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              updateCategory(category.id, { hidden: !category.hidden });
+            }}
+            className={cn(
+              "shrink-0 p-1 rounded transition-colors",
+              isExpanded
+                ? "text-white/80 hover:text-white"
+                : category.hidden
+                ? "text-amber-600 hover:text-amber-700"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={category.hidden ? "Show category in customer menu" : "Hide category from customer menu"}
+          >
+            {category.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          </button>
+        )}
 
         {/* Item count badge — right side, next to chevron */}
         <Badge className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"

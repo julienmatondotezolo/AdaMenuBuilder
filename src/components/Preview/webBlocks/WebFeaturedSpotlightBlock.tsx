@@ -18,8 +18,9 @@ interface Props {
 
 export default function WebFeaturedSpotlightBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius, orderingEnabled, cart, onAddToCart, onUpdateQuantity }: Props) {
   const featured = menuData.categories
+    .filter((c) => !c.hidden)
     .flatMap((c) => c.items)
-    .filter((i) => i.featured)
+    .filter((i) => i.featured && !i.hidden)
     .slice(0, block.maxItems);
 
   if (featured.length === 0) return null;

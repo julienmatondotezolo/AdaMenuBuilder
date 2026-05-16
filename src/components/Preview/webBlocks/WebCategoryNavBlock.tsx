@@ -13,7 +13,8 @@ interface Props {
 }
 
 export default function WebCategoryNavBlock({ block, menuData, colors, fonts, contentPaddingX, scrollContainer }: Props) {
-  const categories = menuData.categories;
+  // Drop hidden categories so the nav pills match what's actually rendered below
+  const categories = menuData.categories.filter((c) => !c.hidden);
   const [activeCatId, setActiveCatId] = useState<string>(categories[0]?.id ?? "");
 
   // Track which category is in view while scrolling

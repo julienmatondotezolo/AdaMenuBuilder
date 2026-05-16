@@ -243,9 +243,16 @@ function CategoryBlock({ category, block, colors, fonts, borderRadius, orderingE
 export default function WebMenuSectionBlock({ block, menuData, colors, fonts, contentPaddingX, borderRadius, searchQuery, orderingEnabled, cart, onAddToCart, onUpdateQuantity, t }: Props) {
   const q = (searchQuery || "").toLowerCase().trim();
 
+  // Drop hidden categories first, then drop hidden items within each remaining category.
+  // This is what customers will see — the editor passes the same MenuData and the visibility
+  // rules must match the published QR menu (publicMenus.ts:63/102 enforces the same on the backend).
+  const visibleCategories = menuData.categories
+    .filter((cat) => !cat.hidden)
+    .map((cat) => ({ ...cat, items: cat.items.filter((item) => !item.hidden) }));
+
   // Filter categories and items by search query
   const filteredCategories = q
-    ? menuData.categories
+    ? visibleCategories
         .map((cat) => ({
           ...cat,
           items: cat.items.filter(
@@ -255,7 +262,7 @@ export default function WebMenuSectionBlock({ block, menuData, colors, fonts, co
           ),
         }))
         .filter((cat) => cat.items.length > 0)
-    : menuData.categories;
+    : visibleCategories;
 
   if (q && filteredCategories.length === 0) {
     return (

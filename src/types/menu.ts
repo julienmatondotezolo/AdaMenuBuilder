@@ -4,6 +4,7 @@ export interface MenuItem {
   price: number;
   description: string;
   featured: boolean;
+  hidden?: boolean;
   pageBreakBefore?: boolean;
 }
 
@@ -11,6 +12,7 @@ export interface Category {
   id: string;
   name: string;
   items: MenuItem[];
+  hidden?: boolean;
   pageBreakBefore?: boolean;
   pageBreakMode?: "category" | "item";
   column?: number;

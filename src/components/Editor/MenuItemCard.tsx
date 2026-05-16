@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { Trash2, GripVertical, Pencil, Copy } from "lucide-react";
+import { Trash2, GripVertical, Pencil, Copy, Eye, EyeOff } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button, Input, Badge, cn } from "ada-design-system";
@@ -101,6 +101,8 @@ export default function MenuItemCard({
         isDragOver && "border-primary/50",
         /* AI modification skeleton */
         aiModifiedIds.has(item.id) && "ai-skeleton-scan",
+        /* Hidden — faded so admin can still see and unhide */
+        item.hidden && "opacity-60",
       )}
       onMouseEnter={() => !isDraggingActive && setHover(item.id, "item")}
       onMouseLeave={() => clearHover(item.id)}
@@ -244,6 +246,17 @@ export default function MenuItemCard({
                     style={{ color: 'hsl(346 87% 43%)' }}
                   >
                     <Trash2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      updateItem(categoryId, item.id, { hidden: !item.hidden });
+                    }}
+                    className="edit-action-btn flex items-center gap-1 h-auto text-xs font-medium px-2 py-1 rounded border border-border bg-white/50 transition-colors"
+                    style={item.hidden ? { color: 'hsl(38 92% 50%)' } : undefined}
+                    title={item.hidden ? "Show item in customer menu" : "Hide item from customer menu"}
+                  >
+                    {item.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                   </button>
 
                   {/* Status dot */}
